@@ -378,6 +378,8 @@ export interface MessagePatch {
 export interface UpdateOptions {
   /** Record who edited and when (user edits and `chat.update`); false for streaming appends. */
   markEditedBy?: string | null;
+  /** Tell connected clients only, not apps (intermediate updates of a streamed message). */
+  clientOnly?: boolean;
 }
 
 export function updateMessage(
@@ -427,6 +429,7 @@ export function updateMessage(
       previous_message: previous,
     },
     audience: { conversation: conv.id },
+    ...(options.clientOnly ? { clientOnly: true } : {}),
   });
   return updated;
 }

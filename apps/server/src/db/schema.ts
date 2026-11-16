@@ -258,4 +258,13 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX outbox_due ON outbox(next_at);
   `,
+
+  /* 2: app platform — demand for methods that do not exist yet */ `
+  CREATE TABLE unknown_methods (
+    name TEXT PRIMARY KEY,
+    calls INTEGER NOT NULL DEFAULT 0,
+    first_seen INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL
+  );
+  `,
 ];

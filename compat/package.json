@@ -1,0 +1,22 @@
+{
+  "name": "@app/compat",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Compatibility harness: official Slack SDKs run unmodified against a local server.",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "table": "node scripts/compat-table.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@app/server": "workspace:*",
+    "@app/shared": "workspace:*",
+    "@slack/bolt": "latest",
+    "@slack/web-api": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

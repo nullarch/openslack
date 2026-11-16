@@ -121,6 +121,8 @@ export interface MethodOptions {
 
 export class Registry {
   private readonly methods = new Map<string, MethodDef>();
+  /** Called with the name of every method that was requested but does not exist. */
+  onUnknown: ((name: string) => void) | null = null;
 
   /** Register an authenticated method. */
   add(name: string, options: MethodOptions, handler: (call: Call) => Result | Promise<Result>): void {

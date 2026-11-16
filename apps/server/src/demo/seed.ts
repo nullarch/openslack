@@ -2,9 +2,10 @@ import type { Block } from '@app/shared';
 import type { Ctx } from '../ctx.ts';
 import { hashPassword } from '../core/auth.ts';
 import { addMember, createChannel, getConv, openDirect, type ConvRow } from '../core/conversations.ts';
-import { newHex, newId, newSecret, nowSeconds } from '../core/ids.ts';
+import { newId, nowSeconds } from '../core/ids.ts';
 import { addReaction, postMessage, requireMessage } from '../core/messages.ts';
 import { createUser, type UserRow } from '../core/users.ts';
+import { createAppRecord } from '../platform/apps.ts';
 
 export const DEMO_EMAIL = 'maya@example.com';
 export const DEMO_PASSWORD = 'demo-password';
@@ -28,26 +29,7 @@ function tsAgo(minutes: number, jitter: number): string {
 }
 
 function createBotApp(ctx: Ctx, owner: UserRow, name: string, handle: string, description: string): UserRow {
-  const appId = newId('A');
-  const botId = newId('B');
-  const bot = createUser(ctx, { realName: name, isBot: true, botId, appId, handle });
-  ctx.db.run(
-    `INSERT INTO apps (id, name, description, created_by, bot_user_id, bot_id, signing_secret, client_id, client_secret,
-       verification_token, socket_mode, created)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-    appId,
-    name,
-    description,
-    owner.id,
-    bot.id,
-    botId,
-    newHex(16),
-    `${newId('', 12)}.${newId('', 12)}`,
-    newHex(16),
-    newSecret(18),
-    nowSeconds(),
-  );
-  return bot;
+  return createAppRecord(ctx, { name, description, handle, createdBy: owner.id }).bot;
 }
 
 /**
