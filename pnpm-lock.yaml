@@ -65,6 +65,12 @@ importers:
         specifier: ^5.9.0
         version: 5.9.3
 
+  examples/hello-agent:
+    dependencies:
+      '@slack/bolt':
+        specifier: ^5.1.0
+        version: 5.1.0(@types/express@5.0.6)(undici@8.12.4)
+
   packages/cli: {}
 
   packages/shared:
