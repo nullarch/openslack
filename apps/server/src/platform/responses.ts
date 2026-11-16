@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { Attachment, Block, Message } from '@app/shared';
 import type { Kernel } from '../app.ts';
 import { parseBody, readBody, sendJson } from '../api/http.ts';
@@ -20,6 +21,12 @@ const MAX_USES = 5;
 const TTL_MS = 30 * 60_000;
 const EPHEMERAL_TTL_MS = 30 * 60_000;
 const MAX_EPHEMERALS = 5000;
+
+function sameSecret(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
 
 function truthy(value: unknown): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
@@ -217,7 +224,8 @@ export class ResponseHooks {
       const [kind, appId, id, secret] = params;
       const hook = this.hooks.get(id!);
       const app = hook ? getApp(this.ctx, hook.appId) : undefined;
-      if (!hook || !app || hook.kind !== kind || hook.appId !== appId || hook.secret !== secret || hook.expires <= Date.now()) {
+      const valid = hook && app && hook.kind === kind && hook.appId === appId && sameSecret(hook.secret, secret!);
+      if (!hook || !app || !valid || hook.expires <= Date.now()) {
         sendJson(res, 404, { ok: false, error: 'expired_url' });
         return;
       }

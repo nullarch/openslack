@@ -31,7 +31,8 @@ export class HttpDelivery {
   private readonly ctx: Ctx;
   private readonly options: PlatformOptions;
   private readonly inFlight = new Set<number>();
-  private readonly timers = new Set<NodeJS.Timeout>();
+  /** Fires when the earliest queued retry comes due. */
+  private wake: NodeJS.Timeout | null = null;
   private sweeper: NodeJS.Timeout | null = null;
   private stopped = false;
 
@@ -49,8 +50,7 @@ export class HttpDelivery {
   stop(): void {
     this.stopped = true;
     if (this.sweeper) clearInterval(this.sweeper);
-    for (const timer of this.timers) clearTimeout(timer);
-    this.timers.clear();
+    if (this.wake) clearTimeout(this.wake);
   }
 
   /** Queue one event for an app and try to deliver it right away. */
@@ -73,17 +73,22 @@ export class HttpDelivery {
     return this.ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM outbox WHERE app_id = ?', appId)?.n ?? 0;
   }
 
-  private later(delayMs: number): void {
-    const timer = setTimeout(() => {
-      this.timers.delete(timer);
-      this.drain();
-    }, delayMs);
-    timer.unref();
-    this.timers.add(timer);
+  /**
+   * Wake up when the next retry is due. Re-armed after every drain, so a timer
+   * that fires a moment early simply arms itself again.
+   */
+  private arm(): void {
+    if (this.wake) clearTimeout(this.wake);
+    this.wake = null;
+    const next = this.ctx.db.get<{ at: number | null }>('SELECT min(next_at) AS at FROM outbox WHERE next_at > ?', Date.now());
+    if (!next || next.at === null) return;
+    this.wake = setTimeout(() => this.drain(), Math.max(1, next.at - Date.now() + 1));
+    this.wake.unref();
   }
 
   private drain(): void {
     if (this.stopped) return;
+    this.arm();
     const room = MAX_IN_FLIGHT - this.inFlight.size;
     if (room <= 0) return;
     const due = this.ctx.db.all<OutboxRow>(
@@ -97,10 +102,12 @@ export class HttpDelivery {
       if (this.inFlight.has(row.id)) continue;
       this.inFlight.add(row.id);
       started += 1;
-      void this.attempt(row).finally(() => {
-        this.inFlight.delete(row.id);
-        if (!this.stopped) this.drain();
-      });
+      void this.attempt(row)
+        .catch((error: unknown) => console.error('[platform] event delivery failed unexpectedly', error))
+        .finally(() => {
+          this.inFlight.delete(row.id);
+          if (!this.stopped) this.drain();
+        });
     }
   }
 
@@ -115,7 +122,7 @@ export class HttpDelivery {
       headers['x-slack-retry-num'] = String(row.attempt);
       headers['x-slack-retry-reason'] = row.last_error ?? 'unknown_error';
     }
-    let reason: FailureReason;
+    let reason: FailureReason | null;
     let noRetry = false;
     try {
       const response = await post(row.url, {
@@ -124,18 +131,19 @@ export class HttpDelivery {
         timeoutMs: this.options.ackTimeoutMs,
         allowPrivate: allowPrivateTargets(this.ctx),
       });
-      if (response.status >= 200 && response.status < 300) {
-        this.ctx.db.run('DELETE FROM outbox WHERE id = ?', row.id);
-        return;
-      }
-      reason = 'http_error';
+      reason = response.status >= 200 && response.status < 300 ? null : 'http_error';
       noRetry = response.headers['x-slack-no-retry'] === '1';
     } catch (error) {
       reason = error instanceof OutboundError ? error.reason : 'unknown_error';
       // A target this server refuses to call will not become allowed by retrying.
       noRetry = reason === 'blocked_address';
     }
+    // The server may have shut down while the app was answering; the row stays queued for the next start.
     if (this.stopped) return;
+    if (reason === null) {
+      this.ctx.db.run('DELETE FROM outbox WHERE id = ?', row.id);
+      return;
+    }
 
     const delay = this.options.retryDelaysMs[row.attempt];
     if (noRetry || delay === undefined) {
@@ -152,7 +160,6 @@ export class HttpDelivery {
       reason === 'blocked_address' ? 'connection_failed' : reason,
       row.id,
     );
-    this.later(delay);
   }
 
   /**
