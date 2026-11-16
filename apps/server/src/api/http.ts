@@ -143,7 +143,10 @@ async function handleApi(
     const args = new Args(raw);
 
     const def = registry.get(name);
-    if (!def) throw new ApiError('unknown_method', { req_method: name });
+    if (!def) {
+      registry.onUnknown?.(name);
+      throw new ApiError('unknown_method', { req_method: name });
+    }
 
     const { actor, invalid } = authenticate(ctx, req, args.str('token'));
     if (def.auth !== 'none') {
