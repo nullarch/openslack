@@ -32,6 +32,13 @@ import { customEmoji } from './emoji.ts';
 
 const MIN_PASSWORD = 8;
 
+let decoy: Promise<string> | null = null;
+/** A password hash that matches nothing, computed once. */
+function decoyHash(): Promise<string> {
+  decoy ??= hashPassword(newSecret(24));
+  return decoy;
+}
+
 function validEmail(value: string): string {
   const email = value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) fail('invalid_email');
@@ -177,7 +184,8 @@ export function registerClient(registry: Registry): void {
     const email = args.req('email').trim().toLowerCase();
     const password = args.req('password');
     const user = ctx.db.get<UserRow>('SELECT * FROM users WHERE email = ? AND is_bot = 0', email);
-    const valid = await verifyPassword(password, user?.password_hash ?? null);
+    // Always do the hashing work, so response time does not reveal whether the address exists.
+    const valid = await verifyPassword(password, user?.password_hash ?? (await decoyHash()));
     if (!user || !valid) fail('invalid_credentials');
     if (user.deleted === 1) fail('account_inactive');
     const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));

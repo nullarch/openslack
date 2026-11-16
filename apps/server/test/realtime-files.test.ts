@@ -77,6 +77,32 @@ describe('realtime and files', () => {
     await assert.rejects(anonymous.connect());
   });
 
+  test('cookie-authenticated requests from another origin are refused, and the server survives odd Origin headers', async () => {
+    const call = async (origin: string): Promise<Json> => {
+      const response = await fetch(`${t.base}/api/conversations.list`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: owner.cookie, origin },
+        body: '{}',
+      });
+      return response.json();
+    };
+    assert.equal((await call('https://evil.example')).error, 'invalid_auth');
+    assert.equal((await call('null')).error, 'invalid_auth');
+    assert.equal((await call(t.base)).ok, true);
+
+    const { WebSocket } = await import('ws');
+    for (const origin of ['null', 'https://evil.example']) {
+      const socket = new WebSocket(`${t.base.replace('http', 'ws')}/ws`, { headers: { cookie: owner.cookie }, origin });
+      const outcome = await new Promise((resolve) => {
+        socket.once('open', () => resolve('open'));
+        socket.once('error', () => resolve('refused'));
+      });
+      assert.equal(outcome, 'refused');
+    }
+    assert.equal((await owner.call('auth.test')).ok, true);
+    assert.equal((await fetch(`${t.base}/%E0%A4%A`)).status, 404);
+  });
+
   test('ephemeral messages reach one person and are not stored', async () => {
     const memberStream = await member.connect();
     const ownerStream = await owner.connect();

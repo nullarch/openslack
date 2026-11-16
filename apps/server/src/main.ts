@@ -34,6 +34,10 @@ async function serve(): Promise<void> {
     if (port !== config.port && config.port !== 0) console.log(`  port     ${port}`);
   }
 
+  process.on('unhandledRejection', (reason) => {
+    console.error('[server] unhandled rejection', reason);
+  });
+
   let closing = false;
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {

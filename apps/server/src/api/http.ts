@@ -82,6 +82,21 @@ export function sendJson(res: ServerResponse, status: number, body: unknown, hea
   res.end(text);
 }
 
+/**
+ * Whether a browser request comes from this server's own pages. Requests
+ * without an Origin header (non-browser clients, same-origin navigations) pass;
+ * an Origin that is malformed, opaque ("null") or for another host does not.
+ */
+export function isSameOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
+
 export function requestOrigin(req: IncomingMessage): string {
   const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() ?? 'http';
   return `${proto}://${req.headers.host ?? 'localhost'}`;
@@ -162,10 +177,7 @@ async function handleApi(
       if (!actor) throw new ApiError(invalid ? 'invalid_auth' : 'not_authed');
       if (actor.kind === 'session') {
         // Cookie-authenticated calls must be same-origin POSTs.
-        const origin = req.headers.origin;
-        if (req.method !== 'POST' || (origin && new URL(origin).host !== req.headers.host)) {
-          throw new ApiError('invalid_auth');
-        }
+        if (req.method !== 'POST' || !isSameOrigin(req)) throw new ApiError('invalid_auth');
       }
       authorize(def, actor);
     }
@@ -211,7 +223,12 @@ const STATIC_TYPES: Record<string, string> = {
 };
 
 async function serveStatic(webDir: string, req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
-  const decoded = decodeURIComponent(path);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    return false;
+  }
   const safe = normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, '');
   let file = join(webDir, safe);
   if (!file.startsWith(webDir.endsWith(sep) ? webDir : webDir + sep) && file !== webDir) return false;
@@ -287,11 +304,15 @@ export function createHttpServer(ctx: Ctx, parts: HttpParts): Server {
   });
 
   server.on('upgrade', (req, socket, head) => {
-    const url = new URL(req.url ?? '/', 'http://localhost');
-    for (const handler of parts.upgrades) {
-      if (handler(req, socket, head, url)) return;
+    try {
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      for (const handler of parts.upgrades) {
+        if (handler(req, socket, head, url)) return;
+      }
+      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    } catch (error) {
+      console.error('[http] upgrade failed', error);
     }
-    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
     socket.destroy();
   });
 

@@ -1,6 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
+import { isSameOrigin } from '../api/http.ts';
 import type { Ctx, Presence } from '../ctx.ts';
 import { authenticate } from '../core/auth.ts';
 import type { BusEvent } from '../core/bus.ts';
@@ -59,10 +60,8 @@ export class Gateway implements Presence {
   /** Take over the socket for `GET /ws`; returns false for any other path. */
   handleUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer, url: URL): boolean => {
     if (url.pathname !== '/ws') return false;
-    const origin = req.headers.origin;
-    const sameOrigin = !origin || new URL(origin).host === req.headers.host;
     const { actor } = authenticate(this.ctx, req, undefined);
-    if (!sameOrigin || !actor || actor.kind !== 'session') {
+    if (!isSameOrigin(req) || !actor || actor.kind !== 'session') {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       socket.destroy();
       return true;

@@ -215,8 +215,9 @@ export function registerFileRoutes(ctx: Ctx, router: Router): void {
     res.end(`OK - ${size}`);
   });
 
-  router.add('GET', /^\/files-pri\/[A-Z0-9]+-([A-Z0-9]+)\/(download\/)?[^/]*$/, async ({ req, res, url, params }) => {
-    const { actor } = authenticate(ctx, req, url.searchParams.get('token') ?? undefined);
+  router.add('GET', /^\/files-pri\/[A-Z0-9]+-([A-Z0-9]+)\/(download\/)?[^/]*$/, async ({ req, res, params }) => {
+    // Credentials come from the Authorization header or the session cookie, never from the URL.
+    const { actor } = authenticate(ctx, req, undefined);
     const row = getFile(ctx, params[0]!);
     // Unknown and forbidden look the same to the caller.
     if (!actor || !row || row.state === 'pending' || !canAccessFile(ctx, row, actor.userId)) {

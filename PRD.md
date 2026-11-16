@@ -1,19 +1,22 @@
 # OpenSlack — Product Requirements
 
-Status: draft 1 · 2026-11-16 · nothing is built yet
+Status: draft 2 · 2026-11-16 · 0.1 is being built (`PROGRESS.md` has the current state)
 Repository: `nullarch/openslack`, private until 0.1 runs
 
 ## 1. Summary
 
-OpenSlack is an open-source, self-hosted team chat that a team already on Slack can move to in an afternoon.
+OpenSlack is an open-source Slack that starts with one command and that the bots and AI agents a team already runs on Slack can talk to by changing one URL.
 
-It makes three promises:
+It makes four promises:
 
-1. **Familiar on day one.** Channels, threads, DMs, search and huddles work the way Slack users expect. Nobody needs retraining.
-2. **Drop-in.** A Slack export imports with history intact, and existing Slack apps and bots run against OpenSlack by changing one base URL, because OpenSlack speaks the Slack Web API, Events API, Socket Mode and Block Kit.
-3. **No gates.** Every feature lives in this repository under a permissive license: no user cap, no history limit, no paid edition holding back SSO or search.
+1. **One command.** `npx openslack` or one `docker run`. The database is built in; there is nothing else to install.
+2. **Drop-in.** Existing Slack apps and agents run against OpenSlack with only the API address changed, because it speaks the Slack Web API, Events API, Socket Mode and Block Kit. A Slack export imports with history, threads and mentions intact.
+3. **Familiar on day one.** Channels, threads, DMs and search work the way Slack users expect. Nobody needs retraining.
+4. **No gates.** Every feature lives in this repository under Apache-2.0: no user cap, no history limit, no paid edition.
 
-A fourth property follows from the second: OpenSlack is **agent-native**. AI agents get the same API as people do, without throttling, plus a built-in MCP server.
+The second promise is also the agent story. Anything built on a Slack SDK already knows how to work here, with rate limits the admin controls, plus a built-in MCP endpoint for agents that speak MCP instead.
+
+The order of work follows what makes people try it and pass it on ([§14](#14-launch)): the screen first, then proof that Slack apps run unchanged, then the one-command install.
 
 This document does two jobs. [§7](#7-slack-system-inventory-and-openslack-scope) is an inventory of what Slack consists of today, system by system. The rest states which parts OpenSlack builds, in what order, and how.
 
@@ -43,7 +46,7 @@ None of them lets a team keep its existing Slack bots. That is the opening: **fu
 - A team of 5–500 can self-host OpenSlack and use it as its only chat tool.
 - Migration from Slack is a documented, repeatable procedure: export, import, repoint the bots.
 - The first-party client uses the same public API that bots use, so API compatibility is a property of the design rather than a translation layer.
-- One `docker compose up` produces a working workspace. PostgreSQL is the only required dependency.
+- One command produces a working workspace. There is no required dependency beyond Node.js or Docker.
 
 ### Non-goals
 
@@ -58,7 +61,7 @@ None of them lets a team keep its existing Slack bots. That is the opening: **fu
 
 | Measure | Target for 0.1 |
 |---|---|
-| Time from `docker compose up` to first message sent | Under 5 minutes on a fresh machine |
+| Time from `npx openslack` (or `docker run`) to first message sent | Under 2 minutes on a fresh machine |
 | Official Bolt sample apps (JS and Python) passing unmodified except the base URL | All apps that use only Tier A methods ([§8](#8-slack-compatibility)) |
 | Slack export import fidelity | 100% of users, channels, messages, threads and reactions from a standard export; mismatches reported per item |
 | Message delivery latency, sender to other clients | p95 under 200 ms at 1,000 concurrent connections on 2 vCPU / 2 GB |
@@ -81,7 +84,7 @@ Adoption targets (stars, installs) are the owner's to set and are not fixed here
 1. **Slack's public data model is the native model.** Conversations, messages, `ts` identifiers, `rich_text` blocks, event names and scopes follow Slack's published shapes. Where Slack's public API has no method (read cursors in bulk, client boot), OpenSlack adds one under its own namespace.
 2. **One API.** The web client, bots and agents call the same endpoints and receive the same events. A feature is not done until it is reachable through the API.
 3. **Nothing held back.** No feature flags tied to a license key. Limits (file size, rate limits) are configuration the admin owns.
-4. **Boring to operate.** One application process, PostgreSQL, a directory or bucket for files. Everything else (calls, external search, object storage, mail) is optional and off by default.
+4. **Boring to operate.** One application process and one data directory holding a database file and the uploaded files. Everything else (calls, external search, object storage, mail) is optional and off by default.
 5. **Off by default for anything that leaves the server.** AI features, link previews to third parties and telemetry do nothing until an admin turns them on. There is no phone-home.
 6. **Familiar layout, own identity.** Reuse the interaction patterns people know; do not reuse Slack's brand assets, sounds, illustrations or documentation text.
 
@@ -91,7 +94,7 @@ Every row in the inventory below carries one of these labels.
 
 | Label | Meaning |
 |---|---|
-| **0.1** | First public release. A team can run its daily chat on it, import from Slack and connect a bot. |
+| **0.1** | First public release: what the launch demo shows. One-command start, the core chat screen, Slack apps and agents connected unchanged, Slack import. |
 | **0.2** | Fast follow in the weeks after 0.1: what early adopters ask for first. |
 | **Later** | After 0.2. Ordered by demand, not listed in sequence here. |
 | **No** | Out of scope ([§3](#non-goals)). |
@@ -361,17 +364,19 @@ This section is a recommendation awaiting the owner's sign-off, not a settled de
 
 | Layer | Choice | Reason |
 |---|---|---|
-| Language | TypeScript throughout | One set of types for the API, events, Block Kit and the message format shared by server, client, importer and tests; the largest contributor pool for a web product |
-| Server | Node.js LTS, one process: HTTP API + WebSocket gateway + background jobs | Fewest moving parts to self-host |
-| Database | PostgreSQL 16+ | The single required dependency: relational data, full-text and trigram search, job queue, and `LISTEN/NOTIFY` for multi-process fan-out |
-| Files | Local directory by default; any S3-compatible bucket by configuration | Zero-setup default |
+| Language | TypeScript throughout | One set of types for the API, events, Block Kit and the message format shared by server, client, importer and tests; `npx` distribution; the largest contributor pool for a web product |
+| Server | Node.js, one process: HTTP API + WebSocket gateway + app platform. Runs TypeScript directly, no build step in development | Fewest moving parts to self-host |
+| Database | SQLite through Node's built-in driver, one file | Nothing to install. A team of a few hundred fits comfortably; search uses FTS5 with the trigram tokenizer |
+| Files | Local directory under the data directory | Zero-setup default; a bucket backend can replace the small storage interface later |
 | Web client | React single-page app built with Vite | Long-lived stateful UI; no server rendering needed |
-| Message editor | A ProseMirror-based editor producing `rich_text` blocks | Slack's own message shape as the document model |
-| Calls | LiveKit as an optional service | Open-source SFU; chat works without it |
-| Desktop | A thin shell around the web client | Notifications, badge, deep links |
-| Mobile | PWA with Web Push first; native apps later | Push without app stores or a relay service |
+| Composer | A text area with a formatting toolbar that writes Slack `mrkdwn` | Small and robust for 0.1; a WYSIWYG editor comes later |
+| Packaging | The server bundled into one JavaScript file plus the built client, published as an npm package and a Docker image | `npx` and `docker run` both work with no further setup |
+| Agents | The Slack-compatible API, plus an MCP endpoint built on the official SDK | Agents on Slack SDKs work as they are; MCP clients connect directly |
+| Calls | LiveKit as an optional service (0.2) | Open-source SFU; chat works without it |
 
-Alternative considered: a Rust server (axum + sqlx), which would give a single static binary and a smaller footprint. It is set aside because shared types across server, client and compatibility tests matter more here than raw efficiency at the target size of 5–500 people.
+PostgreSQL was the first proposal and is set aside for 0.1: a required database server costs the one-command install, and SQLite covers the target size. Data access is confined to `src/core`, so a second backend remains possible if larger deployments ask for it.
+
+A Rust server was also considered and set aside: shared types across server, client and compatibility tests matter more here than raw efficiency.
 
 ### 9.2 Data model
 
@@ -385,30 +390,29 @@ Alternative considered: a Rust server (axum + sqlx), which would give a single s
 
 - Clients hold one WebSocket. On connect they call a boot endpoint that returns conversations, read state and the people they need, then receive events.
 - After a dropped connection the client sends the last event position it saw and receives what it missed; when the gap is too large it re-boots.
-- A single process fans out in memory. Several processes fan out through PostgreSQL notifications; a dedicated broker is a later option, not a requirement.
+- A single process fans out in memory. Running several processes is a later topic and would need a shared database and a broker.
 - Typing and presence are transient and never stored.
 
 ### 9.4 Search
 
-PostgreSQL full-text search for space-delimited languages combined with trigram matching so Korean, Japanese and Chinese text is searchable from the first release. Results are always filtered by the searcher's membership. The search backend sits behind an interface so an external engine can replace it later.
+SQLite FTS5 with the trigram tokenizer, so Korean, Japanese and Chinese text is searchable from the first release; terms shorter than three characters fall back to a substring scan. Results are always filtered by the searcher's membership. The search code sits behind one module so an external engine can replace it later.
 
 ### 9.5 Security baseline (0.1)
 
-Argon2id password hashing; signed, expiring file URLs; server-side fetching of link previews with private-network addresses blocked; HTML never rendered from message content; login and API rate limiting; least-privilege scopes enforced on every token.
+scrypt password hashing (built into Node); file downloads that require a session or token and are checked against conversation membership; uploaded content served so it cannot run script in the app's origin; HTML never rendered from message content; sign-in and API rate limiting; scopes enforced on every token; tokens stored hashed.
 
 ## 10. Self-hosting requirements
 
-- **Install:** `docker compose up` starts the app and PostgreSQL; a first-run page creates the workspace and its owner.
-- **Configuration:** environment variables only. Mail is optional — without SMTP, invite links are shown on screen for the admin to pass on.
+- **Install:** `npx openslack`, or `docker run -p 3000:3000 -v data:/data …`, or `docker compose up`. A first-run page creates the workspace and its owner.
+- **Configuration:** environment variables only (`PORT`, `HOST`, `DATA_DIR`, `PUBLIC_URL`, `MAX_UPLOAD_MB`).
 - **Upgrades:** migrations run automatically on start; a release never requires manual SQL.
-- **Backup:** a database dump plus the files directory is a complete backup; restore is documented and tested.
-- **Footprint:** a 50-person team fits on 1 vCPU / 1 GB.
-- **Observability:** a health endpoint, structured logs and Prometheus metrics.
-- **Later:** a Helm chart, multi-node deployment, external search and object storage guides.
+- **Backup:** the data directory (one database file plus uploaded files) is a complete backup.
+- **Footprint:** a 50-person team fits on 1 vCPU / 512 MB.
+- **Later:** mail for invitations and notifications, a Helm chart, object storage, an external database.
 
 ## 11. License and sustainability
 
-- **Recommended license: Apache-2.0** (permissive, with a patent grant). MIT and AGPL-3.0 are the alternatives; the choice is the owner's.
+- **License: Apache-2.0** (permissive, with a patent grant).
 - Everything is in this repository. There is no enterprise directory and no license key.
 - How the project sustains itself (hosted service, support, sponsorship) is deliberately undecided for the 0.x line.
 
@@ -416,16 +420,17 @@ Argon2id password hashing; signed, expiring file URLs; server-side fetching of l
 
 ### Decided (owner, 2026-11-16)
 
-- **Name:** `openslack`. "Slack" is a registered trademark, so a rename request remains possible; the first risk below keeps a rename cheap. The GitHub account name `OpenSlack` belongs to someone else (registered 2023).
+- **Name:** `openslack`. "Slack" is a registered trademark, so a rename request remains possible; the first risk below keeps a rename cheap. The GitHub account name `OpenSlack` belongs to someone else (registered 2023). The npm name `openslack` was free on 2026-11-16.
 - **Repository:** `nullarch/openslack`, private now, made public when 0.1 runs.
+- **Direction:** build for spread first ([§14](#14-launch)).
+- **Stack and license:** TypeScript with built-in SQLite, Apache-2.0 — the recommended options, taken when the owner asked for the build to proceed. The repository is private with no outside contributors, so both can still be changed cheaply.
 
 ### Open decisions (owner)
 
 | Decision | Recommendation | Why it matters now |
 |---|---|---|
-| **License** | Apache-2.0 | Hard to change after outside contributions arrive. |
-| **Stack** | TypeScript + PostgreSQL ([§9](#9-architecture-proposed)) | Blocks all code. |
 | **Public demo instance** | — | A try-before-install demo needs a long-running server and therefore a hosting cost. |
+| **When to make the repository public** | When the one-command install and the compatibility table are both verified on a clean machine | The first impression is the launch. |
 
 ### Risks
 
@@ -438,6 +443,7 @@ Argon2id password hashing; signed, expiring file URLs; server-side fetching of l
 | Using Slack's API during import | 0.1 imports from export archives only. Any live-API import or bridge waits for a review of Slack's API terms. |
 | Scope creep toward "all of Slack" | Phases in [§6](#6-release-phases); 0.1 ships without canvases, lists, workflows and calls. |
 | Mobile push for native apps needs a relay tied to the published app | PWA Web Push first; a relay is designed only when native apps are built. |
+| "Your agents just work" is over-read | It holds for apps whose API address can be changed (anything on Bolt or a Slack SDK). Hosted apps operated by a vendor cannot be repointed. Say only what the compatibility harness has run. |
 
 ## 13. References
 
@@ -450,5 +456,20 @@ Checked on 2026-11-16.
 - Mattermost v11 free-edition changes — <https://forum.mattermost.com/t/mattermost-v11-changes-in-free-offerings/25126>
 - Rocket.Chat plans and seats — <https://docs.rocket.chat/our-plans>, <https://docs.rocket.chat/docs/seats-faq>
 - Slack plan limits are taken from third-party summaries that disagree in places (<https://pumble.com/slack-pricing>, <https://www.costbench.com/software/communication/slack/free-plan/>); confirm against <https://slack.com/pricing> before quoting them publicly.
+
+- Model Context Protocol transport — <https://modelcontextprotocol.io/specification/latest/basic/transports/streamable-http>
+
+## 14. Launch
+
+The product spreads only if a stranger understands it in ten seconds and can try it in one minute.
+
+- **Hook.** "Open-source Slack. One command. Your Slack bots and agents already speak it." The name carries the first half; the demo has to prove the second.
+- **The demo (30 seconds).** Start it with one command → a screen people recognise → change one line in an existing Bolt app → it answers in a channel, streams a reply and waits on a button.
+- **Proof, not adjectives.** `docs/COMPATIBILITY.md` is generated from what the official SDKs actually exercised. It is the thing people screenshot and argue with.
+- **Try it without installing.** A public demo workspace (open decision above).
+- **Order of work.** The screen → compatibility proof → one-command install → demo and launch. Parity features wait.
+- **Loops inside the product (0.2).** Invite links; public channels readable on the web and indexable, so open-source communities can use it instead of a closed chat; one-click deploy buttons.
+- **Channel-specific framing.** Hacker News: existing Slack apps run unchanged. r/selfhosted: no user cap, no paid edition, one container. X and video: agents as teammates.
+- **Building in public.** The repository history and `PROGRESS.md` show how it was built; that story is part of the launch.
 
 OpenSlack is not affiliated with, endorsed by or sponsored by Slack Technologies or Salesforce.
