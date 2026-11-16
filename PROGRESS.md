@@ -28,10 +28,10 @@ Run these to reproduce.
 | Check | Command | Result |
 |---|---|---|
 | Types | `pnpm typecheck` | clean in all packages |
-| Unit and integration tests | `pnpm test` | 109 pass: shared 12, web 9, server 62, compatibility harness 26 |
+| Unit and integration tests | `pnpm test` | 114 pass: shared 12, web 9, server 67, compatibility harness 26 |
 | Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript over Socket Mode and over HTTP, Bolt for Python over Socket Mode |
-| Browser smoke test | `pnpm --filter @app/web e2e` | 23 steps, two browsers, system Chrome |
-| Agent round trip in the UI | `pnpm --filter @app/web e2e:agent` | A real Bolt agent: mention in the browser → streamed reply → button click answered |
+| Browser tests | `pnpm --filter @app/web e2e` | 36 steps, two browsers, system Chrome: the core flows, then files (audio, video, PDF, paste), profile photo, role change and deactivation, webhooks, token rotation |
+| Agent round trip in the UI | `pnpm --filter @app/web e2e:agent` | A real Bolt agent: mention in the browser → streamed reply → button click answered; a slash command acknowledged privately and answered in the channel |
 | Published package | `npm pack` in `packages/cli`, install the tarball in an empty folder, `npx openslack` | Starts, serves the client, no dependencies installed. Also run in a `node:24-slim` container (Linux arm64): setup, a message, a Korean search |
 | Docker image | `docker build .`, then `docker run -p 3000:3000 -e SEED_DEMO=1 …` | 170 MB image, runs as a non-root user, serves the client and the API |
 | Brand rule | `pnpm check:brand` | The product name appears only in `packages/shared/src/brand.ts` |
@@ -45,7 +45,8 @@ Measured on an Apple-silicon laptop: about 140 MB of memory at rest, about 750 b
 - Bolt for Python over HTTP.
 - A real Slack export. The importer is tested against a hand-written export that follows the documented format, including a zip made with the system `zip`.
 - Which third-party agents (OpenClaw, Codex, Claude Code's Slack integration) can be repointed. Only apps we wrote with Bolt have been run.
-- In the web client: video, audio and PDF previews, paste upload, profile photo upload, role change and deactivation screens, webhook and token-rotation screens. They are implemented; no test drives them.
+- Browsers other than Chrome, and real phones.
+- In the Apps screen: HTTP delivery settings (event and interactivity URLs) and app-level token rotation. Select and overflow menus answered by a real app (only buttons made the round trip).
 - Load: nothing has been run with many concurrent connections.
 
 ## Decisions taken while building
@@ -61,6 +62,9 @@ Measured on an Apple-silicon laptop: about 140 MB of memory at rest, about 750 b
 - `git add -A` in the repository root once staged agent worktrees under `.claude/`. `.claude/` is now ignored.
 - Node prints an "experimental" warning for `node:sqlite`. The published command filters it; from source it is visible and harmless.
 - pnpm lockfile conflicts on every branch merge: take either side and run `pnpm install`.
+- The timestamp clock once mixed the wall clock with unaligned sub-millisecond digits, so a stamp could repeat or go backwards and a message posted right after someone joined could count as already read. It showed up as a test that failed about one run in six. `Clock.now()` is now the only source and strictly increases.
+- A deactivated account kept its open WebSocket and went on receiving events. The gateway now closes it.
+- Driving every screen in a real browser found twelve bugs that unit and API tests had not. Treat a path no test drives as broken.
 - Channel mention badges include mentions made inside threads, whose timestamps are later than the channel's newest message. `conversations.mark` clears them when the reader is caught up.
 
 ## Next
