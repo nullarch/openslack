@@ -1,0 +1,15 @@
+# docker compose up -d   → http://localhost:3000
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - data:/data
+    environment:
+      # The address people and bots use to reach this server.
+      PUBLIC_URL: http://localhost:3000
+    restart: unless-stopped
+
+volumes:
+  data:

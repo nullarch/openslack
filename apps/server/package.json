@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@app/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "busboy": "^1.6.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/busboy": "^1.5.4",

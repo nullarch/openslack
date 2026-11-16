@@ -3,11 +3,11 @@ import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 import type { Duplex } from 'node:stream';
-import type { Ctx } from '../ctx.ts';
+import type { Actor, Ctx } from '../ctx.ts';
 import { authenticate } from '../core/auth.ts';
 import { ApiError } from '../core/errors.ts';
 import { isAdmin } from '../core/users.ts';
-import { Args, type Registry } from './registry.ts';
+import { Args, type MethodDef, type Registry } from './registry.ts';
 
 export interface RouteCall {
   req: IncomingMessage;
@@ -122,6 +122,18 @@ export class RateLimiter {
 
 // ── API dispatch ────────────────────────────────────────────────────────────
 
+/** Check that an authenticated caller may use a method: credential type, role and token scopes. */
+export function authorize(def: MethodDef, actor: Actor): void {
+  if (def.auth === 'session' && actor.kind !== 'session') throw new ApiError('not_allowed_token_type');
+  if (def.auth === 'admin' && !isAdmin(actor)) throw new ApiError('not_allowed');
+  if (actor.kind === 'app' && !def.scopes.includes('connections:write')) {
+    throw new ApiError('not_allowed_token_type');
+  }
+  if (actor.scopes && def.scopes.length > 0 && !def.scopes.some((scope) => actor.scopes!.has(scope))) {
+    throw new ApiError('missing_scope', { needed: def.scopes.join(','), provided: [...actor.scopes].join(',') });
+  }
+}
+
 const SIGN_IN_METHODS = new Set(['client.signin', 'client.signup', 'client.setup']);
 
 async function handleApi(
@@ -155,14 +167,7 @@ async function handleApi(
           throw new ApiError('invalid_auth');
         }
       }
-      if (def.auth === 'session' && actor.kind !== 'session') throw new ApiError('not_allowed_token_type');
-      if (def.auth === 'admin' && !isAdmin(actor)) throw new ApiError('not_allowed');
-      if (actor.kind === 'app' && !def.scopes.includes('connections:write')) {
-        throw new ApiError('not_allowed_token_type');
-      }
-      if (actor.scopes && def.scopes.length > 0 && !def.scopes.some((scope) => actor.scopes!.has(scope))) {
-        throw new ApiError('missing_scope', { needed: def.scopes.join(','), provided: [...actor.scopes].join(',') });
-      }
+      authorize(def, actor);
     }
 
     const ip = req.socket.remoteAddress ?? 'unknown';

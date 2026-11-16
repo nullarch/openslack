@@ -1,0 +1,12 @@
+{
+  "name": "openslack",
+  "version": "0.1.0",
+  "description": "Open-source, self-hosted team chat that speaks the Slack API. One command, no database to install.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "openslack": "bin/cli.mjs" },
+  "files": ["bin", "dist"],
+  "engines": { "node": ">=22.13" },
+  "repository": { "type": "git", "url": "git+https://github.com/nullarch/openslack.git" },
+  "keywords": ["chat", "team-chat", "self-hosted", "slack-api", "slack-compatible", "bolt", "agents", "mcp"]
+}
