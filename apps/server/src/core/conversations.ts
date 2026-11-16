@@ -122,7 +122,17 @@ export function readState(ctx: Ctx, conv: ConvRow, member: MemberRow): ReadState
 }
 
 /** Move a member's read position (forwards or backwards) and tell their other devices. */
-export function markRead(ctx: Ctx, conv: ConvRow, userId: string, ts: string): void {
+export function markRead(ctx: Ctx, conv: ConvRow, userId: string, requested: string): void {
+  let ts = requested;
+  // Catching up with the channel also clears mentions made inside threads, which carry later timestamps.
+  if (ts >= conv.last_ts) {
+    const mention = ctx.db.get<{ ts: string | null }>(
+      "SELECT max(ts) AS ts FROM mentions WHERE conversation_id = ? AND user_id IN (?, '*')",
+      conv.id,
+      userId,
+    );
+    if (mention?.ts && mention.ts > ts) ts = mention.ts;
+  }
   const changed = ctx.db.run(
     'UPDATE members SET last_read = ? WHERE conversation_id = ? AND user_id = ?',
     ts,

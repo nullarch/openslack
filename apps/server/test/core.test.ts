@@ -133,6 +133,15 @@ describe('workspace', () => {
 
     await member.ok('conversations.mark', { channel: channel.id, ts: last.ts });
     assert.deepEqual([(await counts(member)).unread_count, (await counts(member)).mention_count], [0, 0]);
+
+    // A mention inside a thread badges the channel, and catching up with the channel clears it.
+    await owner.ok('chat.postMessage', { channel: channel.id, text: `in a thread <@${member.userId}>`, thread_ts: last.ts });
+    assert.deepEqual([(await counts(member)).unread_count, (await counts(member)).mention_count], [0, 1]);
+    await member.ok('conversations.mark', { channel: channel.id, ts: last.ts });
+    assert.deepEqual([(await counts(member)).unread_count, (await counts(member)).mention_count], [0, 0]);
+    // Marking as unread moves the position back.
+    await member.ok('conversations.mark', { channel: channel.id, ts: '0000000001.000000' });
+    assert.equal((await counts(member)).unread_count, 3);
   });
 
   test('private channels are invisible to non-members everywhere', async () => {
