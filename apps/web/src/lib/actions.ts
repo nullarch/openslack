@@ -1,6 +1,6 @@
 import { extractBlockMentions, extractMentions, type BootData, type Conversation, type Message, type User } from '@app/shared';
 import { S } from '../strings';
-import { ApiError, call, isUnsupported, type Json } from './api';
+import { ApiError, call, isUnsupported, onAuthLost, type Json } from './api';
 import { loadEmoji } from './emoji';
 import { parseRoute, pushRoute, type Route } from './router';
 import {
@@ -142,7 +142,7 @@ export function goHome(replace = false): void {
   }
 }
 
-async function loadCommands(): Promise<void> {
+export async function loadCommands(): Promise<void> {
   try {
     const result = await call('client.commands.list');
     set({ commands: result.commands ?? [] });
@@ -763,6 +763,20 @@ export async function setPrefs(patch: Record<string, unknown>): Promise<void> {
   if ('theme' in patch) applyTheme(patch.theme);
   await attempt(() => call('client.prefs.set', { prefs: patch }));
 }
+
+let leaving = false;
+
+/**
+ * The session is gone (signed out elsewhere, or the account was deactivated):
+ * leave the workspace for the sign-in screen, once.
+ */
+export function sessionEnded(): void {
+  if (leaving || get().phase !== 'ready') return;
+  leaving = true;
+  window.location.assign('/signin');
+}
+
+onAuthLost(sessionEnded);
 
 export async function signOut(): Promise<void> {
   try {

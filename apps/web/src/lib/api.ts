@@ -15,6 +15,13 @@ export class ApiError extends Error {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Json = any;
 
+let authLost: (() => void) | null = null;
+
+/** Register what to do when the server says the session is no longer valid. */
+export function onAuthLost(handler: () => void): void {
+  authLost = handler;
+}
+
 export async function call(method: string, args: Record<string, unknown> = {}): Promise<Json> {
   let response: Response;
   try {
@@ -38,7 +45,11 @@ export async function call(method: string, args: Record<string, unknown> = {}): 
   } catch {
     throw new ApiError('bad_response');
   }
-  if (!body?.ok) throw new ApiError(String(body?.error ?? 'unknown_error'), body ?? {});
+  if (!body?.ok) {
+    const code = String(body?.error ?? 'unknown_error');
+    if (code === 'invalid_auth' || code === 'not_authed') authLost?.();
+    throw new ApiError(code, body ?? {});
+  }
   return body;
 }
 

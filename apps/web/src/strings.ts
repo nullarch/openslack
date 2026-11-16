@@ -183,6 +183,8 @@ export const S = {
     download: 'Download',
     open: 'Open in a new tab',
     openOriginal: 'Open original',
+    preview: 'Preview',
+    hidePreview: 'Hide preview',
     showMore: 'Show more',
     showLess: 'Show less',
     previewFailed: 'Preview unavailable.',

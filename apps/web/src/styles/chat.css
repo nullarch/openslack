@@ -341,7 +341,7 @@
 
 .msg:hover > .msg-toolbar,
 .msg.is-menu-open > .msg-toolbar,
-.msg:focus-within > .msg-toolbar {
+.msg:has(:focus-visible) > .msg-toolbar {
   display: flex;
 }
 
@@ -1173,6 +1173,19 @@ ol.rich-list {
   color: var(--text-2);
 }
 
+.file-card.is-pdf.is-open {
+  width: min(640px, 100%);
+}
+
+.file-pdf {
+  display: block;
+  width: 100%;
+  height: 480px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
 .file-preview {
   margin: 0;
   border: 0;
@@ -1276,7 +1289,7 @@ ol.rich-list {
 .composer-input {
   display: block;
   width: 100%;
-  height: auto !important;
+  /* No height here: the composer sets it inline as the text grows. */
   min-height: 40px;
   max-height: 45vh;
   padding: 9px 12px 3px !important;
