@@ -146,18 +146,23 @@ export interface NewUser {
   botId?: string | null;
   appId?: string | null;
   handle?: string;
+  /** Use this id instead of issuing one (imports keep the original ids). */
+  id?: string;
+  title?: string;
+  deleted?: boolean;
 }
 
 export function createUser(ctx: Ctx, input: NewUser): UserRow {
-  const id = newId('U');
+  const id = input.id ?? newId('U');
   const now = nowSeconds();
   const email = input.email ? input.email.trim().toLowerCase() : null;
   if (email && ctx.db.get('SELECT 1 FROM users WHERE email = ?', email)) fail('email_taken');
   const handle = input.handle ?? uniqueHandle(ctx, email ?? input.realName);
   const color = COLORS[Math.abs(hashCode(id)) % COLORS.length]!;
   ctx.db.run(
-    `INSERT INTO users (id, name, real_name, display_name, email, password_hash, tz, color, is_bot, bot_id, app_id, role, created, updated)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, name, real_name, display_name, email, password_hash, tz, color, is_bot, bot_id, app_id, role,
+       title, deleted, created, updated)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     handle,
     input.realName.trim(),
@@ -170,6 +175,8 @@ export function createUser(ctx: Ctx, input: NewUser): UserRow {
     input.botId ?? null,
     input.appId ?? null,
     input.role ?? 'member',
+    input.title ?? '',
+    input.deleted ? 1 : 0,
     now,
     now,
   );

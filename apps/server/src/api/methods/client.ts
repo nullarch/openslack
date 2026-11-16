@@ -212,16 +212,32 @@ export function registerClient(registry: Registry): void {
     const realName = args.req('real_name').trim().slice(0, 80);
     if (!realName) fail('invalid_arguments', { needed: 'real_name' });
     const passwordHash = await hashPassword(validPassword(args.req('password')));
-    if (ctx.db.get('SELECT 1 FROM users WHERE email = ?', email)) fail('email_taken');
+    const existing = ctx.db.get<UserRow>('SELECT * FROM users WHERE email = ?', email);
+    // An account that came from an import has no password yet; its owner claims it here and keeps their history.
+    const claimable = existing && existing.password_hash === null && existing.is_bot === 0 && existing.deleted === 0;
+    if (existing && !claimable) fail('email_taken');
 
     const user = ctx.db.tx(() => {
       ctx.db.run('UPDATE invites SET uses = uses + 1 WHERE code = ?', invite.code);
-      return createUser(ctx, { email, realName, passwordHash, tz: validTz(args.str('tz')) });
+      if (!existing) return createUser(ctx, { email, realName, passwordHash, tz: validTz(args.str('tz')) });
+      ctx.db.run(
+        'UPDATE users SET password_hash = ?, real_name = ?, tz = ?, updated = ? WHERE id = ?',
+        passwordHash,
+        realName,
+        validTz(args.str('tz')),
+        nowSeconds(),
+        existing.id,
+      );
+      return requireUser(ctx, existing.id);
     });
-    ctx.bus.emit({
-      event: { type: 'team_join', user: userToApi(ctx, user), event_ts: ctx.clock.eventTs() },
-      audience: { all: true },
-    });
+    if (existing) {
+      emitUserChange(ctx, user.id);
+    } else {
+      ctx.bus.emit({
+        event: { type: 'team_join', user: userToApi(ctx, user), event_ts: ctx.clock.eventTs() },
+        audience: { all: true },
+      });
+    }
     for (const conv of defaultChannels(ctx)) addMember(ctx, conv, user.id);
 
     const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));

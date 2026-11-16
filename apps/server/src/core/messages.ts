@@ -189,6 +189,8 @@ export interface NewMessage {
   ts?: string;
   /** Do not emit events (imports). */
   silent?: boolean;
+  /** Accept a message with no content (imports of messages whose only content could not be carried over). */
+  allowEmpty?: boolean;
   /** Extra fields for the emitted event only. */
   eventExtra?: Record<string, unknown>;
 }
@@ -262,7 +264,7 @@ export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const text = input.text ?? '';
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const hasContent = text.length > 0 || input.blocks?.length || input.attachments?.length || input.fileIds?.length;
-  if (!hasContent && !input.streaming) fail('no_text');
+  if (!hasContent && !input.streaming && !input.allowEmpty) fail('no_text');
 
   let threadTs: string | null = null;
   if (input.threadTs) {
