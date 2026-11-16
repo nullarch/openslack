@@ -65,9 +65,10 @@ export function ChannelLink({ id, label }: { id: string; label?: string }) {
   useEffect(() => {
     if (!conv) ensureConversationInfo(id);
   }, [conv, id]);
+  const hidden = useStore((state) => state.hiddenChannels[id] === true);
   const name = conv?.name ?? label;
-  // Unknown and not labelled: a private channel the viewer is not in.
-  if (!name) return <span className="channel-link is-unknown">#{S.messages.privateChannel}</span>;
+  // Unknown and not labelled: still being looked up, or a private channel the viewer is not in.
+  if (!name) return <span className="channel-link is-unknown">#{hidden ? S.messages.privateChannel : '…'}</span>;
   return (
     <a
       className="channel-link"

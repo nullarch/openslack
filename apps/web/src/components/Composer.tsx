@@ -2,7 +2,7 @@ import type { User } from '@app/shared';
 import { AtSign, Bold, Code, Hash, Italic, Link2, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, X, FileText } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { errorText, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
-import { uploadFile } from '../lib/api';
+import { asset, uploadFile } from '../lib/api';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
 import { searchEmoji } from '../lib/emoji';
 import { sendTyping } from '../lib/realtime';
@@ -91,7 +91,7 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
     const items = searchEmoji(query, state.emoji).map((match) => ({
       key: match.name,
       insert: `:${match.name}: `,
-      icon: match.url ? <img className="emoji emoji-custom" src={match.url} alt="" /> : <span className="emoji">{match.native}</span>,
+      icon: match.url ? <img className="emoji emoji-custom" src={asset(match.url)} alt="" /> : <span className="emoji">{match.native}</span>,
       label: `:${match.name}:`,
     }));
     return { heading: S.composer.emojiHeading, items };

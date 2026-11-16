@@ -181,6 +181,20 @@ async function main() {
   const daniel = await danielContext.newPage();
   watch(maya);
   watch(daniel);
+  // Record the desktop notifications Daniel's tab would raise.
+  await danielContext.addInitScript(() => {
+    window.raisedNotifications = [];
+    window.Notification = class {
+      static permission = 'granted';
+      static requestPermission() {
+        return Promise.resolve('granted');
+      }
+      constructor(title, options) {
+        window.raisedNotifications.push({ title, body: options?.body });
+      }
+      close() {}
+    };
+  });
 
   // Keep a handle on Maya's realtime connection so a step can deliver events
   // the server would send when an app is at work.
@@ -210,6 +224,11 @@ async function main() {
     assert.ok((await panel.locator('.code-block.is-diff .diff-line.add').count()) >= 1);
     assert.equal(await panel.locator('.block-btn.is-primary').innerText(), 'Open pull request');
     assert.equal(await panel.locator('.md ol li').count(), 3);
+    // The untouched sample workspace, in both themes: these are the pictures for the README.
+    await shot(maya, 'hero-light');
+    await setTheme(maya, 'Dark');
+    await shot(maya, 'hero-dark');
+    await setTheme(maya, 'Light');
     await maya.keyboard.press('Escape');
   });
 
@@ -289,6 +308,24 @@ async function main() {
     await openChannel(maya, 'support');
     await row(maya, 'can you look at this?').locator('.mention.is-me').waitFor();
     await sideItem(maya, 'support').locator('.badge').waitFor({ state: 'detached' });
+  });
+
+  await step('a direct message raises a desktop notification while the tab is in the background', async () => {
+    await daniel.evaluate(() => Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }));
+    await sideItem(maya, 'Daniel').click();
+    await maya.waitForSelector('.conv-name:text-is("Daniel")');
+    await send(maya, 'Got a minute? :wave:');
+    await daniel.waitForFunction(() => window.raisedNotifications.length > 0);
+    const raised = await daniel.evaluate(() => window.raisedNotifications.at(-1));
+    assert.deepEqual(raised, { title: 'Maya', body: 'Got a minute? 👋' });
+    await sideItem(daniel, 'Maya').locator('.badge', { hasText: '1' }).waitFor();
+    // In the channel Daniel is looking at, a plain message does not notify.
+    const before = await daniel.evaluate(() => window.raisedNotifications.length);
+    await openChannel(maya, 'support');
+    await send(maya, 'Not a mention');
+    await row(daniel, 'Not a mention').waitFor();
+    assert.equal(await daniel.evaluate(() => window.raisedNotifications.length), before);
+    await daniel.evaluate(() => Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }));
   });
 
   await step('composer: channel and emoji autocomplete, formatting, the emoji picker', async () => {
@@ -626,7 +663,7 @@ async function main() {
     await maya.locator('.block-btn.is-pending').waitFor({ state: 'detached' });
   });
 
-  await step('dark theme', async () => {
+  await step('dark theme is remembered', async () => {
     await setTheme(maya, 'Dark');
     assert.equal(await maya.evaluate(() => document.documentElement.dataset.theme), 'dark');
     await openChannel(maya, 'deploys');
@@ -709,13 +746,40 @@ async function main() {
     await guestContext.close();
   });
 
-  await step('light theme hero shot with a thread open', async () => {
-    await setTheme(maya, 'Light');
-    await openAtlasThread(maya);
-    await shot(maya, 'hero-light');
-    await setTheme(maya, 'Dark');
-    await shot(maya, 'hero-dark');
-    await setTheme(maya, 'Light');
+  await step('the dev server proxies the API and the WebSocket to the server', async () => {
+    const { createServer } = await import('vite');
+    process.env.PORT = String(seeded.port);
+    const port = await freePort();
+    const dev = await createServer({
+      root: join(root, 'apps/web'),
+      configFile: join(root, 'apps/web/vite.config.ts'),
+      logLevel: 'silent',
+      server: { port, strictPort: true, host: '127.0.0.1' },
+    });
+    await dev.listen();
+    try {
+      const status = await (await fetch(`http://127.0.0.1:${port}/api/client.status`, { method: 'POST' })).json();
+      assert.equal(status.ok, true);
+      assert.equal(status.team.name, 'Northwind');
+      const avatar = await fetch(`http://127.0.0.1:${port}/team-icon/68`);
+      assert.equal(avatar.headers.get('content-type'), 'image/svg+xml');
+      // Without a session the server refuses the upgrade; getting that refusal proves the proxy reached it.
+      const refused = await new Promise((done) => {
+        const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+        socket.onopen = () => done(false);
+        socket.onerror = () => done(true);
+      });
+      assert.equal(refused, true);
+      const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+      watch(page);
+      await signIn(page, `http://127.0.0.1:${port}`, 'priya@example.com');
+      await page.waitForSelector('.message-content .msg');
+      await send(page, 'Sent through the dev server');
+      await row(daniel, 'Sent through the dev server').waitFor();
+      await page.context().close();
+    } finally {
+      await dev.close();
+    }
   });
 
   assert.deepEqual(errors, [], 'no page errors or console errors');

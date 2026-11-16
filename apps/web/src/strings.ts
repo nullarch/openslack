@@ -44,7 +44,6 @@ export const S = {
     inviteInvalidTitle: 'This invite link no longer works',
     inviteInvalidBody: 'It expired, was revoked, or has been used. Ask for a new one.',
     goToSignin: 'Go to sign in',
-    working: 'One moment…',
   },
 
   sidebar: {
@@ -68,7 +67,6 @@ export const S = {
     menu: 'Workspace menu',
     openSidebar: 'Open sidebar',
     reconnecting: 'Reconnecting…',
-    offline: 'Offline. Messages will send when the connection is back.',
   },
 
   topbar: {
@@ -101,7 +99,6 @@ export const S = {
     jumpToLatest: 'Jump to latest',
     onlyYou: 'Only visible to you',
     deleted: 'This message was deleted.',
-    sending: 'Sending…',
     failed: 'Not sent.',
     discard: 'Delete',
     replyCount: (count: number) => (count === 1 ? '1 reply' : `${count} replies`),
@@ -111,7 +108,6 @@ export const S = {
     app: 'App',
     privateChannel: 'private-channel',
     streaming: 'Writing…',
-    pinnedBy: (name: string) => `Pinned by ${name}`,
     pinned: 'Pinned',
     actions: {
       react: 'Add reaction',
@@ -135,11 +131,6 @@ export const S = {
       if (names.length === 1) return `${names[0]} is typing…`;
       if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
       return 'Several people are typing…';
-    },
-    reactedBy: (names: string[], emoji: string) => `${names.join(', ')} reacted with :${emoji}:`,
-    system: {
-      joined: 'joined the channel',
-      left: 'left the channel',
     },
   },
 
@@ -177,7 +168,6 @@ export const S = {
 
   thread: {
     title: 'Thread',
-    thinking: 'is working…',
     replies: (count: number) => (count === 1 ? '1 reply' : `${count} replies`),
     notFound: 'This thread is no longer available.',
   },
@@ -207,14 +197,12 @@ export const S = {
     hint: 'Narrow with in:#channel, from:@person, before:2025-01-31, after:, on:, has:link, has:file, has:reaction, has:pin, is:thread',
     placeholder: 'Search messages',
     empty: 'Search every message you can read.',
-    inChannel: (name: string) => `in ${name}`,
   },
 
   switcher: {
     placeholder: 'Jump to a channel or person, or search',
     searchFor: (query: string) => `Search messages for “${query}”`,
     none: 'Nothing matches.',
-    channel: 'Channel',
     person: 'Person',
     notJoined: 'not joined',
   },
@@ -233,7 +221,6 @@ export const S = {
     archive: 'Archive channel',
     unarchive: 'Unarchive channel',
     rename: 'Rename channel',
-    renamePrompt: 'New channel name',
     closeDm: 'Close conversation',
     mute: 'Mute notifications',
     unmute: 'Unmute notifications',
@@ -341,7 +328,6 @@ export const S = {
     emojiAdd: 'Add emoji',
     emojiName: 'Name',
     emojiNamePlaceholder: 'party-parrot',
-    emojiImage: 'Image',
     emojiChoose: 'Choose image',
     emojiNone: 'No custom emoji yet.',
     emojiHint: 'Square images up to 1 MB work best.',

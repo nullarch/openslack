@@ -116,6 +116,8 @@ export interface AppState {
   notifyPrompt: boolean;
   /** Live Socket Mode state per app id, as events report it. */
   appConnections: Record<string, boolean>;
+  /** Conversations that text links to but the viewer may not see. */
+  hiddenChannels: Record<string, true>;
 }
 
 export const useStore = create<AppState>(() => ({
@@ -146,6 +148,7 @@ export const useStore = create<AppState>(() => ({
   emojiVersion: 0,
   notifyPrompt: false,
   appConnections: {},
+  hiddenChannels: {},
 }));
 
 export const get = useStore.getState;

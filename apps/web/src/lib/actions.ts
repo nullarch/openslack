@@ -688,6 +688,7 @@ export function ensureConversationInfo(id: string): void {
     })
     .catch(() => {
       // Not visible to the viewer: the link stays generic.
+      set((state) => ({ hiddenChannels: { ...state.hiddenChannels, [id]: true } }));
     });
 }
 
