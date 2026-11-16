@@ -12,7 +12,8 @@
     "build": "pnpm --filter @app/web build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "release": "pnpm build && node scripts/build-release.mjs"
+    "release": "pnpm build && node scripts/build-release.mjs",
+    "check:brand": "node scripts/check-brand.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"
