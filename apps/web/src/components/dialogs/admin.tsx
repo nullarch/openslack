@@ -21,9 +21,17 @@ function MembersAdmin() {
   const roleOf = (user: User): string => (user.is_primary_owner ? 'primary_owner' : user.is_owner ? 'owner' : user.is_admin ? 'admin' : 'member');
   const roles = self.is_owner ? ['owner', 'admin', 'member'] : ['admin', 'member'];
 
+  // The server's answer is applied at once; the same change also arrives as an event for everyone else.
+  const apply = (result: Json | undefined): void => {
+    const changed = result?.user as User | undefined;
+    if (changed) useStore.setState((state) => ({ users: { ...state.users, [changed.id]: changed } }));
+  };
+  const setRole = async (user: User, role: string): Promise<void> => {
+    apply(await attempt(() => call('client.admin.setRole', { user: user.id, role })));
+  };
   const deactivate = async (user: User): Promise<void> => {
     if (!user.deleted && !(await confirmDialog(S.admin.confirmDeactivate(displayName(user)), S.admin.deactivate))) return;
-    await attempt(() => call('client.admin.setActive', { user: user.id, active: user.deleted }));
+    apply(await attempt(() => call('client.admin.setActive', { user: user.id, active: user.deleted })));
   };
 
   return (
@@ -49,7 +57,7 @@ function MembersAdmin() {
               <select
                 value={role}
                 aria-label={S.admin.role[role]}
-                onChange={(event) => void attempt(() => call('client.admin.setRole', { user: user.id, role: event.target.value }))}
+                onChange={(event) => void setRole(user, event.target.value)}
               >
                 {roles.map((option) => (
                   <option key={option} value={option}>
@@ -195,7 +203,17 @@ function SecretsView({ secrets }: { secrets: Secrets }) {
   );
 }
 
-function AppDetail({ app, secrets, onBack, onChanged }: { app: AppInfo; secrets: Secrets | null; onBack: () => void; onChanged: () => void }) {
+interface AppDetailProps {
+  app: AppInfo;
+  /** Credentials from creating the app in this dialog; null once the detail view has been left. */
+  secrets: Secrets | null;
+  onBack: () => void;
+  onChanged: () => void;
+  /** A token was replaced, so the one shown at creation is no longer valid. */
+  onRotated: (kind: 'bot' | 'app') => void;
+}
+
+function AppDetail({ app, secrets, onBack, onChanged, onRotated }: AppDetailProps) {
   const bot = useStore((state) => state.users[app.bot_user_id]);
   const connected = useStore((state) => state.appConnections[app.id] ?? app.connected);
   const [signingSecret, setSigningSecret] = useState<string | null>(null);
@@ -264,6 +282,7 @@ function AppDetail({ app, secrets, onBack, onChanged }: { app: AppInfo; secrets:
     if (!result) return;
     const token = String(result.token);
     setRotated(token);
+    onRotated(kind);
     setHints((current) => ({ ...current, [kind]: `${token.slice(0, 9)}…${token.slice(-4)}` }));
   };
 
@@ -493,7 +512,31 @@ function AppsAdmin() {
   const current = apps.find((app) => app.id === selected);
   const isConnected = (app: AppInfo): boolean => live[app.id] ?? app.connected;
   if (current && isAdmin) {
-    return <AppDetail key={current.id} app={current} secrets={secrets[current.id] ?? null} onBack={() => setSelected(null)} onChanged={load} />;
+    const forget = (kind?: 'bot' | 'app'): void => {
+      setSecrets((all) => {
+        const next = { ...all };
+        const mine = next[current.id];
+        if (!mine) return all;
+        if (kind === 'bot') next[current.id] = { ...mine, bot_token: undefined };
+        else if (kind === 'app') next[current.id] = { ...mine, app_token: undefined };
+        else delete next[current.id];
+        return next;
+      });
+    };
+    return (
+      <AppDetail
+        key={current.id}
+        app={current}
+        secrets={secrets[current.id] ?? null}
+        onBack={() => {
+          // Credentials are shown once: leaving this view forgets them.
+          forget();
+          setSelected(null);
+        }}
+        onChanged={load}
+        onRotated={forget}
+      />
+    );
   }
 
   return (

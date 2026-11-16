@@ -1,7 +1,7 @@
 import type { User } from '@app/shared';
 import { AtSign, Bold, Code, Hash, Italic, Link2, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, X, FileText } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
-import { errorText, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
+import { errorText, loadCommands, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { asset, uploadFile } from '../lib/api';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
 import { searchEmoji } from '../lib/emoji';
@@ -324,10 +324,16 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
       return;
     }
     const command = /^(\/[a-z0-9_-]+)(?:\s+([\s\S]*))?$/i.exec(body);
-    if (command && get().commands.some((item) => item.command === command[1]!.toLowerCase())) {
-      const ok = await runCommand(channel, command[1]!.toLowerCase(), command[2] ?? '', threadTs);
-      if (!ok) setText(body);
-      return;
+    if (command) {
+      const name = command[1]!.toLowerCase();
+      const known = (): boolean => get().commands.some((item) => item.command === name);
+      // The list was loaded when this tab started; a command added since is one request away.
+      if (!known()) await loadCommands();
+      if (known()) {
+        const ok = await runCommand(channel, name, command[2] ?? '', threadTs);
+        if (!ok) setText(body);
+        return;
+      }
     }
     void sendMessage({ channel, text: encoded, threadTs, broadcast: broadcast && Boolean(threadTs) });
     setBroadcast(false);

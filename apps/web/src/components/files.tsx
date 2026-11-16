@@ -70,6 +70,24 @@ function TextPreview({ file }: { file: FileObject }) {
   );
 }
 
+/** A PDF opens in the browser's own viewer, on request: loading every PDF in a channel up front would be wasteful. */
+function PdfFile({ file }: { file: FileObject }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`file-card is-pdf ${open ? 'is-open' : ''}`}>
+      <FileCardHead
+        file={file}
+        extra={
+          <button type="button" className="link-btn" onClick={() => setOpen((value) => !value)}>
+            {open ? S.files.hidePreview : S.files.preview}
+          </button>
+        }
+      />
+      {open ? <iframe className="file-pdf" src={asset(file.url_private)} title={file.title || file.name} /> : null}
+    </div>
+  );
+}
+
 function FileCardHead({ file, extra }: { file: FileObject; extra?: React.ReactNode }) {
   return (
     <div className="file-card-head">
@@ -114,6 +132,7 @@ export function Files({ files }: { files: FileObject[] }) {
             </div>
           );
         }
+        if (file.mimetype === 'application/pdf') return <PdfFile key={file.id} file={file} />;
         if (isText(file)) return <TextPreview key={file.id} file={file} />;
         return (
           <div key={file.id} className="file-card">

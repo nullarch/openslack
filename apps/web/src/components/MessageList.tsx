@@ -81,6 +81,13 @@ export function MessageList({ channel }: { channel: string }) {
   };
 
   const report = (): void => {
+    const node = scroller.current;
+    // Content that grew since the last measurement (a video learning its size) is not the reader
+    // scrolling away: keep the newest message in view rather than concluding they left the bottom.
+    if (node && stick.current && node.scrollHeight !== lastHeight.current) {
+      node.scrollTop = node.scrollHeight;
+      lastHeight.current = node.scrollHeight;
+    }
     const bottom = isNearBottom();
     stick.current = bottom;
     viewing.atBottom = bottom && !conv.hasNewer;
@@ -133,7 +140,8 @@ export function MessageList({ channel }: { channel: string }) {
     return () => window.clearTimeout(timer);
   }, [highlight, channel, conv.loaded, conv.list]);
 
-  // Media that loads late changes the height; stay pinned while at the bottom.
+  // Media that loads late makes the content taller, and a growing composer makes the pane
+  // shorter; either way, stay pinned while at the bottom.
   useEffect(() => {
     const node = scroller.current;
     const inner = content.current;
@@ -143,6 +151,7 @@ export function MessageList({ channel }: { channel: string }) {
       lastHeight.current = node.scrollHeight;
     });
     observer.observe(inner);
+    observer.observe(node);
     return () => observer.disconnect();
   }, [channel]);
 

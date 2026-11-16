@@ -1,7 +1,8 @@
 // End-to-end check of the headline claim, through the real UI:
 // an agent written with the official Bolt SDK (examples/hello-agent) connects
 // to a local server, a person mentions it in the browser, the reply streams
-// into a thread, and a button click reaches the agent.
+// into a thread, a button click reaches the agent, and a slash command typed
+// in the composer is acknowledged privately and answered in the channel.
 //
 //   pnpm --filter @app/web build && pnpm --filter @app/web e2e:agent
 import assert from 'node:assert/strict';
@@ -123,6 +124,44 @@ async function main() {
   await page.mouse.move(700, 22);
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(shots, 'agent-confirmed.png') });
+
+  // A slash command, registered only now: this tab loaded its command list before the command existed.
+  await call('client.apps.commands.set', { app: created.app.id, command: '/hello', description: 'Say hello through the agent', usage_hint: '[topic]' });
+  await page.keyboard.press('Escape');
+  await composer.fill('/hello release notes');
+  await composer.press('Enter');
+  const list = page.locator('.message-scroll');
+  const acknowledgement = list.locator('.msg.is-ephemeral', { hasText: 'On it,' }).last();
+  await acknowledgement.waitFor({ timeout: 10_000 });
+  assert.equal(await acknowledgement.locator('.msg-author').innerText(), 'Hello Agent');
+  assert.equal(await acknowledgement.locator('.msg-note').innerText(), 'Only visible to you');
+  await acknowledgement.locator('.mention.is-me', { hasText: '@Maya' }).waitFor();
+  const answer = list.locator('.msg:not(.is-ephemeral)', { hasText: 'Hello from the agent about “release notes”' }).last();
+  await answer.waitFor({ timeout: 10_000 });
+  assert.equal(await answer.locator('.msg-author').innerText(), 'Hello Agent');
+  assert.equal(await composer.inputValue(), '', 'the command was run, not posted as a message');
+  assert.equal(await list.locator('.msg', { hasText: '/hello release notes' }).count(), 0);
+  console.log('  ok    a slash command typed in the composer was acknowledged privately and answered in the channel');
+
+  // Now that the tab knows the command, the composer completes it.
+  await composer.pressSequentially('/hel');
+  await page.locator('.suggest-item', { hasText: '/hello [topic]' }).waitFor();
+  await composer.press('Enter');
+  assert.equal(await composer.inputValue(), '/hello ');
+  await composer.pressSequentially('again');
+  await composer.press('Enter');
+  await list.locator('.msg:not(.is-ephemeral)', { hasText: 'Hello from the agent about “again”' }).last().waitFor({ timeout: 10_000 });
+  console.log('  ok    the composer completes the command once it knows it');
+
+  // What each side keeps: the answer is in the channel for everyone, the acknowledgement is nowhere.
+  const history = await call('conversations.history', { channel: random.id, limit: 20 });
+  const texts = history.messages.map((message) => message.text);
+  assert.equal(texts.filter((text) => text.includes('Hello from the agent about')).length, 2);
+  assert.ok(!texts.some((text) => text.includes('On it,')), 'the acknowledgement was never stored');
+  console.log('  ok    the answer is stored for the channel; the acknowledgement is not stored at all');
+  await page.mouse.move(700, 22);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(shots, 'agent-command.png') });
 
   console.log(`\nAgent round trip passed. Screenshots: ${shots}`);
 }

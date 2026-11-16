@@ -118,6 +118,18 @@ describe('workspace', () => {
     assert.deepEqual(pins.items[0].message.pinned_to, [general]);
   });
 
+  test('people are listed on a reaction in the order they reacted, however close together', async () => {
+    // Two reactions often land in the same millisecond; alternate who goes first so no id order can hide a tie.
+    for (let round = 0; round < 40; round += 1) {
+      const { ts } = await owner.ok('chat.postMessage', { channel: general, text: `quick reactions ${round}` });
+      const [first, second] = round % 2 === 0 ? [owner, member] : [member, owner];
+      await first.ok('reactions.add', { channel: general, timestamp: ts, name: 'zap' });
+      await second.ok('reactions.add', { channel: general, timestamp: ts, name: 'zap' });
+      const got = await owner.ok('reactions.get', { channel: general, timestamp: ts });
+      assert.deepEqual(got.message.reactions[0].users, [first.userId, second.userId], `round ${round}`);
+    }
+  });
+
   test('unread and mention counts follow each member’s read position', async () => {
     const { channel } = await owner.ok('conversations.create', { name: 'unread-test' });
     await owner.ok('conversations.invite', { channel: channel.id, users: member.userId });
@@ -142,6 +154,17 @@ describe('workspace', () => {
     // Marking as unread moves the position back.
     await member.ok('conversations.mark', { channel: channel.id, ts: '0000000001.000000' });
     assert.equal((await counts(member)).unread_count, 3);
+  });
+
+  test('a message posted right after someone joins is unread for them', async () => {
+    // Joining stamps the read position and posting stamps the message; the second must never sort before the first.
+    for (let round = 0; round < 60; round += 1) {
+      const { channel } = await owner.ok('conversations.create', { name: `join-then-post-${round}` });
+      await owner.ok('conversations.invite', { channel: channel.id, users: member.userId });
+      await owner.ok('chat.postMessage', { channel: channel.id, text: 'posted straight after the invitation' });
+      const counts = (await member.ok('client.counts')).channels.find((entry: Json) => entry.id === channel.id);
+      assert.equal(counts.unread_count, 1, `round ${round}`);
+    }
   });
 
   test('private channels are invisible to non-members everywhere', async () => {

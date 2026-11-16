@@ -5,6 +5,8 @@
 //
 // Mention the bot in a channel it belongs to. It shows a status, reads recent
 // messages, streams a Markdown answer into the thread and ends with buttons.
+// It also answers the /hello slash command, once that command is registered
+// for the app.
 import bolt from '@slack/bolt';
 
 const { App } = bolt;
@@ -78,6 +80,14 @@ app.action('approve', async ({ ack, body, client }) => {
 app.action('dismiss', async ({ ack, respond }) => {
   await ack();
   await respond({ delete_original: true });
+});
+
+// A slash command: acknowledge to the person who ran it (only they see that),
+// then answer in the channel through the command's response URL.
+app.command('/hello', async ({ command, ack, respond }) => {
+  await ack(`On it, <@${command.user_id}>.`);
+  const about = command.text ? ` about “${command.text}”` : '';
+  await respond({ response_type: 'in_channel', text: `:wave: Hello from the agent${about}. <@${command.user_id}> asked.` });
 });
 
 await app.start();

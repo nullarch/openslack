@@ -3,165 +3,29 @@
 //
 //   pnpm --filter @app/web build && pnpm --filter @app/web e2e
 //
-// Environment: SHOTS_DIR (where screenshots go), HEADED=1 (watch it run),
-// SERVER_ROOT (run the server from another checkout of this repository).
+// See lib.mjs for the environment variables.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import net from 'node:net';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const serverRoot = resolve(process.env.SERVER_ROOT ?? root);
-const shots = resolve(process.env.SHOTS_DIR ?? join(root, 'apps/web/e2e/shots'));
-const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-mkdirSync(shots, { recursive: true });
-
-// A 2×2 PNG.
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGP8z8Dwn4GBgYGJAQoYGBgAGwQBAfMqSXQAAAAASUVORK5CYII=',
-  'base64',
-);
-
-function freePort() {
-  return new Promise((done, fail) => {
-    const probe = net.createServer();
-    probe.once('error', fail);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address();
-      probe.close(() => done(port));
-    });
-  });
-}
-
-const servers = [];
-
-/** Start a server of our own on a free port with a throwaway data directory. */
-async function startServer({ seed }) {
-  const port = await freePort();
-  const dataDir = mkdtempSync(join(tmpdir(), 'chat-e2e-'));
-  const child = spawn(process.execPath, ['apps/server/src/main.ts'], {
-    cwd: serverRoot,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      HOST: '127.0.0.1',
-      DATA_DIR: dataDir,
-      WEB_DIR: join(root, 'apps/web/dist'),
-      SEED_DEMO: seed ? '1' : '',
-      QUIET: '1',
-      NODE_NO_WARNINGS: '1',
-    },
-    stdio: ['ignore', 'inherit', 'inherit'],
-  });
-  const server = { port, dataDir, child, base: `http://127.0.0.1:${port}` };
-  servers.push(server);
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    try {
-      const response = await fetch(`${server.base}/healthz`);
-      if (response.ok) return server;
-    } catch {
-      // Not listening yet.
-    }
-    await new Promise((wait) => setTimeout(wait, 100));
-  }
-  throw new Error('server did not start');
-}
-
-function stopServers() {
-  for (const server of servers) {
-    server.child.kill('SIGTERM');
-    rmSync(server.dataDir, { recursive: true, force: true });
-  }
-}
-
-let browser;
-let passed = 0;
-let hasPlatform = false;
-const errors = [];
-
-async function step(name, run) {
-  const started = Date.now();
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ok    ${name} (${Date.now() - started} ms)`);
-  } catch (error) {
-    console.log(`  FAIL  ${name}`);
-    throw error;
-  }
-}
-
-/** On failure, save what every open page looked like and print what the pages logged. */
-async function debugDump() {
-  if (!browser) return;
-  let index = 0;
-  for (const context of browser.contexts()) {
-    for (const page of context.pages()) {
-      index += 1;
-      await page.screenshot({ path: join(shots, `failure-${index}.png`) }).catch(() => undefined);
-      console.log(`  page ${index}: ${page.url()}`);
-    }
-  }
-  if (errors.length > 0) console.log('  page errors:\n   ', errors.join('\n    '));
-}
-
-function watch(page) {
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('console', (message) => {
-    if (message.type() === 'error' && !/Failed to load resource/.test(message.text())) errors.push(message.text());
-  });
-}
-
-async function shot(page, name) {
-  // Park the pointer where it highlights nothing, and let toasts and transitions settle.
-  await page.mouse.move(700, 22);
-  await page.locator('.toast').first().waitFor({ state: 'detached', timeout: 7000 }).catch(() => undefined);
-  await page.waitForTimeout(200);
-  await page.screenshot({ path: join(shots, `${name}.png`) });
-}
-
-async function signIn(page, base, email) {
-  await page.goto(base);
-  await page.waitForURL('**/signin');
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', 'demo-password');
-  await page.click('button[type="submit"]');
-  await page.waitForSelector('.sidebar .side-item');
-}
-
-function sideItem(page, name) {
-  return page.locator('.sidebar .side-item', { has: page.locator('.side-name', { hasText: new RegExp(`^${name}$`) }) }).first();
-}
-
-async function openChannel(page, name) {
-  await sideItem(page, name).click();
-  await page.waitForSelector(`.conv-name:text-is("${name}")`);
-  await page.waitForSelector('.message-content .msg');
-}
-
-function row(page, text) {
-  return page.locator('.message-scroll .msg', { hasText: text }).last();
-}
-
-function composer(page) {
-  return page.locator('.conversation .composer-input');
-}
-
-async function send(page, text) {
-  await composer(page).fill(text);
-  await composer(page).press('Enter');
-}
-
-async function setTheme(page, label) {
-  await page.locator('.me-strip').click();
-  await page.locator('.menu-item', { hasText: 'Preferences' }).click();
-  await page.locator('.segmented button', { hasText: label }).click();
-  await page.keyboard.press('Escape');
-}
+import { join } from 'node:path';
+import {
+  composer,
+  freePort,
+  modifier,
+  openChannel,
+  PNG,
+  root,
+  row,
+  run,
+  send,
+  setTheme,
+  shot,
+  shots,
+  sideItem,
+  signIn,
+  startServer,
+  step,
+  watch,
+  wide,
+} from './lib.mjs';
 
 async function openAtlasThread(page) {
   await openChannel(page, 'engineering');
@@ -170,10 +34,9 @@ async function openAtlasThread(page) {
   await page.locator('.panel .md .code-block.is-diff .diff-line.add').first().waitFor();
 }
 
-async function main() {
-  browser = await chromium.launch({ channel: 'chrome', headless: process.env.HEADED !== '1' });
+async function main(browser) {
   const seeded = await startServer({ seed: true });
-  const wide = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 };
+  let hasPlatform = false;
 
   const mayaContext = await browser.newContext({ ...wide, colorScheme: 'light' });
   const maya = await mayaContext.newPage();
@@ -781,20 +644,6 @@ async function main() {
       await dev.close();
     }
   });
-
-  assert.deepEqual(errors, [], 'no page errors or console errors');
-  await browser.close();
-  console.log(`\n${passed} steps passed. Screenshots: ${shots}`);
 }
 
-main()
-  .then(() => {
-    stopServers();
-  })
-  .catch(async (error) => {
-    console.error(error);
-    await debugDump();
-    await browser?.close().catch(() => undefined);
-    stopServers();
-    process.exit(1);
-  });
+await run(main);

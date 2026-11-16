@@ -155,6 +155,19 @@ export class Gateway implements Presence {
       if (!clients) continue;
       for (const client of clients) this.sendRaw(client, payload);
     }
+
+    // A deactivated account loses its open connections, right after hearing why.
+    if (busEvent.event.type === 'user_change') {
+      const user = busEvent.event.user as { id?: string; deleted?: boolean } | undefined;
+      if (user?.id && user.deleted) this.disconnectUser(user.id);
+    }
+  }
+
+  /** Close every connection a user holds. Their session is already gone, so they cannot reconnect. */
+  private disconnectUser(userId: string): void {
+    const clients = this.byUser.get(userId);
+    if (!clients) return;
+    for (const client of [...clients]) client.socket.close(4001, 'account_inactive');
   }
 
   private send(client: Client, body: unknown): void {

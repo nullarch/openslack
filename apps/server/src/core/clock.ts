@@ -20,9 +20,22 @@ function microsToTs(micros: bigint): string {
 export class Clock {
   private readonly last = new Map<string, bigint>();
   private readonly db: Db;
+  private lastNow = 0n;
 
   constructor(db: Db) {
     this.db = db;
+  }
+
+  /**
+   * The current time in microseconds, never repeating and never going back:
+   * wall-clock milliseconds, with the last three digits counting up within a
+   * millisecond. A read position stamped now therefore always sorts before a
+   * message stamped a moment later.
+   */
+  private now(): bigint {
+    const wall = BigInt(Date.now()) * 1000n;
+    this.lastNow = wall > this.lastNow ? wall : this.lastNow + 1n;
+    return this.lastNow;
   }
 
   next(conversationId: string): string {
@@ -34,8 +47,7 @@ export class Clock {
       );
       last = row?.ts ? tsToMicros(row.ts) : 0n;
     }
-    // Millisecond wall clock plus sub-millisecond digits from the monotonic clock.
-    const now = BigInt(Date.now()) * 1000n + (process.hrtime.bigint() / 1000n) % 1000n;
+    const now = this.now();
     const value = now > last ? now : last + 1n;
     this.last.set(conversationId, value);
     return microsToTs(value);
@@ -50,7 +62,7 @@ export class Clock {
 
   /** A timestamp for events that are not messages. */
   eventTs(): string {
-    return microsToTs(BigInt(Date.now()) * 1000n + (process.hrtime.bigint() / 1000n) % 1000n);
+    return microsToTs(this.now());
   }
 }
 

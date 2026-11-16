@@ -47,6 +47,12 @@ describe('apps, tokens and Socket Mode', () => {
     assert.ok(!JSON.stringify(listed).includes(app.botToken));
     assert.ok(!JSON.stringify(listed).includes(app.signingSecret));
     assert.equal((await member.call('client.apps.info', { app: app.id })).error, 'not_allowed');
+
+    // The answer to creating an app already carries the hints of the tokens it issued.
+    const created = await owner.ok('client.apps.create', { name: 'Hint Bot' });
+    assert.equal(created.app.token_hints.bot, `${created.bot_token.slice(0, 9)}…${created.bot_token.slice(-4)}`);
+    assert.equal(created.app.token_hints.app, `${created.app_token.slice(0, 9)}…${created.app_token.slice(-4)}`);
+    await owner.ok('client.apps.delete', { app: created.app.id });
     assert.equal((await owner.ok('client.apps.info', { app: app.id })).signing_secret, app.signingSecret);
   });
 

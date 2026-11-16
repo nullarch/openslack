@@ -12,6 +12,7 @@ import {
   patchMessage,
   placeMessage,
   removeMessage,
+  sessionEnded,
   setOnBooted,
   setThreadPrompts,
   setThreadStatus,
@@ -58,21 +59,24 @@ export function connect(): void {
     stopHeartbeat();
     set({ connection: 'offline' });
     scheduleReconnect();
+    // The server also closes connections when it ends a session; find out which it was.
+    if (everConnected) void checkSession();
   };
   current.onerror = () => current.close();
+}
+
+async function checkSession(): Promise<void> {
+  try {
+    const status = await call('client.status');
+    if (!status.signed_in) sessionEnded();
+  } catch {
+    // The server is unreachable; the reconnect loop keeps trying.
+  }
 }
 
 function scheduleReconnect(): void {
   const delay = Math.min(15_000, 1000 * 2 ** attempts) + Math.random() * 500;
   attempts += 1;
-  // After a few failures, check whether the session itself ended.
-  if (attempts === 4) {
-    void call('client.status')
-      .then((status) => {
-        if (!status.signed_in) window.location.assign('/signin');
-      })
-      .catch(() => undefined);
-  }
   window.clearTimeout(reconnectTimer);
   reconnectTimer = window.setTimeout(connect, delay);
 }
@@ -273,6 +277,10 @@ function handle(event: Json): void {
     case 'team_join':
     case 'user_change': {
       const user = event.user as User;
+      if (user.deleted && user.id === get().self?.id) {
+        sessionEnded();
+        break;
+      }
       set((state) => ({
         users: { ...state.users, [user.id]: user },
         // The viewer's own record keeps fields only they may see (email).

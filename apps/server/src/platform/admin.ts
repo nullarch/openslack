@@ -60,12 +60,10 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
     });
     announceBotUser(ctx, bot.id, 'team_join');
     // Tokens are stored hashed; this response is the only time they are shown.
-    return {
-      app: info(app.id),
-      bot_token: issueToken(ctx, app, 'bot'),
-      app_token: issueToken(ctx, app, 'app'),
-      signing_secret: app.signing_secret,
-    };
+    const botToken = issueToken(ctx, app, 'bot');
+    const appToken = issueToken(ctx, app, 'app');
+    // Described after issuing, so `token_hints` already names the tokens above.
+    return { app: info(app.id), bot_token: botToken, app_token: appToken, signing_secret: app.signing_secret };
   });
 
   kernel.registry.add('client.apps.update', { auth: 'admin' }, async ({ args }) => {
