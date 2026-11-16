@@ -112,8 +112,8 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 | Workspace | The unit that owns members, channels, settings and a URL | 0.1 |
 | Setup flow | Name the workspace, create the first channel, invite teammates | 0.1 |
 | Roles | Primary Owner, Owner, Admin, Member | 0.1 |
-| Sign-in with password or emailed code | Email plus password, or a 6-digit code sent by email | 0.1 |
-| Invitations | Email invites, shareable links with expiry and use count, sign-up limited to approved email domains, invite requests that an admin approves | 0.1 (requests: 0.2) |
+| Sign-in with password or emailed code | Email plus password, or a 6-digit code sent by email | 0.1 (password), 0.2 (emailed code) |
+| Invitations | Email invites, shareable links with expiry and use count, sign-up limited to approved email domains, invite requests that an admin approves | 0.1 (links, single-address invites), 0.2 (sending mail, domains, requests) |
 | Profile | Full name, display name, photo, title, time zone, phone, pronouns, custom fields | 0.1 (custom fields: 0.2) |
 | Status and presence | Emoji and text with an expiry; active/away derived from activity or set by hand | 0.1 |
 | Deactivation | Remove access while keeping the person's messages | 0.1 |
@@ -134,7 +134,7 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 | Public channels | Open to every member; browse, join, leave | 0.1 |
 | Private channels | Invite-only; invisible to non-members, including in search | 0.1 |
 | Direct messages | One-to-one, group DMs of up to 9 people, and a DM with yourself | 0.1 |
-| Channel lifecycle | Create, rename, archive, unarchive, delete, convert public to private | 0.1 |
+| Channel lifecycle | Create, rename, archive, unarchive, delete, convert public to private | 0.1 (convert and delete: 0.2) |
 | Channel details | Topic, description, member list, add and remove people | 0.1 |
 | Default channels | Channels every new member joins; one general channel nobody can leave | 0.1 |
 | Channel browser | Search and filter all channels a person may join | 0.1 |
@@ -159,14 +159,14 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 | Emoji | Shortcodes, picker, skin tones, custom emoji and aliases | 0.1 |
 | Edit and delete | With an "edited" marker; optimistic send and retry on failure | 0.1 |
 | Reactions | Emoji reactions with who reacted | 0.1 |
-| Threads | Replies in a side panel, "also send to channel", following a thread, a Threads view across all conversations | 0.1 |
-| Sharing | Copy a permanent link, forward a message to another conversation with a quoted preview | 0.1 |
-| Link previews | Title, description and image fetched from a URL | 0.1 |
+| Threads | Replies in a side panel, "also send to channel", following a thread, a Threads view across all conversations | 0.1 (following and the Threads view: 0.2) |
+| Sharing | Copy a permanent link, forward a message to another conversation with a quoted preview | 0.1 (link), 0.2 (forward) |
+| Link previews | Title, description and image fetched from a URL | 0.2 |
 | System messages | Joins, leaves, topic changes, pins, renames | 0.1 |
 | Typing indicators | "Several people are typing" | 0.1 |
 | History view | Infinite scroll in both directions, date dividers, the new-messages line, jump to a message | 0.1 |
 | Drafts | Unsent text kept per conversation; synced across devices with a "Drafts & sent" view | 0.1 local, 0.2 synced |
-| Ephemeral messages | Visible to one person only, used by apps | 0.2 |
+| Ephemeral messages | Visible to one person only, used by apps | 0.1 |
 | Scheduled send | Pick a time; view and edit scheduled messages | 0.2 |
 | Later and reminders | Save a message for later with in-progress, archived and completed states; `/remind` | 0.2 |
 | Built-in slash commands | `/status`, `/dnd`, `/invite`, `/topic`, `/me`, `/shrug`, `/remind` and the rest | 0.2 |
@@ -182,7 +182,7 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 |---|---|---|
 | Upload | Drag and drop, paste, multiple files per message, progress, size limits | 0.1 |
 | Previews | Images with thumbnails, video, audio, PDF, text and code | 0.1 |
-| File browser | All files in a conversation or the workspace, filter by type and person | 0.1 |
+| File browser | All files in a conversation or the workspace, filter by type and person | 0.2 (the API is in 0.1) |
 | Download and delete | By the uploader or an admin | 0.1 |
 | Share to another conversation | One file, several places, access follows the conversations | 0.2 |
 | External links | A public URL for a file that can be revoked | Later |
@@ -196,9 +196,9 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 |---|---|---|
 | Message and file search | Full text across everything the person may see | 0.1 |
 | Modifiers | `in:`, `from:`, `to:`, `before:`, `after:`, `on:`, `during:`, `has:`, `is:`, `with:`, quoted phrases, exclusion with `-` | 0.1 (core set) |
-| Result views | Tabs for messages, files, channels and people; filters; view in context | 0.1 |
+| Result views | Tabs for messages, files, channels and people; filters; view in context | 0.1 (messages), 0.2 (other tabs) |
 | Quick switcher | `Cmd/Ctrl+K` jumps to a conversation or person by fuzzy match | 0.1 |
-| Search inside one conversation | `Cmd/Ctrl+F` | 0.1 |
+| Search inside one conversation | `Cmd/Ctrl+F` | 0.2 (`in:` covers it meanwhile) |
 | Recent searches and suggestions | As you type | 0.2 |
 | File content search | Text inside PDFs and documents | Later |
 | AI answers | A written answer with citations above the result list | Later |
@@ -209,9 +209,9 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 | Slack capability | What it is | Phase |
 |---|---|---|
 | Badges | Unread dots and mention counts on conversations and the app icon | 0.1 |
-| Activity view | Mentions, thread replies, reactions and invitations in one list | 0.1 |
+| Activity view | Mentions, thread replies, reactions and invitations in one list | 0.2 |
 | Desktop notifications | System notifications with sound | 0.1 (browser) |
-| Per-conversation level | All messages, mentions only, nothing; mute | 0.1 |
+| Per-conversation level | All messages, mentions only, nothing; mute | 0.1 (mute), 0.2 (levels) |
 | Pause notifications | Do Not Disturb for a period, with an urgent override for the sender | 0.2 |
 | Notification schedule | Quiet hours by weekday | 0.2 |
 | Keywords | Notify on words of your choosing | 0.2 |
@@ -259,12 +259,12 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 | Incoming webhooks | A URL that posts a message to one channel | 0.1 |
 | Events API | Signed HTTP delivery of events with retries | 0.1 |
 | Socket Mode | The same events over a WebSocket the app opens | 0.1 |
-| Block Kit | Layout blocks, interactive elements, legacy attachments | 0.1 display blocks, 0.2 interactive |
-| Slash commands | App-defined commands with a `response_url` | 0.2 |
-| Interactivity | Buttons, menus, global and message shortcuts | 0.2 |
+| Block Kit | Layout blocks, interactive elements, legacy attachments | 0.1 (layout blocks, buttons, select and overflow menus), 0.2 (date pickers, checkboxes, inputs) |
+| Slash commands | App-defined commands with a `response_url` | 0.1 |
+| Interactivity | Buttons, menus, global and message shortcuts | 0.1 (buttons and menus), 0.2 (shortcuts) |
 | Modals and App Home | `views.open`, `views.update`, `views.push`, `views.publish` | 0.2 |
-| OAuth install and manifests | The v2 install flow, app manifests, an app management screen with admin approval | 0.2 |
-| AI app surfaces | Assistant threads, suggested prompts, status text, streamed messages | 0.2 |
+| OAuth install and manifests | The v2 install flow, app manifests, an app management screen with admin approval | 0.1 (management screen; an admin creates the app and gets its tokens), 0.2 (OAuth, manifests) |
+| AI app surfaces | Assistant threads, suggested prompts, status text, streamed messages | 0.1 |
 | App unfurls | Apps supply previews for their own links | Later |
 | Sign in with Slack | The workspace as an OpenID Connect provider for other sites | Later |
 | Admin, SCIM, audit and discovery APIs | Programmatic administration and compliance access | Later |
@@ -283,7 +283,7 @@ Each table lists what Slack has in one area, a one-line description, and the pha
 
 | Slack capability | What it is | Phase |
 |---|---|---|
-| Workspace settings | Name, icon, default channels, who may create channels, invite, add emoji, use `@channel` | 0.1 |
+| Workspace settings | Name, icon, default channels, who may create channels, invite, add emoji, use `@channel` | 0.2 (renaming through the API is in 0.1) |
 | Member management | Invite, change role, deactivate, see last activity | 0.1 |
 | Custom emoji management | Add, alias, remove | 0.1 |
 | Import | From a Slack export and from other tools | 0.1 (Slack), Later (others) |
@@ -321,12 +321,12 @@ All AI features are off until an admin connects a model (Claude API, any OpenAI-
 |---|---|---|
 | Web app | Rail, sidebar, message pane, secondary pane for threads and profiles | 0.1 |
 | Themes | Light, dark, follow system | 0.1 (custom sidebar themes: Later) |
-| Keyboard shortcuts | Quick switcher, edit last message, mark read, navigate unreads, shortcut list | 0.1 (core set) |
-| Preferences | Notifications, appearance, message display, language, time format | 0.1 |
-| Languages | Interface in about a dozen languages | 0.1 (English, Korean), more by contribution |
+| Keyboard shortcuts | Quick switcher, edit last message, mark read, navigate unreads, shortcut list | 0.1 (quick switcher, edit last message, close panels), 0.2 (the rest) |
+| Preferences | Notifications, appearance, message display, language, time format | 0.1 (appearance), 0.2 (the rest) |
+| Languages | Interface in about a dozen languages | 0.1 (English; all strings in one file), 0.2 (Korean), more by contribution |
 | Reconnect and catch-up | Recover missed events after a dropped connection | 0.1 |
 | Accessibility | Full keyboard operation, screen-reader labels, contrast, reduced motion | 0.2 |
-| Mobile web and PWA | Responsive layout, installable, Web Push | 0.2 |
+| Mobile web and PWA | Responsive layout, installable, Web Push | 0.1 (responsive layout), 0.2 (installable, Web Push) |
 | Desktop app | macOS, Windows, Linux: notifications, badge, deep links, auto-update, several servers | 0.2 |
 | Native mobile apps | iOS and Android with push, share sheet and offline cache | Later |
 
@@ -339,7 +339,7 @@ Compatibility is delivered in three tiers. A method is "supported" when the offi
 | Tier | Phase | Contents |
 |---|---|---|
 | **A** | 0.1 | `auth.test`; `chat.postMessage`, `chat.update`, `chat.delete`, `chat.getPermalink`; `conversations.*` (list, info, history, replies, members, create, join, leave, invite, kick, open, close, archive, rename, setTopic, setPurpose, mark); `users.list`, `users.info`, `users.lookupByEmail`, `users.profile.get/set`, `users.getPresence`; `reactions.*`; `pins.*`; `emoji.list`; `files.getUploadURLExternal`, `files.completeUploadExternal`, `files.info`, `files.list`, `files.delete`; `team.info`; `bots.info`; incoming webhooks; Events API; Socket Mode (`apps.connections.open`) |
-| **B** | 0.2 | Slash commands and `response_url`; `chat.postEphemeral`, `chat.scheduleMessage` and friends; `views.*`; interactivity payloads (`block_actions`, `view_submission`, shortcuts, external select options); App Home; `oauth.v2.access` and the install flow; app manifests; `usergroups.*`; `reminders.*`; `bookmarks.*`; `dnd.*`; `search.messages`, `search.files`; message metadata; `assistant.threads.*` and streamed messages |
+| **B** | 0.1 for the first group, 0.2 for the rest | *In 0.1:* slash commands and `response_url`; `chat.postEphemeral`; `block_actions` payloads; `assistant.threads.*` and streamed messages (`chat.startStream`, `chat.appendStream`, `chat.stopStream`); `search.messages`. *In 0.2:* `chat.scheduleMessage` and friends; `views.*`; shortcuts and external select options; App Home; `oauth.v2.access` and the install flow; app manifests; `usergroups.*`; `reminders.*`; `bookmarks.*`; `dnd.*`; `search.files`; message metadata events |
 | **C** | Later | `chat.unfurl` and `link_shared`; `canvases.*`; Lists methods; `admin.*`; SCIM; audit logs; workflow custom steps; legacy surfaces |
 
 Wire details follow Slack where SDKs depend on them: token prefixes (`xoxb-`, `xoxp-`, `xapp-`), identifier prefixes (`U`, `C`, `D`, `T`, `B`, `A`, `F`), the `ts` format, the `X-Slack-Signature` request signing scheme, the three-second acknowledgement window and the retry schedule, and the `ok` / `error` response envelope with Slack's error strings.
@@ -352,8 +352,8 @@ A test suite runs the official Bolt sample apps (JavaScript and Python) against 
 
 ### 8.3 Import
 
-- **0.1:** the standard Slack export archive: users, public channels, messages, threads, reactions, pins, custom emoji, and files when a token that can download them is provided. The importer is re-runnable and reports every item it could not map.
-- **0.2:** exports that include private channels and DMs; an OpenSlack export in the same archive format, so leaving is as easy as arriving.
+- **0.1:** the Slack export archive (zip or unpacked): users, public and private channels, direct messages, messages, threads, reactions, pins, and files when their URLs can still be downloaded. Custom emoji are not part of a Slack export. The importer is re-runnable and reports every item it could not carry over exactly.
+- **0.2:** an OpenSlack export in the same archive format, so leaving is as easy as arriving.
 - **Later:** Mattermost and Discord sources; a live bridge that mirrors channels during a gradual move.
 
 ## 9. Architecture (proposed)
