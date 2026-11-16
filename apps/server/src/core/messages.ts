@@ -568,6 +568,17 @@ export function normalizeReactionName(input: string): string {
   return name;
 }
 
+let lastReactionStamp = 0;
+
+/**
+ * Reactions are listed in the order they were added. Wall-clock milliseconds
+ * alone tie when two arrive together, so the stamp never repeats or goes back.
+ */
+function reactionStamp(): number {
+  lastReactionStamp = Math.max(Date.now(), lastReactionStamp + 1);
+  return lastReactionStamp;
+}
+
 export function addReaction(ctx: Ctx, conv: ConvRow, row: MsgRow, name: string, userId: string): void {
   const result = ctx.db.run(
     'INSERT OR IGNORE INTO reactions (conversation_id, ts, name, user_id, created) VALUES (?, ?, ?, ?, ?)',
@@ -575,7 +586,7 @@ export function addReaction(ctx: Ctx, conv: ConvRow, row: MsgRow, name: string, 
     row.ts,
     name,
     userId,
-    Date.now(),
+    reactionStamp(),
   );
   if (result.changes === 0) fail('already_reacted');
   ctx.bus.emit({
