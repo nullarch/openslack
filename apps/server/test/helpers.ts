@@ -83,11 +83,14 @@ export class Session {
 
 export class Stream {
   readonly events: Json[] = [];
+  /** Resolves with the close code once the server or the test closes the connection. */
+  readonly closed: Promise<number>;
   private readonly socket: WebSocket;
   private waiters: { match: (event: Json) => boolean; resolve: (event: Json) => void }[] = [];
 
   constructor(socket: WebSocket) {
     this.socket = socket;
+    this.closed = new Promise((resolve) => socket.once('close', (code) => resolve(code)));
     socket.on('message', (data) => {
       const event: Json = JSON.parse(data.toString());
       this.events.push(event);

@@ -103,6 +103,23 @@ describe('realtime and files', () => {
     assert.equal((await fetch(`${t.base}/%E0%A4%A`)).status, 404);
   });
 
+  test('deactivating an account closes its open connections after telling them why', async () => {
+    const leaver = await addMember(t, owner, 'Lena Leaver');
+    const stream = await leaver.connect();
+    const witness = await owner.connect();
+    await owner.ok('client.admin.setActive', { user: leaver.userId, active: false });
+    const change = await stream.next((event) => event.type === 'user_change' && event.user.id === leaver.userId);
+    assert.equal(change.user.deleted, true);
+    const code = await Promise.race([stream.closed, new Promise<number>((resolve) => setTimeout(() => resolve(-1), 1500))]);
+    assert.equal(code, 4001, 'the server closes the deactivated account\'s connection');
+    // Nothing sent afterwards reaches the closed connection, and a new one is refused.
+    await owner.ok('chat.postMessage', { channel: general, text: 'after the deactivation' });
+    await witness.next((event) => event.type === 'message' && event.text === 'after the deactivation');
+    assert.ok(!stream.events.some((event) => event.text === 'after the deactivation'));
+    await assert.rejects(leaver.connect());
+    witness.close();
+  });
+
   test('ephemeral messages reach one person and are not stored', async () => {
     const memberStream = await member.connect();
     const ownerStream = await owner.connect();
