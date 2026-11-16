@@ -34,6 +34,7 @@ TypeScript run directly by Node (type stripping), so: no `enum`, no parameter pr
 | `src/realtime` | The client WebSocket gateway and presence |
 | `src/platform` | Apps, bot tokens, Events API delivery, Socket Mode, webhooks, interactivity, slash commands, streaming |
 | `src/importer` | Slack export import |
+| `src/mcp` | Model Context Protocol endpoint (`/mcp`) built on the official SDK |
 | `src/demo` | Sample workspace used for demos and screenshots (`SEED_DEMO=1`) |
 
 `createApp(config)` in `src/app.ts` wires these together and returns a `Kernel` (`ctx`, `registry`, `router`, `upgrades`, `onClose`) that extension modules plug into: `registry.add()` for API methods, `router.add()` for plain HTTP routes, `upgrades.push()` for WebSocket endpoints, `ctx.bus.subscribe()` for events.
@@ -70,20 +71,26 @@ Server side lives in `src/platform`; the web client builds its screens on these 
 
 | Method | Purpose |
 |---|---|
-| `client.apps.list` | `{ apps: AppInfo[] }` |
-| `client.apps.create { name, description? }` | Creates the app and its bot user. Returns `{ app, bot_token, app_token, signing_secret }`; tokens are shown once |
+| `client.apps.list` | `{ apps: AppInfo[] }`. Open to every member; carries no secrets |
+| `client.apps.info { app }` | Admin only: `{ app, signing_secret, subscribable_events }` |
+| `client.apps.create { name, description?, socket_mode? }` | Admin only. Creates the app and its bot user. Returns `{ app, bot_token, app_token, signing_secret }`; tokens are shown once |
 | `client.apps.update { app, name?, description?, socket_mode?, events_url?, interactivity_url?, bot_events? }` | `{ app }` |
 | `client.apps.delete { app }` | Removes the app, deactivates its bot user |
 | `client.apps.rotateToken { app, kind: "bot" \| "app" }` | `{ token }` |
 | `client.apps.webhooks.create { app, channel }` / `.list` / `.delete` | Incoming webhook URLs |
 | `client.apps.commands.set { app, command, description?, usage_hint?, url? }` / `.delete` | Slash commands |
 | `client.commands.list` | `{ commands: [{ command, description, usage_hint, app_id, app_name }] }` for composer autocomplete |
-| `client.commands.run { channel, command, text, thread_ts? }` | Dispatches a slash command to its app |
-| `client.interactions.blockAction { channel, message_ts, action }` | Dispatches a `block_actions` payload to the app that posted the message |
+| `client.commands.run { channel, command, text, thread_ts? }` | Dispatches a slash command to its app; resolves once the app acknowledged |
+| `client.apps.unknownMethods` | Admin only: API methods apps called that this server does not implement, with counts |
+| `client.interactions.blockAction { channel, message_ts, action, state? }` | Dispatches a `block_actions` payload to the app that posted the message; resolves once the app acknowledged (at most 3 seconds) |
 
 `AppInfo`: `{ id, name, description, bot_user_id, bot_id, socket_mode, events_url, interactivity_url, bot_events, created, created_by, connected, token_hints: { bot, app } }`.
 
-Slack-compatible surface the platform adds: `apps.connections.open` and the Socket Mode WebSocket; Events API delivery with `X-Slack-Signature` signing and retries; incoming webhooks at `/services/<team>/<bot>/<secret>`; `response_url` endpoints; `chat.startStream` / `chat.appendStream` / `chat.stopStream` (a message with `streaming: true` that is updated in place); `assistant.threads.setStatus` (emits client-only `assistant_thread_status`).
+Slack-compatible surface the platform adds: `apps.connections.open` and the Socket Mode WebSocket (served under `/link/`); Events API delivery with `X-Slack-Signature` signing and retries; incoming webhooks at `/services/<team>/<bot>/<secret>`; `response_url` endpoints; `chat.startStream` / `chat.appendStream` / `chat.stopStream` (a message with `streaming: true` that is updated in place); `assistant.threads.setStatus`, `setTitle` and `setSuggestedPrompts` (client-only events `assistant_thread_status`, `assistant_thread_title`, `assistant_thread_prompts`). `app_connection_changed` tells clients when an app's Socket Mode connection comes or goes.
+
+Apps are reached at private or loopback addresses only when this server itself runs on localhost, or when `ALLOW_PRIVATE_APP_URLS=1` is set.
+
+An MCP endpoint at `/mcp` (`src/mcp`) exposes search, read and post tools; each tool calls the API method of the same purpose as the token's owner.
 
 ## Web client contract
 
@@ -99,8 +106,11 @@ Slack-compatible surface the platform adds: `apps.connections.open` and the Sock
 ```
 pnpm install
 pnpm dev                 # server on :3000 (watch) + web dev server on :5173
-pnpm test                # all packages
+pnpm test                # all packages, including the Bolt compatibility harness
 pnpm typecheck
+pnpm --filter @app/web e2e         # browser smoke test (system Chrome)
+pnpm --filter @app/web e2e:agent   # a real Bolt agent driven from the browser
+pnpm release             # bundle the server and the client into packages/cli/dist
 SEED_DEMO=1 pnpm start   # sample workspace: maya@example.com / demo-password
 ```
 

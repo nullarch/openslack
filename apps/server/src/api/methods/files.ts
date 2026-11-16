@@ -236,8 +236,11 @@ export function registerFileRoutes(ctx: Ctx, router: Router): void {
       'cache-control': 'private, max-age=86400',
       'accept-ranges': 'bytes',
       'x-content-type-options': 'nosniff',
-      // Uploaded content never runs script in this origin.
-      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; media-src 'self'; img-src 'self'; sandbox",
+      // Uploaded content never runs script in this origin. PDFs are the exception to `sandbox`:
+      // browsers refuse to open their viewer for a sandboxed document, and the viewer isolates the file itself.
+      'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; media-src 'self'; img-src 'self'${
+        row.mimetype === 'application/pdf' ? "; object-src 'self'" : '; sandbox'
+      }`,
     };
     const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ''));
     if (range && (range[1] || range[2])) {

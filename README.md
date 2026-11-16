@@ -2,7 +2,10 @@
 
 **Open-source Slack. One command. Your Slack bots and agents already speak it.**
 
-<!-- hero screenshot: docs/assets/screenshot-dark.png -->
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshot-light.png">
+  <img src="docs/assets/screenshot-dark.png" alt="A channel with a thread in which an AI agent explains a failing test and offers buttons">
+</picture>
 
 OpenSlack is a self-hosted team chat that implements the Slack API: the Web API, Events API, Socket Mode and Block Kit. Apps built with Bolt or any Slack SDK connect by changing one address. The database is built in, so there is nothing else to install.
 
@@ -47,6 +50,10 @@ app.event('app_mention', async ({ event, say }) => {
 
 await app.start();
 ```
+
+A complete example is in [`examples/hello-agent`](examples/hello-agent): mention it and it sets a status, reads the channel, streams a Markdown reply into the thread and ends with buttons.
+
+![The example agent answering in a thread, with its reply confirmed by a button click](docs/assets/agent-thread.png)
 
 ## Connect an agent over MCP
 
