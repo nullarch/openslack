@@ -1,0 +1,112 @@
+import { mkdirSync } from 'node:fs';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { join } from 'node:path';
+import { createHttpServer, Router, type UpgradeHandler } from './api/http.ts';
+import { registerChat } from './api/methods/chat.ts';
+import { registerClient } from './api/methods/client.ts';
+import { registerConversations } from './api/methods/conversations.ts';
+import { registerEmoji } from './api/methods/emoji.ts';
+import { registerFileRoutes, registerFiles } from './api/methods/files.ts';
+import { registerSearch } from './api/methods/search.ts';
+import { registerUsers } from './api/methods/users.ts';
+import { Registry } from './api/registry.ts';
+import { Bus } from './core/bus.ts';
+import { Clock } from './core/clock.ts';
+import { fail } from './core/errors.ts';
+import { Storage } from './core/storage.ts';
+import type { Config, Ctx, TeamRow } from './ctx.ts';
+import { Db } from './db/db.ts';
+import { installPlatform } from './platform/index.ts';
+import { Gateway } from './realtime/gateway.ts';
+
+/** What extension modules (the app platform, importers) get to plug into. */
+export interface Kernel {
+  ctx: Ctx;
+  registry: Registry;
+  router: Router;
+  upgrades: UpgradeHandler[];
+  /** Callbacks run on shutdown, before the database closes. */
+  onClose: (() => void | Promise<void>)[];
+}
+
+export interface App extends Kernel {
+  server: Server;
+  /** Start listening; resolves with the bound port. */
+  listen(): Promise<number>;
+  close(): Promise<void>;
+}
+
+export function createApp(config: Config): App {
+  mkdirSync(config.dataDir, { recursive: true });
+  const db = new Db(join(config.dataDir, 'app.db'));
+  const gateway = new Gateway();
+  let team: TeamRow | undefined;
+  let teamLoaded = false;
+
+  const ctx: Ctx = {
+    config,
+    db,
+    bus: new Bus(),
+    clock: new Clock(db),
+    storage: new Storage(join(config.dataDir, 'files')),
+    presence: gateway,
+    team() {
+      if (!teamLoaded) {
+        team = db.get<TeamRow>('SELECT * FROM team LIMIT 1');
+        teamLoaded = true;
+      }
+      return team;
+    },
+    requireTeam() {
+      return this.team() ?? fail('team_not_set_up');
+    },
+    invalidateTeam() {
+      teamLoaded = false;
+    },
+  };
+
+  const registry = new Registry();
+  const router = new Router();
+  const upgrades: UpgradeHandler[] = [gateway.handleUpgrade];
+  const onClose: (() => void | Promise<void>)[] = [];
+  const kernel: Kernel = { ctx, registry, router, upgrades, onClose };
+
+  registerClient(registry);
+  registerUsers(registry);
+  registerConversations(registry);
+  registerChat(registry);
+  registerFiles(registry);
+  registerEmoji(registry);
+  registerSearch(registry);
+  registerFileRoutes(ctx, router);
+  installPlatform(kernel);
+  gateway.start(ctx);
+
+  const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: 6000 });
+  const explicitPublicUrl = config.publicUrl !== '';
+
+  return {
+    ...kernel,
+    server,
+    listen() {
+      return new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(config.port, config.host, () => {
+          const port = (server.address() as AddressInfo).port;
+          if (!explicitPublicUrl) config.publicUrl = `http://localhost:${port}`;
+          resolve(port);
+        });
+      });
+    },
+    async close() {
+      for (const hook of onClose) await hook();
+      gateway.stop();
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        server.closeAllConnections();
+      });
+      db.close();
+    },
+  };
+}
