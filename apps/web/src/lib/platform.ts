@@ -45,9 +45,44 @@ interface PlatformState {
   /** Which tab of an app's conversation is showing. */
   appTab: Record<string, 'home' | 'messages'>;
   shortcuts: AppShortcut[] | null;
+  /** Calls shown as cards (Slack's Calls API), by id; null when this person cannot see it. */
+  calls: Record<string, CallInfo | null>;
 }
 
-export const usePlatform = create<PlatformState>(() => ({ stack: [], errors: {}, homes: {}, appTab: {}, shortcuts: null }));
+export interface CallUser {
+  slack_id?: string;
+  external_id?: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
+export interface CallInfo {
+  id: string;
+  title: string;
+  join_url: string;
+  desktop_app_join_url: string;
+  external_display_id: string;
+  date_start: number;
+  date_end?: number;
+  duration?: number;
+  users: CallUser[];
+  app_name: string | null;
+  is_active: boolean;
+}
+
+const loadingCalls = new Set<string>();
+
+/** Fetch a call for its card once; later changes arrive as `call_updated` events. */
+export function loadCall(id: string): void {
+  if (loadingCalls.has(id) || id in usePlatform.getState().calls) return;
+  loadingCalls.add(id);
+  call('client.calls.info', { id })
+    .then((result) => usePlatform.setState((state) => ({ calls: { ...state.calls, [id]: result.call as CallInfo } })))
+    .catch(() => usePlatform.setState((state) => ({ calls: { ...state.calls, [id]: null } })))
+    .finally(() => loadingCalls.delete(id));
+}
+
+export const usePlatform = create<PlatformState>(() => ({ stack: [], errors: {}, homes: {}, appTab: {}, shortcuts: null, calls: {} }));
 
 function setStack(stack: AppView[], errors: Record<string, string> = {}): void {
   usePlatform.setState({ stack, errors });
@@ -61,6 +96,9 @@ export function handlePlatformEvent(event: Json): boolean {
       return true;
     case 'app_home':
       if (event.app_id && event.view) usePlatform.setState((state) => ({ homes: { ...state.homes, [event.app_id]: event.view } }));
+      return true;
+    case 'call_updated':
+      if (event.call?.id) usePlatform.setState((state) => ({ calls: { ...state.calls, [event.call.id]: event.call as CallInfo } }));
       return true;
     default:
       return false;

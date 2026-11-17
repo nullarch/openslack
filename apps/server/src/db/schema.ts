@@ -878,4 +878,29 @@ export const MIGRATIONS: string[] = [
     watermark TEXT NOT NULL DEFAULT '0000000000.000000'
   ) WITHOUT ROWID;
   `,
+
+  /* 19: calls — external calls (Zoom, Meet, …) that apps register and show as call cards */ `
+  CREATE TABLE calls (
+    id TEXT PRIMARY KEY,
+    app_id TEXT,
+    created_by TEXT,
+    external_unique_id TEXT NOT NULL,
+    external_display_id TEXT NOT NULL DEFAULT '',
+    join_url TEXT NOT NULL,
+    desktop_app_join_url TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    -- [{ slack_id } | { external_id, display_name, avatar_url }]
+    users TEXT NOT NULL DEFAULT '[]',
+    date_start INTEGER NOT NULL,
+    date_end INTEGER,
+    duration INTEGER,
+    UNIQUE (app_id, external_unique_id)
+  );
+  -- Conversations where a call card was posted, so changes reach the people who can see it.
+  CREATE TABLE call_shares (
+    call_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    PRIMARY KEY (call_id, conversation_id)
+  ) WITHOUT ROWID;
+  `,
 ];

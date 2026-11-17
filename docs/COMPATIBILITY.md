@@ -96,7 +96,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **129 supported**, 168 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **135 supported**, 162 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -121,6 +121,12 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **129 supported**, 168 
 | `bookmarks.list` |  | ✓ |  |
 | `bookmarks.remove` |  | ✓ |  |
 | `bots.info` | ✓ |  |  |
+| `calls.add` |  | ✓ |  |
+| `calls.end` |  | ✓ |  |
+| `calls.info` |  | ✓ |  |
+| `calls.participants.add` |  | ✓ |  |
+| `calls.participants.remove` |  | ✓ |  |
+| `calls.update` |  | ✓ |  |
 | `canvases.access.delete` | ✓ | ✓ |  |
 | `canvases.access.set` | ✓ | ✓ |  |
 | `canvases.create` | ✓ | ✓ |  |
@@ -241,7 +247,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **129 supported**, 168 
 | `apps` | 5 | `apps.event.authorizations.list`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `auth` | 1 | `auth.teams.list` |
 | `blocks` | 1 | `blocks.validate` |
-| `calls` | 6 | `calls.add`, `calls.end`, `calls.info`, `calls.participants.add`, `calls.participants.remove`, `calls.update` |
 | `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
@@ -269,5 +274,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **129 supported**, 168 
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 161 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 162 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

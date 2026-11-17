@@ -8,6 +8,7 @@ import { useStore } from '../lib/store';
 import { StateBag, SurfaceContext, useSurface, type Surface } from '../lib/surface';
 import { S } from '../strings';
 import { InputBlock, InteractiveElement } from './blockElements';
+import { CallCard } from './CallCard';
 import { Files } from './files';
 import { Broadcast, ChannelLink, DateToken, Emoji, Link, Mrkdwn, PlainText, UserMention } from './text';
 
@@ -298,6 +299,8 @@ function renderBlock(block: Block, index: number): ReactNode {
       );
     case 'divider':
       return <hr className="block-divider" />;
+    case 'call':
+      return value.call_id ? <CallCard callId={String(value.call_id)} /> : null;
     case 'header':
       return (
         <h3 className="block-header">

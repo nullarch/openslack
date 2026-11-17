@@ -265,7 +265,7 @@ async function main(browser) {
       settings: { socket_mode_enabled: true, interactivity: { is_enabled: true } },
     };
     // A scope the server does not grant is pointed out before anything is created.
-    await panel.locator('textarea').fill(JSON.stringify({ ...spec, oauth_config: { scopes: { bot: ['chat:write', 'calls:write'] } } }, null, 2));
+    await panel.locator('textarea').fill(JSON.stringify({ ...spec, oauth_config: { scopes: { bot: ['chat:write', 'remote_files:share'] } } }, null, 2));
     await panel.locator('.btn-primary').click();
     await panel.locator('.manifest-problems', { hasText: '/oauth_config/scopes/bot/1' }).waitFor();
     await panel.locator('textarea').fill(JSON.stringify(spec, null, 2));
@@ -321,6 +321,30 @@ async function main(browser) {
     assert.equal(callback.searchParams.get('state'), 'xyz');
     assert.ok(callback.searchParams.get('code'));
     await stranger.close();
+  });
+
+  await step('a call from another service shows as a live card, then as ended', async () => {
+    const app = await maya.evaluate(async () => (await (await fetch('/api/client.apps.create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Meet Bridge' }) })).json()));
+    const api = async (method, body) => {
+      const response = await fetch(`${server.base}/api/${method}`, { method: 'POST', headers: { authorization: `Bearer ${app.bot_token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const result = await response.json();
+      assert.equal(result.ok, true, `${method}: ${JSON.stringify(result)}`);
+      return result;
+    };
+    const self = await maya.evaluate(async () => (await (await fetch('/api/auth.test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json()).user_id);
+    const { call } = await api('calls.add', { external_unique_id: 'meet-1', join_url: 'https://meet.example.com/xyz', external_display_id: 'xyz-abcd', title: 'Release sync', created_by: self, users: [{ slack_id: self }] });
+    await api('conversations.join', { channel: random });
+    await openChannel(maya, 'random');
+    await api('chat.postMessage', { channel: random, text: 'Release sync started', blocks: [{ type: 'call', call_id: call.id }] });
+    const card = maya.locator('.call-card.is-active', { hasText: 'Release sync' });
+    await card.waitFor();
+    assert.match(await card.innerText(), /Happening now in Meet Bridge/);
+    assert.equal(await card.locator('a.call-join').getAttribute('href'), 'https://meet.example.com/xyz');
+    await api('calls.participants.add', { id: call.id, users: [{ external_id: 'guest-1', display_name: 'Pat Guest' }] });
+    await card.locator('.call-external[title="Pat Guest"]').waitFor();
+    await shot(maya, 'platform-call-live');
+    await api('calls.end', { id: call.id, duration: 1800 });
+    await maya.locator('.call-card.is-ended', { hasText: 'Ended · lasted 30 min' }).waitFor();
   });
 
   void eventsUrl;

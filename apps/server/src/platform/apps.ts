@@ -207,6 +207,8 @@ export function readDomains(values: string[]): string[] {
 export const DEFAULT_BOT_SCOPES = [
   'app_mentions:read',
   'assistant:write',
+  'calls:read',
+  'calls:write',
   'canvases:read',
   'canvases:write',
   'channels:history',

@@ -494,6 +494,16 @@ export const S = {
     inviteExpires: (date: string) => `Expires ${date}`,
   },
 
+  calls: {
+    join: 'Join',
+    untitled: 'Call',
+    live: (app: string | null) => (app ? `Happening now in ${app}` : 'Happening now'),
+    ended: (length: string) => `Ended · lasted ${length}`,
+    minutes: (n: number) => `${n} min`,
+    hours: (h: number, m: number) => (m ? `${h} h ${m} min` : `${h} h`),
+    people: (n: number) => (n === 1 ? '1 person in the call' : `${n} people in the call`),
+    unavailable: 'This call is not available.',
+  },
   analytics: {
     range: 'Period',
     lastDays: (days: number) => `Last ${days} days`,

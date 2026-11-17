@@ -1555,3 +1555,95 @@ ol.rich-list {
     visibility: visible;
   }
 }
+
+/* Call cards (Slack's Calls API) */
+.call-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 480px;
+  margin: 4px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.call-card.is-loading {
+  min-height: 64px;
+}
+
+.call-card.is-missing {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.call-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--bg-soft);
+  color: var(--text-2);
+}
+
+.call-card.is-active .call-icon {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: #1d7a52;
+}
+
+:root[data-theme='dark'] .call-card.is-active .call-icon {
+  color: var(--ok);
+}
+
+.call-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.call-title {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-meta {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.call-people {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.call-external {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.call-external.is-initial {
+  display: inline-grid;
+  place-items: center;
+  background: var(--bg-soft);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.call-more {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.call-join {
+  flex: none;
+  text-decoration: none;
+}
