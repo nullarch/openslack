@@ -10,6 +10,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 
 | Run | SDK | Web API methods called | Payload types received |
 |---|---|---|---|
+| `bolt-js-function` | @slack/bolt 5.1.0 | 4 | 1 |
 | `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 39 | 14 |
 | `bolt-js-oauth` | @slack/bolt 5.1.0 | 3 | 0 |
 | `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
@@ -70,6 +71,7 @@ An app receives events for conversations its bot user belongs to, and workspace-
 | `team_rename` |  |  |
 | `app_home_opened` | ✓ | ✓ |
 | `link_shared` | ✓ | ✓ |
+| `function_executed` | ✓ |  |
 
 Message events carry their subtypes (`message_changed`, `message_deleted`, `file_share`, `thread_broadcast`, `channel_join` and so on).
 
@@ -85,7 +87,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **88 supported**, 209 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -146,6 +148,8 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **88 supported**, 209 n
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
+| `functions.completeError` | ✓ | ✓ | Fails the workflow run with the app's message. |
+| `functions.completeSuccess` | ✓ | ✓ | Finishes a workflow step the app implements; outputs it did not declare are dropped. Only the app that received the `function_executed` event may finish it. |
 | `oauth.v2.access` |  |  |  |
 | `pins.add` | ✓ | ✓ |  |
 | `pins.list` | ✓ | ✓ |  |
@@ -195,7 +199,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **88 supported**, 209 n
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 9 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update`, `files.revokePublicURL`, `files.sharedPublicURL` |
-| `functions` | 2 | `functions.completeError`, `functions.completeSuccess` |
 | `migration` | 1 | `migration.exchange` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
 | `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
@@ -223,5 +226,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **88 supported**, 209 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 71 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 100 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 
