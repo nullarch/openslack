@@ -33,7 +33,7 @@ export const USER_SCOPES = new Set([
   'search:read', 'stars:read', 'team:read', 'users.profile:read', 'users.profile:write', 'users:read', 'users:read.email',
   'users:write', 'dnd:read', 'dnd:write', 'bookmarks:read', 'bookmarks:write', 'identify', 'calls:read', 'calls:write',
   'remote_files:read', 'remote_files:share', 'stars:write', 'identity.basic', 'identity.email', 'identity.avatar', 'identity.team',
-  'team.preferences:read', 'tokens.basic',
+  'team.preferences:read', 'tokens.basic', 'team.billing:read',
   // Workspace administration through a user token (team.billableInfo, team.accessLogs, team.integrationLogs).
   'admin',
   // Admin API scopes: only an admin can approve them, for their own token.

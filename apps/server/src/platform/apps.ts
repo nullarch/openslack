@@ -207,6 +207,8 @@ export function readDomains(values: string[]): string[] {
 export const DEFAULT_BOT_SCOPES = [
   'app_mentions:read',
   'assistant:write',
+  'bookmarks:read',
+  'bookmarks:write',
   'calls:read',
   'calls:write',
   'canvases:read',
@@ -244,6 +246,7 @@ export const DEFAULT_BOT_SCOPES = [
   'remote_files:share',
   'remote_files:write',
   'search:read',
+  'team.billing:read',
   'team.preferences:read',
   'team:read',
   'tokens.basic',

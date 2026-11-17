@@ -56,6 +56,21 @@ describe('@slack/web-api: reactions.list, team.preferences.list, auth.teams.list
     assert.equal(renamed.title, 'Build check (green)');
   });
 
+  test('workflows.featured.* and team.billing.info', async () => {
+    const general = (await owner.ok('client.boot')).channels.find((channel: Json) => channel.is_general).id;
+    await owner.ok('conversations.invite', { channel: general, users: created.app.bot_user_id }).catch(() => undefined);
+    const saved = await owner.ok('client.workflows.save', { name: 'Request access', trigger: { type: 'link' }, steps: [{ id: 'say', type: 'message', destination: { to: 'trigger_channel' }, text: 'hi' }] });
+    await owner.ok('client.workflows.publish', { workflow: saved.workflow.id });
+    const triggerId = (await owner.ok('client.workflows.get', { workflow: saved.workflow.id })).workflow.trigger_id;
+    await bot.workflows.featured.add({ channel_id: general, trigger_ids: [triggerId] });
+    const listed = await bot.workflows.featured.list({ channel_ids: [general] });
+    assert.deepEqual((listed.featured_workflows as Json[])[0].triggers, [{ id: triggerId, title: 'Request access' }]);
+    await bot.workflows.featured.set({ channel_id: general, trigger_ids: [triggerId] });
+    await bot.workflows.featured.remove({ channel_id: general, trigger_ids: [triggerId] });
+    assert.deepEqual(((await bot.workflows.featured.list({ channel_ids: [general] })).featured_workflows as Json[])[0].triggers, []);
+    assert.equal((await bot.team.billing.info({})).plan, 'plus');
+  });
+
   test('apps.uninstall revokes the tokens', async () => {
     const row = t.app.ctx.db.get<{ client_id: string; client_secret: string }>('SELECT client_id, client_secret FROM apps WHERE id = ?', created.app.id)!;
     await bot.apps.uninstall({ client_id: row.client_id, client_secret: row.client_secret });

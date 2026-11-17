@@ -1587,6 +1587,7 @@ const en = {
     runBySystem: 'started automatically',
     linkTitle: 'Start a workflow',
     linkStart: 'Start',
+    startFeatured: (name: string) => `Start “${name}”`,
     linkStarted: 'Workflow started',
     linkMissing: 'This workflow link doesn’t work any more.',
     stepTypesTitle: 'Workflow steps',

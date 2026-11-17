@@ -324,6 +324,9 @@ function handle(event: Json): void {
     case 'team_rename':
       set((state) => ({ team: state.team ? { ...state.team, ...(event.team ?? {}), name: event.name } : state.team }));
       break;
+    case 'featured_workflows_changed':
+      window.dispatchEvent(new CustomEvent('featured-workflows', { detail: { channel: event.channel } }));
+      break;
     case 'assistant_thread_status':
       setThreadStatus(event.channel, event.thread_ts, event.status ? String(event.status) : null, event.user ?? null);
       break;

@@ -18,7 +18,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
-| `web-api-extras` | @slack/web-api 8.4.0 | 9 | 0 |
+| `web-api-extras` | @slack/web-api 8.4.0 | 14 | 0 |
 | `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
 | `web-api-remote-files` | @slack/web-api 8.4.0 | 6 | 0 |
 
@@ -100,7 +100,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **180 supported**, 117 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **185 supported**, 112 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -257,6 +257,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **180 supported**, 117 
 | `stars.remove` |  | ✓ | Removes from Later or Starred. |
 | `team.accessLogs` |  | ✓ | From sign-in sessions; `isp`, `country` and `region` are empty. |
 | `team.billableInfo` |  | ✓ |  |
+| `team.billing.info` | ✓ | ✓ | Always `plus`: this server has no plan limits. |
 | `team.info` | ✓ | ✓ |  |
 | `team.integrationLogs` |  | ✓ | From the audit log: apps added, removed, updated and granted tokens. |
 | `team.preferences.list` | ✓ | ✓ |  |
@@ -284,6 +285,10 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **180 supported**, 117 
 | `views.publish` | ✓ | ✓ | Any app may publish a Home tab; there is no Home tab switch to enable first. |
 | `views.push` | ✓ | ✓ |  |
 | `views.update` |  | ✓ |  |
+| `workflows.featured.add` | ✓ | ✓ | A link trigger is `Ft` + the workflow id; at most 15 per channel. Shown in the bookmarks bar. |
+| `workflows.featured.list` | ✓ | ✓ |  |
+| `workflows.featured.remove` | ✓ | ✓ |  |
+| `workflows.featured.set` | ✓ | ✓ |  |
 
 `files.uploadV2` in the SDKs is a helper over `files.getUploadURLExternal` and `files.completeUploadExternal`; it works and is exercised by every run.
 
@@ -300,9 +305,8 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **180 supported**, 117 
 | `files` | 1 | `files.comments.delete` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
-| `team` | 3 | `team.billing.info`, `team.externalTeams.disconnect`, `team.externalTeams.list` |
+| `team` | 2 | `team.externalTeams.disconnect`, `team.externalTeams.list` |
 | `users` | 1 | `users.discoverableContacts.lookup` |
-| `workflows` | 4 | `workflows.featured.add`, `workflows.featured.list`, `workflows.featured.remove`, `workflows.featured.set` |
 
 ## Known differences in behaviour
 
@@ -318,5 +322,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **180 supported**, 117 
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 193 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 194 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

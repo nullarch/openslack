@@ -75,6 +75,8 @@ const NOTES: Record<string, string> = {
   'team.integrationLogs': 'From the audit log: apps added, removed, updated and granted tokens.',
   'migration.exchange': 'Always `not_enterprise_team`: there is no Enterprise organisation.',
   'auth.teams.list': 'Always the one workspace.',
+  'team.billing.info': 'Always `plus`: this server has no plan limits.',
+  'workflows.featured.add': 'A link trigger is `Ft` + the workflow id; at most 15 per channel. Shown in the bookmarks bar.',
   'agents.sessions.setStatus': 'Thread sessions only: `thread_ts` is required (no code channels yet). Display overrides (`icon_*`, `username`) are accepted and not shown.',
   'agents.sessions.rename': 'Thread sessions only; the title is not a channel name.',
   'dialog.open': 'Shown as a modal. `dialog_submission`, `dialog_cancellation` and `dialog_suggestion` reach the app as Slack sent them; text `subtype` is a hint, as on Slack.',

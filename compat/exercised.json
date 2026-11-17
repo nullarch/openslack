@@ -265,7 +265,12 @@
       "chat.postMessage",
       "reactions.add",
       "reactions.list",
-      "team.preferences.list"
+      "team.billing.info",
+      "team.preferences.list",
+      "workflows.featured.add",
+      "workflows.featured.list",
+      "workflows.featured.remove",
+      "workflows.featured.set"
     ],
     "events": []
   },

@@ -379,6 +379,7 @@ export const koRest = {
     runBySystem: '자동으로 시작',
     linkTitle: '워크플로 시작',
     linkStart: '시작',
+    startFeatured: (name: string) => `“${name}” 시작`,
     linkStarted: '워크플로를 시작했어요',
     linkMissing: '더 이상 쓸 수 없는 워크플로 링크예요.',
     stepTypesTitle: '워크플로 단계',

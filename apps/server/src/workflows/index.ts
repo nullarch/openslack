@@ -211,6 +211,8 @@ export function installWorkflows(kernel: Kernel): void {
     if (full) {
       summary.steps = JSON.parse(workflow.steps) as Step[];
       if (trigger.type === 'link' && workflow.link_token) summary.link_url = `${ctx.config.publicUrl}/workflow/${workflow.link_token}`;
+      // The link trigger's id, as workflows.featured.* name it.
+      if (trigger.type === 'link') summary.trigger_id = `Ft${workflow.id}`;
       if (trigger.type === 'webhook' && workflow.webhook_secret) summary.webhook_url = `${ctx.config.publicUrl}/hooks/workflows/${workflow.id}/${workflow.webhook_secret}`;
       summary.problems = publishProblems(trigger, JSON.parse(workflow.steps) as Step[]);
     }

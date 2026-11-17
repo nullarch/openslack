@@ -1,6 +1,7 @@
-import { Bell, BellOff, BellRing, Check, Link2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Bell, BellOff, BellRing, Check, Link2, Pencil, Plus, Trash2, Zap } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { openModal, setConversationPrefs } from '../lib/actions';
+import { attempt, openModal, setConversationPrefs, toast } from '../lib/actions';
+import { call } from '../lib/api';
 import { loadBookmarks, removeBookmark, setNotifyLevel, type NotifyLevel } from '../lib/attention';
 import { useStore, type Bookmark } from '../lib/store';
 import { S } from '../strings';
@@ -55,15 +56,55 @@ function BookmarkChip({ channel, bookmark }: { channel: string; bookmark: Bookma
   );
 }
 
+interface Featured {
+  id: string;
+  title: string;
+  link: string | null;
+}
+
+/** Workflows featured in the channel (workflows.featured.*): one click starts one here. */
+function useFeatured(channel: string): Featured[] {
+  const [featured, setFeatured] = useState<Featured[]>([]);
+  useEffect(() => {
+    let live = true;
+    const load = (): void => {
+      call('client.workflows.featured', { channel })
+        .then((result) => live && setFeatured(result.featured as Featured[]))
+        .catch(() => live && setFeatured([]));
+    };
+    load();
+    const changed = (event: Event): void => {
+      if ((event as CustomEvent<{ channel: string }>).detail?.channel === channel) load();
+    };
+    window.addEventListener('featured-workflows', changed);
+    return () => {
+      live = false;
+      window.removeEventListener('featured-workflows', changed);
+    };
+  }, [channel]);
+  return featured;
+}
+
 /** Links pinned under the conversation header. */
 export function BookmarksBar({ channel, canEdit }: { channel: string; canEdit: boolean }) {
   const bookmarks = useStore((state) => state.att.bookmarks[channel]);
+  const featured = useFeatured(channel);
   useEffect(() => {
     void loadBookmarks(channel);
   }, [channel]);
-  if (!bookmarks || (bookmarks.length === 0 && !canEdit)) return null;
+  if (!bookmarks || (bookmarks.length === 0 && featured.length === 0 && !canEdit)) return null;
+  const start = async (item: Featured): Promise<void> => {
+    if (!item.link) return;
+    if (await attempt(() => call('client.workflows.startByLink', { link: item.link, channel }))) toast(S.wf.linkStarted);
+  };
   return (
-    <div className={`bookmarks-bar ${bookmarks.length === 0 ? 'is-empty' : ''}`}>
+    <div className={`bookmarks-bar ${bookmarks.length === 0 && featured.length === 0 ? 'is-empty' : ''}`}>
+      {featured.map((item) => (
+        <button key={item.id} type="button" className="bookmark bookmark-workflow" onClick={() => void start(item)} title={S.wf.startFeatured(item.title)} data-featured-workflow={item.id}>
+          <Zap size={13} />
+          <span>{item.title}</span>
+        </button>
+      ))}
       {bookmarks.map((bookmark) => (
         <BookmarkChip key={bookmark.id} channel={channel} bookmark={bookmark} />
       ))}

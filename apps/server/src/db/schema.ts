@@ -1019,4 +1019,14 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE agent_threads ADD COLUMN initiator TEXT;
   CREATE INDEX agent_threads_thread ON agent_threads (conversation_id, thread_ts);
   `,
+
+  /* 30: featured workflows — link workflows shown in a channel (workflows.featured.*) */ `
+  CREATE TABLE featured_workflows (
+    conversation_id TEXT NOT NULL,
+    workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    added_by TEXT NOT NULL,
+    PRIMARY KEY (conversation_id, workflow_id)
+  ) WITHOUT ROWID;
+  `,
 ];

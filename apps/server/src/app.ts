@@ -22,6 +22,7 @@ import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installClips } from './clips/index.ts';
 import { installCompatExtras } from './platform/compat-extras.ts';
+import { installFeaturedWorkflows } from './workflows/featured.ts';
 import { installRemoteFiles } from './platform/remote-files.ts';
 import { installMeilisearch } from './search/meilisearch.ts';
 import { installHuddleCaptions } from './huddles/captions.ts';
@@ -132,6 +133,7 @@ export function createApp(config: Config): App {
   installClips(kernel);
   installRemoteFiles(kernel);
   installCompatExtras(kernel);
+  installFeaturedWorkflows(kernel);
   installMeilisearch(kernel);
   installSessions(kernel);
   installInboundEmail(kernel);

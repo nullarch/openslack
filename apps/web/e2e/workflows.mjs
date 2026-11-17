@@ -170,6 +170,17 @@ async function main(browser) {
     await card.getByRole('button', { name: 'Start' }).click();
     await daniel.waitForURL(`**/c/${ids.engineering}`);
     await row(daniel, 'Started from a link by').waitFor();
+
+    // Featured in the channel (workflows.featured.add): one click in the bookmarks bar starts it there.
+    const triggerId = (await api(maya, 'client.workflows.get', { workflow: saved.workflow.id })).workflow.trigger_id;
+    assert.equal((await api(maya, 'workflows.featured.add', { channel_id: ids.engineering, trigger_ids: [triggerId] })).ok, true);
+    const chip = daniel.locator(`.bookmarks-bar [data-featured-workflow="${triggerId}"]`, { hasText: 'Say hi' });
+    await chip.waitFor();
+    const before = await daniel.locator('.msg', { hasText: 'Started from a link by' }).count();
+    await chip.click();
+    await daniel.locator('.toast', { hasText: 'Workflow started' }).waitFor();
+    await daniel.waitForFunction((count) => document.querySelectorAll('.msg').length > 0 && [...document.querySelectorAll('.msg')].filter((node) => node.textContent?.includes('Started from a link by')).length > count, before);
+    await shot(daniel, 'workflow-featured');
   });
 
   await step('custom responses: an admin adds one and it answers in public channels', async () => {

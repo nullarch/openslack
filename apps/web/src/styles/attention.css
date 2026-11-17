@@ -968,3 +968,8 @@
     padding-left: 0;
   }
 }
+
+/* A workflow featured in the channel, started with one click */
+.bookmark-workflow svg {
+  color: var(--primary);
+}
