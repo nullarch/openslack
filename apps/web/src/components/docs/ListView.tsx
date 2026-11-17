@@ -511,7 +511,8 @@ function useCardDrag(onDrop: (itemId: string, lane: string) => void) {
 function Board({ items, schema, laneColumn, editable, onMove, onOpen }: { items: Item[]; schema: Column[]; laneColumn: Column; editable: boolean; onMove: (item: Item, lane: string) => void; onOpen: (item: Item) => void }) {
   const primary = schema.find((column) => column.is_primary_column);
   const shown = schema.filter((column) => column !== primary && column !== laneColumn && ['user', 'date', 'select'].includes(column.type)).slice(0, 3);
-  const lanes = [...(laneColumn.options?.choices ?? []).map((choice) => ({ id: choice.value, label: choice.label, color: choice.color })), { id: '', label: T.noValue, color: 'gray' }];
+  // Items with no value come first: that is where new items land.
+  const lanes = [{ id: '', label: T.noValue, color: 'gray' }, ...(laneColumn.options?.choices ?? []).map((choice) => ({ id: choice.value, label: choice.label, color: choice.color }))];
   const { over, onPointerDown, onPointerMove, finish } = useCardDrag((itemId, lane) => {
     const item = items.find((entry) => entry.id === itemId);
     if (item) onMove(item, lane);

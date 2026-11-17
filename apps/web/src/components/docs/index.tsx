@@ -50,6 +50,8 @@ export function DocsView({ kind }: { kind: DocKind }) {
 /** The canvas or list open as a tab of a conversation, in place of its messages. */
 export function useOpenDocTab(channel: string): DocSummary | null {
   const id = useDocs((state) => state.tab[channel]);
+  // Coming back to a conversation shows its messages, not the tab last open there.
+  useEffect(() => () => setDocTab(channel, null), [channel]);
   const docs = useDocs((state) => state.byChannel[channel]);
   return (id && docs?.find((doc) => doc.id === id)) || null;
 }
