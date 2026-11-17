@@ -479,7 +479,22 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX agent_threads_recent ON agent_threads(app_id, last_activity);
   `,
 
-  /* canvases and lists — documents and trackers with their own access lists (position set at merge; SQL does not depend on it) */ `
+  /* 7: image thumbnails made by the uploading client — { w, h } of the stored thumbnail */ `
+  ALTER TABLE files ADD COLUMN thumb TEXT;
+  `,
+
+  /* 8: public file links — the secret in a file's public URL, while it is shared */ `
+  ALTER TABLE files ADD COLUMN public_secret TEXT;
+  CREATE UNIQUE INDEX files_public_secret ON files(public_secret) WHERE public_secret IS NOT NULL;
+  `,
+
+  /* 9: Discord import — which Discord ids were already brought in, so a second run adds only what is new */ `
+  CREATE TABLE import_discord_users (discord_id TEXT PRIMARY KEY, user_id TEXT NOT NULL);
+  CREATE TABLE import_discord_channels (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL);
+  CREATE TABLE import_discord_messages (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, ts TEXT NOT NULL);
+  `,
+
+  /* 10: canvases and lists — collaborative documents and typed trackers with their own access lists, one search index */ `
   CREATE TABLE docs (
     id TEXT PRIMARY KEY,
     kind TEXT NOT NULL CHECK (kind IN ('canvas', 'list')),

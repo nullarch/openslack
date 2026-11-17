@@ -1,5 +1,5 @@
 import { escapeText, type Conversation, type Message, type User } from '@app/shared';
-import { BellOff, Bell, BellRing, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
+import { BellOff, Bell, BellRing, Hash, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
 import { markThreadSeen, setThreadFollow } from '../lib/attention';
 import { PostingPermissions } from './Posting';
 import { FileList } from './views/Later';
@@ -398,6 +398,11 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
   const leave = async (): Promise<void> => {
     if (await confirmDialog(S.details.confirmLeave, S.details.leave)) await leaveChannel(conv.id);
   };
+  const convert = async (): Promise<void> => {
+    const name = await promptDialog({ title: S.details.convertToChannel, label: S.details.convertName, initial: '', placeholder: 'project-name', confirmLabel: S.details.convertToChannel });
+    if (!name?.trim()) return;
+    await attempt(() => call('client.conversations.convertGroupDm', { channel: conv.id, name: name.trim() }));
+  };
 
   return (
     <div className="about-tab">
@@ -442,6 +447,11 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
           {conv.is_channel && !conv.is_general ? (
             <button type="button" className="row-action" onClick={() => void leave()}>
               <LogOut size={16} /> {S.details.leave}
+            </button>
+          ) : null}
+          {conv.is_mpim ? (
+            <button type="button" className="row-action" onClick={() => void convert()}>
+              <Hash size={16} /> {S.details.convertToChannel}
             </button>
           ) : null}
           {conv.is_mpim ? (

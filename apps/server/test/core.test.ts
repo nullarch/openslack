@@ -259,3 +259,37 @@ describe('workspace', () => {
     assert.equal((await new Session(t.base).call('client.signin', { email: 'theo.third@acme.test', password: 'another long password' })).error, 'account_inactive');
   });
 });
+
+describe('group DMs', () => {
+  test('a group DM becomes a private channel with the same people and its history', async () => {
+    const t = await startApp();
+    try {
+      const owner = await setupWorkspace(t);
+      const a = await addMember(t, owner, 'Ana A');
+      const b = await addMember(t, owner, 'Ben B');
+      const outsider = await addMember(t, owner, 'Out Sider');
+      const opened = await owner.ok('conversations.open', { users: `${a.userId},${b.userId}` });
+      await owner.ok('chat.postMessage', { channel: opened.channel.id, text: 'planning the offsite' });
+      assert.equal((await outsider.call('client.conversations.convertGroupDm', { channel: opened.channel.id, name: 'offsite' })).error, 'channel_not_found');
+      const stream = await a.connect();
+      const converted = await owner.ok('client.conversations.convertGroupDm', { channel: opened.channel.id, name: 'Offsite 2026' });
+      assert.equal(converted.channel.id, opened.channel.id);
+      assert.equal(converted.channel.name, 'offsite-2026');
+      assert.equal(converted.channel.is_private, true);
+      assert.equal(converted.channel.is_mpim, false);
+      const joined = await stream.next((event) => event.type === 'channel_joined' && event.channel.id === opened.channel.id);
+      assert.equal(joined.channel.name, 'offsite-2026');
+      stream.close();
+      const history = await b.ok('conversations.history', { channel: opened.channel.id });
+      assert.ok(history.messages.some((message: Json) => message.text === 'planning the offsite'));
+      assert.equal((await outsider.call('conversations.history', { channel: opened.channel.id })).error, 'channel_not_found');
+      // It behaves as a channel now: invites work, and the old group DM is not reopened by the same three people.
+      await owner.ok('conversations.invite', { channel: opened.channel.id, users: outsider.userId });
+      const fresh = await owner.ok('conversations.open', { users: `${a.userId},${b.userId}` });
+      assert.notEqual(fresh.channel.id, opened.channel.id);
+      assert.equal((await owner.call('client.conversations.convertGroupDm', { channel: opened.channel.id, name: 'again' })).error, 'method_not_supported_for_channel_type');
+    } finally {
+      await t.close();
+    }
+  });
+});

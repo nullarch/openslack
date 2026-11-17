@@ -58,7 +58,7 @@ export function isUnsupported(error: unknown): boolean {
   return error instanceof ApiError && error.code === 'unknown_method';
 }
 
-const SAME_ORIGIN_PATHS = /^\/(files-pri|avatars|emoji|team-icon|upload|previews)\//;
+const SAME_ORIGIN_PATHS = /^\/(files-pri|files-tmb|avatars|emoji|team-icon|upload|previews)\//;
 
 /**
  * URLs in API objects are absolute and built from the server's configured
@@ -76,9 +76,46 @@ export function asset(url: string | undefined | null): string {
   return url;
 }
 
+const THUMB_SIDE = 720;
+
+/**
+ * A smaller copy of an image for message previews, made here because the
+ * browser already decodes every format it can show. Null when the image is
+ * small enough already, animated (GIF), or not decodable.
+ */
+async function makeThumbnail(file: File): Promise<Blob | null> {
+  if (!/^image\/(png|jpeg|webp|avif|bmp|heic|heif)$/.test(file.type)) return null;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return null;
+  }
+  try {
+    const scale = Math.min(1, THUMB_SIDE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size < 300_000) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    // PNGs may be transparent; everything else becomes a JPEG.
+    const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    return await new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), type, 0.82));
+  } finally {
+    bitmap.close();
+  }
+}
+
 /** Upload one file in two steps and return its id, ready for `files.completeUploadExternal`. */
 export async function uploadFile(file: File, onProgress?: (fraction: number) => void, options: { snippetType?: string } = {}): Promise<string> {
   const reserved = await call('files.getUploadURLExternal', { filename: file.name || 'file', length: file.size || 1, snippet_type: options.snippetType });
+  // The thumbnail goes first: the upload URL stops working once the file itself has arrived.
+  const thumbnail = await makeThumbnail(file);
+  if (thumbnail) {
+    const target = new URL(asset(reserved.upload_url), window.location.origin);
+    target.pathname += '/thumb';
+    await fetch(target.pathname + target.search, { method: 'POST', body: thumbnail }).catch(() => undefined);
+  }
   await new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('POST', asset(reserved.upload_url));
