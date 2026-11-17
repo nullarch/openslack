@@ -98,6 +98,9 @@ function botProfile(ctx: Ctx, row: MsgRow): BotProfile | undefined {
   };
 }
 
+/** Extensions that add fields to messages of their own kinds (huddles add `room`). */
+export const messageDecorators: ((ctx: Ctx, row: MsgRow, message: Message) => void)[] = [];
+
 export function messageToApi(ctx: Ctx, row: MsgRow): Message {
   const message: Message = { type: 'message', ts: row.ts, text: row.text };
   if (row.subtype) message.subtype = row.subtype;
@@ -150,6 +153,7 @@ export function messageToApi(ctx: Ctx, row: MsgRow): Message {
     message.pinned_to = [row.conversation_id];
   }
   if (row.streaming === 1) message.streaming = true;
+  for (const decorate of messageDecorators) decorate(ctx, row, message);
   return message;
 }
 

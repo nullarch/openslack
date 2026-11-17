@@ -288,4 +288,21 @@ export const MIGRATIONS: string[] = [
   CREATE UNIQUE INDEX app_views_external ON app_views(app_id, external_id) WHERE external_id IS NOT NULL;
   CREATE INDEX app_views_user ON app_views(user_id, type);
   `,
+
+  /* 4: huddles — calls inside a conversation; media through LiveKit */ `
+  CREATE TABLE huddles (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    ts TEXT NOT NULL,
+    room TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    started INTEGER NOT NULL,
+    ended INTEGER,
+    participants TEXT NOT NULL DEFAULT '[]',
+    joined_at TEXT NOT NULL DEFAULT '{}',
+    history TEXT NOT NULL DEFAULT '[]'
+  );
+  CREATE UNIQUE INDEX huddles_active ON huddles(conversation_id) WHERE ended IS NULL;
+  CREATE INDEX huddles_message ON huddles(conversation_id, ts);
+  `,
 ];
