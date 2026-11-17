@@ -1146,3 +1146,83 @@ g.is-hover .viz-hit {
 .service-token-made {
   margin-top: 10px;
 }
+
+/* Channel templates in the create-channel dialog */
+.template-picker {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.template-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.template-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.template-option strong {
+  font-size: 14px;
+}
+
+.template-option.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-ring);
+}
+
+/* Sessions, channel email, compliance */
+.sessions-section,
+.compliance-section {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.sessions-list .admin-name .tag {
+  margin-left: 8px;
+}
+
+.compliance-sub {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.compliance-section .inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.compliance-section .inline-form .field {
+  flex: 1 1 180px;
+  margin: 0;
+}
+
+.compliance-section select[multiple] {
+  width: 100%;
+}
+
+.compliance-section .row-actions,
+.channel-email .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.compliance-section .admin-list li {
+  flex-wrap: wrap;
+}

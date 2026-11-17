@@ -1,3 +1,4 @@
+import { ChannelEmail } from './ChannelEmail';
 import { escapeText, type Conversation, type Message, type User } from '@app/shared';
 import { BellOff, Bell, BellRing, Hash, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
 import { markThreadSeen, setThreadFollow } from '../lib/attention';
@@ -454,6 +455,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
             {conv.purpose?.value ? <Mrkdwn text={conv.purpose.value} /> : <p className="muted">{S.details.none}</p>}
           </section>
           <p className="about-created muted">{S.details.created(displayName(creator), created)}</p>
+          {isMember && !conv.is_archived ? <ChannelEmail channel={conv.id} /> : null}
           <ChannelWebSettings channel={conv.id} />
           {isMember ? <PostingPermissions conv={conv} canManage={canManage} /> : null}
         </>

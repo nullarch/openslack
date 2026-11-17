@@ -37,7 +37,9 @@ export function toast(text: string, kind: 'info' | 'error' = 'info'): void {
 
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
-    const known = (S.errors as Record<string, string | undefined>)[error.code] ?? S.accounts.errors[error.code];
+    // A more specific message for some refusals, chosen by the detail the server adds.
+    const detail = typeof error.data.detail === 'string' ? (S.errors as Record<string, string | undefined>)[`${error.code}_${error.data.detail}`] : undefined;
+    const known = detail ?? (S.errors as Record<string, string | undefined>)[error.code] ?? S.accounts.errors[error.code];
     return known ?? S.errorFallback(error.code);
   }
   return S.errors.network_error;
@@ -859,8 +861,9 @@ export function forgetChannel(id: string): void {
   if (currentId(state) === id) goHome(true);
 }
 
-export async function createChannel(name: string, isPrivate: boolean): Promise<Json | undefined> {
-  const result = await call('conversations.create', { name, is_private: isPrivate });
+export async function createChannel(name: string, isPrivate: boolean, template: string | null = null): Promise<Json | undefined> {
+  // A template creates the channel and what it starts with (description, canvas and list tabs) in one call.
+  const result = template ? await call('client.channels.createFromTemplate', { template, name, is_private: isPrivate }) : await call('conversations.create', { name, is_private: isPrivate });
   adopt({ ...result.channel, is_member: true, unread_count: 0, mention_count: 0 });
   go({ name: 'conversation', id: result.channel.id });
   return result.channel;

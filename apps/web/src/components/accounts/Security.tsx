@@ -8,6 +8,7 @@ import { S } from '../../strings';
 import { promptDialog } from '../dialogs/confirm';
 import { Button, Modal, Spinner } from '../ui';
 import { BackupCodes, TwoFactorSetup } from './TwoFactor';
+import { SessionsSection } from '../settings/Sessions';
 
 function PushSection() {
   const vapidKey = useAccounts((state) => state.vapidKey);
@@ -131,6 +132,7 @@ export function SecurityDialog() {
     <Modal title={S.accounts.securityTitle} onClose={closeAccountsModal} width={520}>
       <TwoFactorSection />
       <PushSection />
+      <SessionsSection />
     </Modal>
   );
 }

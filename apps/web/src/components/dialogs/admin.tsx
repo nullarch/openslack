@@ -12,6 +12,8 @@ import { confirmDialog } from './confirm';
 import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
 import { AppStepsSetting } from '../workflows/AppSteps';
 import { AnalyticsAdmin } from '../admin/Analytics';
+import { LegalHolds, SensitiveInfoSetting, SessionPolicy } from '../admin/Compliance';
+import { BarriersSetting, IpAllowlistSetting } from '../admin/Network';
 import { AuditAdmin, ReportsAdmin, RetentionSetting, ServiceTokens } from '../admin/Governance';
 import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
 import { GuestControls, InviteRequests, WorkspaceSettings } from '../accounts/Admin';
@@ -667,6 +669,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
     { id: 'analytics', label: S.admin.analytics },
     { id: 'reports', label: S.admin.reports },
     { id: 'audit', label: S.admin.audit },
+    { id: 'compliance', label: S.admin.compliance },
   ];
   return (
     <Modal title={S.admin.title} onClose={closeModal} width={720} className="admin-modal">
@@ -693,6 +696,15 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
         {tab === 'analytics' ? <AnalyticsAdmin /> : null}
         {tab === 'reports' ? <ReportsAdmin /> : null}
         {tab === 'audit' ? <AuditAdmin /> : null}
+        {tab === 'compliance' ? (
+          <>
+            <SensitiveInfoSetting />
+            <SessionPolicy />
+            <IpAllowlistSetting />
+            <BarriersSetting />
+            <LegalHolds />
+          </>
+        ) : null}
       </div>
     </Modal>
   );

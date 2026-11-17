@@ -1,3 +1,4 @@
+import { ChannelTemplatePicker } from './ChannelTemplates';
 import { normalizeChannelName, type Conversation, type User } from '@app/shared';
 import { Check, Hash, Lock, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -14,6 +15,7 @@ import { formatDate } from '../../lib/time';
 export function CreateChannelDialog() {
   const [name, setName] = useState('');
   const [isPrivate, setPrivate] = useState(false);
+  const [template, setTemplate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -21,7 +23,7 @@ export function CreateChannelDialog() {
     setBusy(true);
     setError(null);
     try {
-      await createChannel(name, isPrivate);
+      await createChannel(name, isPrivate, template);
       closeModal();
     } catch (failure) {
       setError(errorText(failure));
@@ -69,6 +71,7 @@ export function CreateChannelDialog() {
             <span className="field-hint">{S.dialogs.makePrivateHint}</span>
           </span>
         </label>
+        <ChannelTemplatePicker value={template} onChange={setTemplate} />
       </form>
     </Modal>
   );
