@@ -1,3 +1,4 @@
+import cluster from 'node:cluster';
 import { storedKeys, type EncryptedStorage } from './core/encrypted-storage.ts';
 import { BRAND } from '@app/shared';
 import { createApp } from './app.ts';
@@ -26,6 +27,8 @@ Usage:
 Environment:
   PORT (3000)   HOST (0.0.0.0)   DATA_DIR (./data)   PUBLIC_URL   MAX_UPLOAD_MB (100)
   SEED_DEMO=1   Fill an empty database with a sample team
+  WORKERS=4     Serve from several processes on one port, sharing the data directory
+  CLUSTER=1     Run alongside other processes started the same way on this machine (behind a proxy)
   SMTP_URL, MAIL_FROM            Send invitations, sign-in codes and password resets by mail
   OIDC_ISSUER / OIDC_CLIENT_ID / OIDC_CLIENT_SECRET, GOOGLE_CLIENT_ID / …, GITHUB_CLIENT_ID / …
                                  Sign in with an identity provider
@@ -35,7 +38,62 @@ Environment:
 
 if (process.env.LOG_FORMAT === 'json') useJsonLogs();
 
+/**
+ * WORKERS=N: this process forks N workers that serve on one port (the
+ * operating system spreads connections among them) and share the data
+ * directory as processes started with CLUSTER=1 do. It prepares the database
+ * first, restarts a worker that dies, and stops them all on SIGINT/SIGTERM.
+ */
+async function supervise(count: number): Promise<void> {
+  const config = configFromEnv();
+  // Migrations and the demo team, once, before any worker opens the database.
+  const setup = createApp({ ...config, quiet: true });
+  const seeded = process.env.SEED_DEMO === '1' ? await seedDemo(setup.ctx) : false;
+  const hasTeam = setup.ctx.team() !== undefined;
+  await setup.close();
+
+  let closing = false;
+  const env = { CLUSTER: '1', QUIET: '1', SEED_DEMO: '0' };
+  const started = new Map<number, number>();
+  const fork = (): void => {
+    const worker = cluster.fork(env);
+    started.set(worker.id, Date.now());
+  };
+  cluster.on('exit', (worker, code, signal) => {
+    const age = Date.now() - (started.get(worker.id) ?? 0);
+    started.delete(worker.id);
+    if (closing) {
+      if (Object.keys(cluster.workers ?? {}).length === 0) process.exit(0);
+      return;
+    }
+    console.error(`[workers] worker ${worker.process.pid} exited (${signal ?? code}); starting another`);
+    // A worker that dies at once would die again: wait a little before trying.
+    setTimeout(fork, age < 5000 ? 2000 : 0);
+  });
+  for (let i = 0; i < count; i += 1) fork();
+
+  if (!config.quiet) {
+    console.log(`${BRAND.name} ${config.version}`);
+    console.log(`  open     ${config.publicUrl || `http://localhost:${config.port}`}`);
+    console.log(`  data     ${config.dataDir}`);
+    console.log(`  workers  ${count}`);
+    if (!config.webDir) console.log('  web      not built — run "pnpm build", or "pnpm dev" for the dev server');
+    if (!hasTeam) console.log('  setup    open the address above to create your workspace');
+    if (seeded) console.log(`  demo     sign in as ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  }
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(signal, () => {
+      if (closing) process.exit(1);
+      closing = true;
+      for (const worker of Object.values(cluster.workers ?? {})) worker?.process.kill('SIGTERM');
+      if (Object.keys(cluster.workers ?? {}).length === 0) process.exit(0);
+    });
+  }
+}
+
 async function serve(): Promise<void> {
+  const workers = Number(process.env.WORKERS ?? 0);
+  if (cluster.isPrimary && Number.isInteger(workers) && workers > 1) return supervise(workers);
   const config = configFromEnv();
   const app = createApp(config);
   const seeded = process.env.SEED_DEMO === '1' ? await seedDemo(app.ctx) : false;
@@ -56,7 +114,9 @@ async function serve(): Promise<void> {
   });
 
   let closing = false;
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  // A worker leaves Ctrl+C to the process that started it, which stops the workers one way.
+  if (cluster.isWorker) process.on('SIGINT', () => undefined);
+  for (const signal of cluster.isWorker ? (['SIGTERM'] as const) : (['SIGINT', 'SIGTERM'] as const)) {
     process.on(signal, () => {
       if (closing) process.exit(1);
       closing = true;

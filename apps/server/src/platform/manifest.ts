@@ -412,7 +412,9 @@ function authorizeUrl(kernel: Kernel, app: AppRow, manifest: ParsedManifest): st
 export function installManifest(kernel: Kernel, sockets: SocketHub, http: HttpDelivery): void {
   const { ctx } = kernel;
 
-  const sweeper = setInterval(() => sweepExpiredTokens(ctx), 3_600_000);
+  const sweeper = setInterval(() => {
+    if (ctx.instances.isLeader()) sweepExpiredTokens(ctx);
+  }, 3_600_000);
   sweeper.unref();
   kernel.onClose.push(() => clearInterval(sweeper));
 

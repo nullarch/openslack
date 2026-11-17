@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BRAND } from '@app/shared';
 import { isSameOrigin, parseBody, readBody } from '../api/http.ts';
+import { sharedMap } from '../core/transient.ts';
 import type { Kernel } from '../app.ts';
 import { actorForUser, createToken, readSessionToken, authenticate } from '../core/auth.ts';
 import { fail } from '../core/errors.ts';
@@ -111,7 +112,8 @@ export function redirectTo(res: ServerResponse, target: string, extra: Record<st
 
 export function installOauth(kernel: Kernel): void {
   const { ctx } = kernel;
-  const grants = new Map<string, Grant>();
+  // Codes live in the shared store: the token exchange may reach another process.
+  const grants = sharedMap<Grant>(ctx.transient, 'oauth_code');
 
   /** Validate the request parameters; returns what the page needs, or writes an error page. */
   const inspect = (
@@ -265,8 +267,7 @@ export function installOauth(kernel: Kernel): void {
     const code = args.str('code');
     if (!code) fail('invalid_code');
     const key = sha256(code);
-    const grant = grants.get(key);
-    grants.delete(key);
+    const grant = grants.take(key);
     if (!grant || grant.appId !== app.id || grant.expires < Date.now()) fail('invalid_code');
     const redirectUri = args.str('redirect_uri');
     if (redirectUri && redirectUri !== grant.redirectUri) fail('bad_redirect_uri');
@@ -314,10 +315,4 @@ export function installOauth(kernel: Kernel): void {
     return { revoked: removed > 0 };
   });
 
-  const sweeper = setInterval(() => {
-    const now = Date.now();
-    for (const [key, grant] of grants) if (grant.expires < now) grants.delete(key);
-  }, 60_000);
-  sweeper.unref();
-  kernel.onClose.push(() => clearInterval(sweeper));
 }

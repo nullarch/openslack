@@ -72,8 +72,17 @@ export class AssistantThreads {
       ctx.bus.emit({ event, audience: { conversation: conv.id }, clientOnly: true });
     });
 
-    // An app's own message in the thread replaces its status.
-    const unsubscribe = ctx.bus.subscribe(({ event }) => {
+    // An app's own message in the thread replaces its status. Heard from every process:
+    // the status may have been set here and the message posted through another.
+    const unsubscribe = ctx.bus.subscribe(({ event }, remote) => {
+      // A newer status set through another process: this one's timer is stale.
+      if (remote && event.type === 'assistant_thread_status') {
+        const key = `${String(event.channel)}:${String(event.thread_ts)}:${String(event.user)}`;
+        const timer = this.statuses.get(key);
+        if (timer) clearTimeout(timer);
+        this.statuses.delete(key);
+        return;
+      }
       if (event.type !== 'message' || event.subtype !== undefined || event.is_ephemeral === true) return;
       if (typeof event.channel !== 'string' || typeof event.user !== 'string' || typeof event.ts !== 'string') return;
       const threadTs = typeof event.thread_ts === 'string' ? event.thread_ts : event.ts;
@@ -81,7 +90,7 @@ export class AssistantThreads {
       if (!this.statuses.has(key)) return;
       const conv = ctx.db.get<ConvRow>('SELECT * FROM conversations WHERE id = ?', event.channel);
       if (conv) this.setStatus(conv, threadTs, event.user, '');
-    });
+    }, { everywhere: true });
     kernel.onClose.push(() => {
       unsubscribe();
       for (const timer of this.statuses.values()) clearTimeout(timer);

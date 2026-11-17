@@ -26,7 +26,9 @@ const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 /**
  * The first-party client connection. Each browser tab holds one WebSocket and
  * receives the events it is allowed to see; presence is derived from who is
- * connected.
+ * connected. With several processes, each one delivers every process's events
+ * to the sockets it holds, and records who is connected to it in
+ * `instance_presence` so the others count them as online.
  */
 export class Gateway implements Presence {
   private ctx!: Ctx;
@@ -38,9 +40,21 @@ export class Gateway implements Presence {
 
   start(ctx: Ctx): void {
     this.ctx = ctx;
-    this.unsubscribe = ctx.bus.subscribe((event) => this.deliver(event));
+    this.unsubscribe = ctx.bus.subscribe((event) => this.deliver(event), { everywhere: true });
     this.heartbeat = setInterval(() => this.checkAlive(), HEARTBEAT_MS);
     this.heartbeat.unref();
+    // People connected to a process that stopped or died: away, unless they reconnect elsewhere in time.
+    ctx.instances.onGone((ids) => {
+      const marks = ids.map(() => '?').join(', ');
+      const users = ctx.db.all<{ user_id: string }>(`SELECT DISTINCT user_id FROM instance_presence WHERE instance IN (${marks})`, ...ids);
+      if (users.length === 0) return;
+      const timer = setTimeout(() => {
+        this.awayTimers.delete(`gone:${ids.join(',')}`);
+        for (const { user_id: userId } of users) if (!this.isOnline(userId)) this.announcePresence(userId);
+      }, AWAY_GRACE_MS);
+      timer.unref();
+      this.awayTimers.set(`gone:${ids.join(',')}`, timer);
+    });
   }
 
   stop(): void {
@@ -60,11 +74,29 @@ export class Gateway implements Presence {
    * keeps `client.boot` from showing someone away who never went away.
    */
   isOnline(userId: string): boolean {
-    return (this.byUser.get(userId)?.size ?? 0) > 0 || this.awayTimers.has(userId);
+    if ((this.byUser.get(userId)?.size ?? 0) > 0 || this.awayTimers.has(userId)) return true;
+    const { instances } = this.ctx;
+    if (!instances.shared) return false;
+    return (
+      this.ctx.db.get(
+        'SELECT 1 FROM instance_presence p JOIN instances i ON i.id = p.instance WHERE p.user_id = ? AND p.instance != ? AND i.seen > ?',
+        userId,
+        instances.id,
+        instances.cutoff(),
+      ) !== undefined
+    );
   }
 
   onlineUsers(): string[] {
-    return [...this.byUser.keys()];
+    const local = [...this.byUser.keys()];
+    const { instances } = this.ctx;
+    if (!instances.shared) return local;
+    const remote = this.ctx.db.all<{ user_id: string }>(
+      'SELECT DISTINCT p.user_id FROM instance_presence p JOIN instances i ON i.id = p.instance WHERE p.instance != ? AND i.seen > ?',
+      instances.id,
+      instances.cutoff(),
+    );
+    return [...new Set([...local, ...remote.map((row) => row.user_id)])];
   }
 
   /** Take over the socket for `GET /ws`; returns false for any other path. */
@@ -92,6 +124,9 @@ export class Gateway implements Presence {
       this.byUser.set(userId, clients);
     }
     clients.add(client);
+    if (this.ctx.instances.shared && clients.size === 1) {
+      this.ctx.db.run('INSERT OR IGNORE INTO instance_presence (instance, user_id) VALUES (?, ?)', this.ctx.instances.id, userId);
+    }
     const pending = this.awayTimers.get(userId);
     if (pending) {
       clearTimeout(pending);
@@ -118,6 +153,10 @@ export class Gateway implements Presence {
     // A reload reconnects within moments; do not flap to away in between.
     const timer = setTimeout(() => {
       this.awayTimers.delete(client.userId);
+      if (this.byUser.has(client.userId)) return;
+      if (this.ctx.instances.shared) {
+        this.ctx.db.run('DELETE FROM instance_presence WHERE instance = ? AND user_id = ?', this.ctx.instances.id, client.userId);
+      }
       if (!this.isOnline(client.userId)) this.announcePresence(client.userId);
     }, AWAY_GRACE_MS);
     timer.unref();

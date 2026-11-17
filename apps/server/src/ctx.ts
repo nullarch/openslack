@@ -7,6 +7,8 @@ import type { Clock } from './core/clock.ts';
 import type { S3Config, Storage } from './core/storage.ts';
 import type { LiveKitConfig } from './huddles/livekit.ts';
 import type { Db } from './db/db.ts';
+import type { Instances } from './core/instances.ts';
+import type { Transient } from './core/transient.ts';
 
 export interface Config {
   port: number;
@@ -49,6 +51,10 @@ export interface Config {
   identityProviders?: IdentityProviderConfig[];
   /** Bearer token that unlocks `/metrics`; null or absent hides it. */
   metricsToken?: string | null;
+  /** Share the database with other server processes on this machine (CLUSTER=1, or each worker under WORKERS). */
+  cluster?: boolean;
+  /** Heartbeat, death and polling intervals between processes (tests shorten them). */
+  instanceTimings?: { heartbeatMs?: number; deadAfterMs?: number; pollMs?: number };
 }
 
 /** One external sign-in provider. Endpoints are discovered for OIDC providers. */
@@ -106,6 +112,10 @@ export interface Ctx {
   clock: Clock;
   storage: Storage;
   presence: Presence;
+  /** The server processes sharing the database: leader lease, messages between them. */
+  instances: Instances;
+  /** Short-lived values any process may be asked about (response URLs, trigger ids, one-time codes). */
+  transient: Transient;
   /** The workspace row, or undefined before first-run setup. */
   team(): TeamRow | undefined;
   requireTeam(): TeamRow;

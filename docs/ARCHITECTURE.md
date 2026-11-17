@@ -12,7 +12,7 @@ compat            Compatibility harness: official Slack SDKs run against a local
 docs              This file and guides.
 ```
 
-One process serves everything: the API under `/api/*`, the client WebSocket at `/ws`, uploads and downloads, and the built web client. State is one SQLite file plus a directory of uploaded files, both under `DATA_DIR`.
+One process serves everything: the API under `/api/*`, the client WebSocket at `/ws`, uploads and downloads, and the built web client. State is one SQLite file plus a directory of uploaded files, both under `DATA_DIR`. Several processes on one machine can share that directory (see "Several processes" below).
 
 ## Rules
 
@@ -48,7 +48,7 @@ TypeScript run directly by Node (type stripping), so: no `enum`, no parameter pr
 
 ### Data model
 
-- A **message** is identified by `(conversation, ts)`. `Clock.next()` issues `ts` values that are unique and strictly increasing per conversation.
+- A **message** is identified by `(conversation, ts)`. `Clock.next()` issues `ts` values that are unique and strictly increasing per conversation, inside the transaction that inserts the message (it reads the latest stored `ts` under the write lock).
 - A message stores `text` (Slack `mrkdwn`), optional `blocks`, `attachments`, file ids, and `plain` (searchable text of all of them).
 - A thread parent has `thread_ts = ts` once it has replies; replies carry the parent's `ts`. Replies are excluded from channel history unless broadcast.
 - **Read state** is `members.last_read`. Unread and mention counts are computed from it.
@@ -71,6 +71,18 @@ Events clients receive: `message` (and subtypes `message_changed`, `message_dele
 Implemented method families: `api.test`, `auth.test`, `team.info`, `bots.info`, `users.*`, `conversations.*`, `chat.*`, `reactions.*`, `pins.*`, `files.*`, `emoji.list`, `search.messages`, `canvases.*`, `slackLists.*`, plus first-party `client.*` and `admin.emoji.*`.
 
 URLs in API objects are absolute, built from `PUBLIC_URL`. The web client must load them same-origin by keeping only the path and query.
+
+### Several processes
+
+`WORKERS=N` forks N worker processes that share the port; `CLUSTER=1` marks processes started by hand (behind a proxy) the same way. All of them open the same SQLite file in WAL mode, so they must run on one machine with the data directory on a local disk. `src/core/instances.ts` holds what they share:
+
+- **Registry and leader.** Each serving process adds itself to `instances` when it starts listening and renews a heartbeat every second. One holds the `leader` lease (`leases`) and runs everything periodic: the timed jobs of both schedulers (scheduled messages, reminders, workflow schedules and step expiry), email digests, retention, recaps, list due dates, guest expiry, huddle reconciliation, the Meilisearch queue, file-text backfill, start-up catch-ups (captions of ended huddles, streams left open). Code guards these with `ctx.instances.isLeader()` or registers them with `onLeader()`, which also runs when a process takes the lease over. When the leader stops it frees the lease; when it dies the lease runs out in five seconds. A process that is not shared refuses to listen while another process's heartbeat is advancing (`DataDirInUse`).
+- **Messages between processes.** `instances.publish(topic, body, target?)` inserts into `instance_messages`; every shared process reads new rows every 10 ms and hands them to `instances.on(topic)` handlers (with `own`, its own rows too). The leader deletes rows older than a minute. Topics: `bus` (every bus event), `team` (the workspace row changed), `scheduler.<name>` (something was scheduled: the leader looks again), `socket.deliver` / `socket.result` / `socket.disconnect`, `canvas.update` / `canvas.awareness` / `canvas.drop` / `canvas.recheck`.
+- **The bus.** `ctx.bus.subscribe(listener, { everywhere: true })` also hears events emitted by other processes (with `remote` true). Only listeners that serve connections or state held by this process do that: the gateway, RTM, the assistant-status timers, the keyword cache. With several processes these listeners are fed from the log alone, this process's own events included, so every socket gets events in one order: a message posted through one process and the app's link preview added through another a moment later once arrived the wrong way round. Every other listener (deliveries to apps, push, notifications, AI, workflows, stats) runs once, at once, in the process where the event happened.
+- **Caches** of database rows in a process go stale when another process writes. `ctx.team()` is told to forget through the `team` topic (and a missing workspace is never cached: another process may be creating it); keyword patterns forget on `pref_change` heard everywhere; built-in apps created on demand (the Workflows app) are looked up again by other processes (`findLocalAppWith`). A new cache needs the same.
+- **Short-lived values** live in `transient` (`ctx.transient`, `src/core/transient.ts`) with a lifetime, never in a process's memory: `response_url`s, `trigger_id`s, ephemeral messages an app may replace, unfurl ids, app OAuth and OpenID codes, RTM and Socket Mode tickets, list exports, SAML request ids. `take()` reads and removes in one statement, so a one-time code is used once even when two processes race for it.
+- **Presence** is local connections plus `instance_presence` rows of live processes. **Socket Mode** records how many connections each process holds per app in `instance_sockets`; an envelope with no local connection goes to a process that has one, which sends it and returns the acknowledgement. **Streams** keep their content in `streams`. **Live canvases** store every update, pass it (and cursor changes) to the other processes, and compact from the stored updates. **HTTP event deliveries** are claimed by moving their due time before sending. A waiting workflow run is resumed by a conditional update, once.
+- Not shared, by design: API rate limits, the AI job limit per person and `/metrics` counters are per process; a canvas's viewer count counts the people connected to the process that answers.
 
 ## App platform contract
 

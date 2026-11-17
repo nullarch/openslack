@@ -274,7 +274,7 @@ export function installFileText(kernel: { ctx: Ctx; onClose: (() => void | Promi
   const { ctx } = kernel;
   let busy = false;
   const timer = setInterval(() => {
-    if (busy || !ctx.team()) return;
+    if (busy || !ctx.team() || !ctx.instances.isLeader()) return;
     busy = true;
     void backfillFileText(ctx)
       .catch(() => 0)

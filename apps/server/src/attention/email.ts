@@ -116,6 +116,7 @@ export function installEmailNotifications(kernel: Kernel): void {
   const { ctx } = kernel;
   let running: Promise<unknown> | null = null;
   const timer = setInterval(() => {
+    if (!ctx.instances.isLeader()) return;
     running ??= sendEmailDigests(ctx)
       .catch((error: unknown) => console.error('[email-digest]', error))
       .finally(() => {

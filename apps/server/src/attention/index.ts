@@ -24,7 +24,7 @@ import { installWatch } from './watch.ts';
  */
 export function installAttention(kernel: Kernel): void {
   const { ctx, registry, router } = kernel;
-  const scheduler = new Scheduler();
+  const scheduler = new Scheduler(ctx.instances, 'attention');
   scheduler.add(scheduledSource(ctx));
   scheduler.add(reminderSource(ctx));
 

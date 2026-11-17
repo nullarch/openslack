@@ -1,3 +1,4 @@
+import { sharedMap } from '../core/transient.ts';
 import type { Kernel } from '../app.ts';
 import { sendJson } from '../api/http.ts';
 import type { Registry } from '../api/registry.ts';
@@ -499,7 +500,8 @@ export function itemTitle(ctx: Ctx, doc: DocRow, itemId: string): string {
 
 export function registerLists(kernel: Kernel): void {
   const registry: Registry = kernel.registry;
-  const jobs = new Map<string, { listId: string; userId: string; archived: boolean; expires: number }>();
+  // Kept in the shared store: the next call, or the download, may reach another process.
+  const jobs = sharedMap<{ listId: string; userId: string; archived: boolean; expires: number }>(kernel.ctx.transient, 'list_export_job');
 
   registry.add('slackLists.create', { scopes: WRITE }, ({ ctx, actor, args }) => {
     let schema = args.json<unknown[]>('schema');
@@ -683,7 +685,7 @@ export function registerLists(kernel: Kernel): void {
   });
 
   // CSV for people (session) and for download URLs handed out above.
-  const downloads = new Map<string, { listId: string; userId: string; archived: boolean; expires: number }>();
+  const downloads = sharedMap<{ listId: string; userId: string; archived: boolean; expires: number }>(kernel.ctx.transient, 'list_export_download');
   kernel.router.add('GET', /^\/lists-export\/([A-Z0-9]+)\.csv$/, ({ req, res, url, params }) => {
     const ctx = kernel.ctx;
     let userId: string | null = null;
@@ -782,6 +784,7 @@ export function registerLists(kernel: Kernel): void {
 
   // Due-date reminders: shortly after start, then every 30 minutes.
   const sweep = (): void => {
+    if (!kernel.ctx.instances.isLeader()) return;
     try {
       runDueSweep(kernel.ctx, new Date().toISOString().slice(0, 10));
     } catch (error) {

@@ -235,7 +235,7 @@ export class Huddles {
 
   /** Drop participants LiveKit no longer has, once they have had time to connect. */
   async reconcile(): Promise<void> {
-    if (!this.config) return;
+    if (!this.config || !this.ctx.instances.isLeader()) return;
     for (const row of this.ctx.db.all<HuddleRow>('SELECT * FROM huddles WHERE ended IS NULL')) {
       let present: string[];
       try {

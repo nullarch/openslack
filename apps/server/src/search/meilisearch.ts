@@ -173,10 +173,10 @@ export function installMeilisearch(kernel: Kernel): void {
     ready = true;
   };
 
-  // Send the queue: newest state of each message, deletions as deletions.
+  // Send the queue: newest state of each message, deletions as deletions. The leader sends it.
   let draining = false;
   const drain = async (): Promise<void> => {
-    if (draining) return;
+    if (draining || !ctx.instances.isLeader()) return;
     draining = true;
     try {
       await prepare();

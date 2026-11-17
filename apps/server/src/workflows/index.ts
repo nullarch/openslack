@@ -9,7 +9,7 @@ import { getMessage } from '../core/messages.ts';
 import { getUser, isAdmin, uniqueHandle, type UserRow } from '../core/users.ts';
 import type { Actor, Ctx } from '../ctx.ts';
 import { appConfig, createAppRecord, getApp, isBuiltinApp, listApps, type AppRow } from '../platform/apps.ts';
-import { registerLocalApp } from '../platform/local-apps.ts';
+import { findLocalAppWith, registerLocalApp } from '../platform/local-apps.ts';
 import { Engine, listsAvailable, newLinkToken, triggerOf, type LogEntry, type RunRow, type WorkflowRow } from './engine.ts';
 import { allSteps, publishProblems, readSteps, readTrigger, type Step, type Trigger } from './model.ts';
 import { installResponses } from './responses.ts';
@@ -29,9 +29,13 @@ export function installWorkflows(kernel: Kernel): void {
   /** The built-in app, created the first time it is needed. */
   const ensure = (create = true): { appId: string; botUserId: string; botId: string } | null => {
     if (identity && getApp(ctx, identity.appId)) return identity;
-    let app = listApps(ctx).find((candidate) => appConfig(candidate).builtin === 'workflows');
+    const find = (): AppRow | undefined => listApps(ctx).find((candidate) => appConfig(candidate).builtin === 'workflows');
+    let app = find();
     if (!app && !create) return null;
-    if (!app) {
+    // Under the write lock: another process may be creating it at the same moment.
+    app ??= ctx.db.tx(() => {
+      const existing = find();
+      if (existing) return existing;
       const owner = ctx.db.get<UserRow>("SELECT * FROM users WHERE role = 'primary_owner' LIMIT 1");
       if (!owner) fail('team_not_set_up');
       const created = createAppRecord(ctx, {
@@ -42,8 +46,8 @@ export function installWorkflows(kernel: Kernel): void {
         handle: uniqueHandle(ctx, 'workflows'),
       });
       ctx.db.run('UPDATE apps SET config = ? WHERE id = ?', JSON.stringify({ builtin: 'workflows' }), created.app.id);
-      app = getApp(ctx, created.app.id)!;
-    }
+      return getApp(ctx, created.app.id)!;
+    });
     identity = { appId: app.id, botUserId: app.bot_user_id, botId: app.bot_id };
     registerLocalApp(ctx, {
       appId: app.id,
@@ -67,8 +71,11 @@ export function installWorkflows(kernel: Kernel): void {
     return identity;
   };
   const engine = new Engine(ctx, () => ensure()!);
-  // Pick up the built-in app if an earlier run created it; it is created only when someone builds a workflow.
+  // Pick up the built-in app if an earlier run (or another process) created it; it is created only when someone builds a workflow.
   if (ctx.team()) ensure(false);
+  findLocalAppWith(ctx, () => {
+    if (!identity && ctx.team()) ensure(false);
+  });
 
   // ── Starting runs ─────────────────────────────────────────────────────────
 
@@ -131,7 +138,7 @@ export function installWorkflows(kernel: Kernel): void {
   });
 
   // Schedules, and app steps that never completed.
-  const scheduler = new Scheduler();
+  const scheduler = new Scheduler(ctx.instances, 'workflows');
   scheduler.add({
     next: () => ctx.db.get<{ at: number | null }>("SELECT min(next_run) AS at FROM workflows WHERE status = 'published' AND next_run IS NOT NULL")?.at ?? null,
     run: (now) => {

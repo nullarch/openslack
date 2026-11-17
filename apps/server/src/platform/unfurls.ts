@@ -1,5 +1,6 @@
 import type { Attachment, Block } from '@app/shared';
 import { unescapeText } from '@app/shared';
+import { sharedMap, type SharedMap } from '../core/transient.ts';
 import type { Kernel } from '../app.ts';
 import { getConv, getMember } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
@@ -83,10 +84,12 @@ interface PendingUnfurl {
 
 export class Unfurls {
   private readonly delivery: Delivery;
-  private readonly pending = new Map<string, PendingUnfurl>();
+  /** Unfurl ids handed to apps; the app's chat.unfurl may reach another process. */
+  private readonly pending: SharedMap<PendingUnfurl>;
 
   constructor(delivery: Delivery) {
     this.delivery = delivery;
+    this.pending = sharedMap<PendingUnfurl>(delivery.ctx.transient, 'unfurl_id');
   }
 
   install(kernel: Kernel): void {
@@ -181,7 +184,6 @@ export class Unfurls {
     // Links in private conversations reach only apps that are in them.
     if (!member && conv.kind !== 'public') return;
 
-    this.sweep();
     const unfurlId = `${conv.id}.${String(event.ts)}.${newHex(32)}`;
     this.pending.set(unfurlId, { channel: conv.id, ts: String(event.ts), appId: app.id, expires: Date.now() + UNFURL_ID_TTL_MS });
     const shared: Json = {
@@ -200,10 +202,5 @@ export class Unfurls {
     sendToApp(this.delivery, app, 'link_shared', shared as { type: string });
   }
 
-  private sweep(): void {
-    const now = Date.now();
-    for (const [id, entry] of this.pending) {
-      if (entry.expires <= now) this.pending.delete(id);
-    }
-  }
+
 }

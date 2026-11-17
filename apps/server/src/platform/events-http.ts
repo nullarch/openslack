@@ -19,13 +19,17 @@ interface OutboxRow {
 
 const MAX_IN_FLIGHT = 16;
 const SWEEP_INTERVAL_MS = 5000;
+/** A claimed delivery whose process died comes due again this long after its answer was due. */
+const CLAIM_MARGIN_MS = 30_000;
 
 /**
  * Events API over HTTP: each event is POSTed to the app's request URL, signed
  * with its signing secret. A delivery that is not answered with a 2xx within
  * the acknowledgement window is retried on Slack's schedule with
  * `X-Slack-Retry-Num` and `X-Slack-Retry-Reason`. Deliveries wait in the
- * `outbox` table, so pending retries survive a restart.
+ * `outbox` table, so pending retries survive a restart. A process claims a
+ * delivery before sending it (moving its due time past the answer window), so
+ * processes sharing the database never send the same one twice.
  */
 export class HttpDelivery {
   private readonly ctx: Ctx;
@@ -100,6 +104,8 @@ export class HttpDelivery {
     for (const row of due) {
       if (started >= room) break;
       if (this.inFlight.has(row.id)) continue;
+      const lease = Date.now() + this.options.ackTimeoutMs + CLAIM_MARGIN_MS;
+      if (this.ctx.db.run('UPDATE outbox SET next_at = ? WHERE id = ? AND next_at = ?', lease, row.id, row.next_at).changes === 0) continue;
       this.inFlight.add(row.id);
       started += 1;
       void this.attempt(row)
@@ -139,7 +145,14 @@ export class HttpDelivery {
       noRetry = reason === 'blocked_address';
     }
     // The server may have shut down while the app was answering; the row stays queued for the next start.
-    if (this.stopped) return;
+    if (this.stopped) {
+      try {
+        this.ctx.db.run('UPDATE outbox SET next_at = ? WHERE id = ?', row.next_at, row.id);
+      } catch {
+        // Already closed: the claim runs out instead.
+      }
+      return;
+    }
     if (reason === null) {
       this.ctx.db.run('DELETE FROM outbox WHERE id = ?', row.id);
       return;

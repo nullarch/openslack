@@ -59,7 +59,7 @@ export function installAccounts(kernel: Kernel): void {
     }
   });
   const sweep = setInterval(() => {
-    if (ctx.team()) expireGuests(ctx);
+    if (ctx.team() && ctx.instances.isLeader()) expireGuests(ctx);
   }, 60_000);
   sweep.unref();
   kernel.onClose.push(() => clearInterval(sweep));

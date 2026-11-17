@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { isSameOrigin, parseBody, readBody, sendJson } from '../api/http.ts';
+import { sharedMap } from '../core/transient.ts';
 import type { Kernel } from '../app.ts';
 import { authenticate, createToken, readSessionToken } from '../core/auth.ts';
 import { fail } from '../core/errors.ts';
@@ -80,7 +81,8 @@ class SigningKey {
 
 export function installOpenId(kernel: Kernel): void {
   const { ctx } = kernel;
-  const grants = new Map<string, Grant>();
+  // Codes live in the shared store: the token exchange may reach another process.
+  const grants = sharedMap<Grant>(ctx.transient, 'openid_code');
   let key: SigningKey | null = null;
   const signingKey = (): SigningKey => (key ??= new SigningKey(ctx.config.dataDir));
   const issuer = (): string => ctx.config.publicUrl;
@@ -286,8 +288,7 @@ export function installOpenId(kernel: Kernel): void {
 
     const code = args.str('code');
     if (!code) fail('invalid_code');
-    const grant = grants.get(sha256(code));
-    grants.delete(sha256(code));
+    const grant = grants.take(sha256(code));
     if (!grant || grant.appId !== app.id || grant.expires < Date.now()) fail('invalid_code');
     const redirectUri = args.str('redirect_uri');
     if (redirectUri && redirectUri !== grant.redirectUri) fail('bad_redirect_uri');
@@ -307,10 +308,4 @@ export function installOpenId(kernel: Kernel): void {
     return claims(getUser(ctx, actor.userId)!, [...(actor.scopes ?? [])]);
   });
 
-  const sweeper = setInterval(() => {
-    const now = Date.now();
-    for (const [code, grant] of grants) if (grant.expires < now) grants.delete(code);
-  }, 60_000);
-  sweeper.unref();
-  kernel.onClose.push(() => clearInterval(sweeper));
 }

@@ -35,7 +35,7 @@ export function installStats(kernel: Kernel): void {
   });
   // People connected across midnight count for the new day too.
   const tick = setInterval(() => {
-    if (!ctx.team()) return;
+    if (!ctx.team() || !ctx.instances.isLeader()) return;
     for (const id of ctx.presence.onlineUsers()) record(id);
   }, 3_600_000);
   tick.unref();

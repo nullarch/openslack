@@ -13,7 +13,17 @@ import { onReply } from './threads.ts';
 
 // ── Keywords ────────────────────────────────────────────────────────────────
 
-const keywordCache = new Map<string, RegExp | null>();
+/** Compiled keyword patterns by person, one cache per server (a test process may run several). */
+const keywordCaches = new WeakMap<Ctx, Map<string, RegExp | null>>();
+
+function keywordCache(ctx: Ctx): Map<string, RegExp | null> {
+  let cache = keywordCaches.get(ctx);
+  if (!cache) {
+    cache = new Map();
+    keywordCaches.set(ctx, cache);
+  }
+  return cache;
+}
 
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -21,7 +31,8 @@ function escape(text: string): string {
 
 /** The pattern for someone's keywords (`highlight_words`, comma-separated, as Slack names the preference). */
 export function keywordPattern(ctx: Ctx, userId: string): RegExp | null {
-  if (keywordCache.has(userId)) return keywordCache.get(userId)!;
+  const cache = keywordCache(ctx);
+  if (cache.has(userId)) return cache.get(userId)!;
   const user = getUser(ctx, userId);
   let pattern: RegExp | null = null;
   if (user) {
@@ -42,7 +53,7 @@ export function keywordPattern(ctx: Ctx, userId: string): RegExp | null {
       );
     if (parts.length > 0) pattern = new RegExp(parts.join('|'), 'iu');
   }
-  keywordCache.set(userId, pattern);
+  cache.set(userId, pattern);
   return pattern;
 }
 
@@ -109,7 +120,16 @@ function onMessage(ctx: Ctx, event: EventBody): void {
 }
 
 export function installWatch(ctx: Ctx): () => void {
-  return ctx.bus.subscribe(({ event, audience }) => {
+  // Keywords are cached per process: a change made through any process must clear them in each.
+  const stopForgetting = ctx.bus.subscribe(
+    ({ event, audience }) => {
+      if (event.type !== 'pref_change') return;
+      const userId = 'users' in audience ? audience.users[0] : undefined;
+      if (userId) keywordCache(ctx).delete(userId);
+    },
+    { everywhere: true },
+  );
+  const stopWatching = ctx.bus.subscribe(({ event, audience }) => {
     switch (event.type) {
       case 'message':
         if (event.subtype === 'message_deleted' && typeof event.deleted_ts === 'string') {
@@ -151,13 +171,12 @@ export function installWatch(ctx: Ctx): () => void {
         }
         break;
       }
-      case 'pref_change': {
-        const userId = 'users' in audience ? audience.users[0] : undefined;
-        if (userId) keywordCache.delete(userId);
-        break;
-      }
       default:
         break;
     }
   });
+  return () => {
+    stopForgetting();
+    stopWatching();
+  };
 }

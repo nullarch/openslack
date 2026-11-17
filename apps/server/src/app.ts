@@ -52,6 +52,9 @@ import { installDocs } from './docs/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
 import { Gateway } from './realtime/gateway.ts';
+import { Instances } from './core/instances.ts';
+import { Transient } from './core/transient.ts';
+import type { BusEvent } from './core/bus.ts';
 
 /** What extension modules (the app platform, importers) get to plug into. */
 export interface Kernel {
@@ -74,6 +77,7 @@ export function createApp(config: Config): App {
   mkdirSync(config.dataDir, { recursive: true });
   const db = new Db(join(config.dataDir, 'app.db'));
   const gateway = new Gateway();
+  const instances = new Instances(db, { shared: config.cluster === true, ...config.instanceTimings });
   let team: TeamRow | undefined;
   let teamLoaded = false;
 
@@ -84,10 +88,13 @@ export function createApp(config: Config): App {
     clock: new Clock(db),
     storage: createStorage(config.dataDir, config.s3, config.storageKeys ?? []),
     presence: gateway,
+    instances,
+    transient: new Transient(db),
     team() {
       if (!teamLoaded) {
         team = db.get<TeamRow>('SELECT * FROM team LIMIT 1');
-        teamLoaded = true;
+        // Not cached while there is none: another process may be creating it.
+        teamLoaded = team !== undefined;
       }
       return team;
     },
@@ -96,8 +103,17 @@ export function createApp(config: Config): App {
     },
     invalidateTeam() {
       teamLoaded = false;
+      instances.publish('team', null);
     },
   };
+  // Processes sharing the database pass events (in one order, their own included) and workspace changes to each other.
+  if (instances.shared) {
+    ctx.bus.connect((event) => instances.publish('bus', event));
+    instances.on('bus', (event, origin) => ctx.bus.receive(event as BusEvent, origin !== instances.id), { own: true });
+  }
+  instances.on('team', () => {
+    teamLoaded = false;
+  });
 
   const registry = new Registry();
   const router = new Router();
@@ -157,7 +173,8 @@ export function createApp(config: Config): App {
   return {
     ...kernel,
     server,
-    listen() {
+    async listen() {
+      await instances.start();
       return new Promise((resolve, reject) => {
         server.once('error', reject);
         server.listen(config.port, config.host, () => {
@@ -170,6 +187,7 @@ export function createApp(config: Config): App {
     async close() {
       for (const hook of onClose) await hook();
       gateway.stop();
+      instances.stop();
       await new Promise<void>((resolve) => {
         server.close(() => resolve());
         server.closeAllConnections();

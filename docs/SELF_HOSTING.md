@@ -30,6 +30,8 @@ Open the address it prints and create your workspace. The first person to do so 
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | none | Sign in with GitHub |
 | `METRICS_TOKEN` | none | Serves Prometheus metrics at `/metrics` to this bearer token |
 | `LOG_FORMAT` | text | `json` writes one JSON object per log line |
+| `WORKERS` | one process | Serve from this many processes on one port (see "Several processes") |
+| `CLUSTER` | off | `1` lets processes you start yourself share the data directory |
 
 Set `PUBLIC_URL` whenever the server is reached at anything other than `localhost`: links, file URLs handed to bots and invite links are built from it. When it starts with `https://`, the session cookie is marked `Secure`.
 
@@ -262,7 +264,7 @@ By default everything is kept. Workspace owners can set how many days messages i
 
 ## Kubernetes
 
-A Helm chart is in `deploy/helm/chat`. It runs one replica (the server owns its database file and the realtime connections) with its data on a persistent volume:
+A Helm chart is in `deploy/helm/chat`. It runs one replica (every process using the database file must be on one machine) with its data on a persistent volume; to use more cores in that pod, set `WORKERS` through `env`:
 
 ```bash
 helm install team deploy/helm/chat \
@@ -352,7 +354,7 @@ See the README. Run the import while the server is stopped, or restart the serve
 
 ## Size
 
-A single process is meant for teams of up to a few hundred people.
+A single process is meant for teams of up to a few hundred people. To use more processor cores, see "Several processes" below.
 
 Measured on an Apple-silicon laptop (Node 24, client and server on the same machine):
 
@@ -365,6 +367,33 @@ Measured on an Apple-silicon laptop (Node 24, client and server on the same mach
 | Delivery latency, 5,000 open connections (1,000 people) | p95 54 ms, p99 61 ms; 254 MB memory |
 
 Reproduce the last two with `node apps/server/scripts/load-test.mjs [connections] [people] [messages]` (raise `ulimit -n` first).
+
+## Several processes
+
+One Node.js process uses one processor core. To use more, start several processes that share the data directory:
+
+```bash
+WORKERS=4 openslack          # four workers on one port; restarted if one dies
+```
+
+or, to run processes yourself (one per port behind a reverse proxy), start each with `CLUSTER=1` and the same `DATA_DIR`. Every process must run on the same machine with the data directory on a local disk: SQLite's locking does not work over a network file system. A process started without `CLUSTER=1` (or `WORKERS`) refuses to start while another one is using the directory.
+
+What changes:
+
+- One process at a time runs the periodic work (scheduled messages, reminders, digests, retention, recaps); if it stops, another takes over within seconds and catches up.
+- Events reach browsers and bots connected to any process, in the same order everywhere, a few milliseconds later than within one process; Socket Mode apps may connect to any of them.
+- API rate limits and `/metrics` counters are per process.
+
+Measured on the same laptop (18 cores), 64 clients alternating `conversations.history` and `search.messages` over 2,000 messages (`WORKERS=N node apps/server/scripts/api-load-test.mjs`):
+
+| Processes | Requests per second | p95 |
+|---|---|---|
+| 1 | about 1,650 | 43 ms |
+| 2 | about 2,960 | 30 ms |
+| 4 | about 3,400 | 31 ms |
+| 8 | about 1,540 | 76 ms |
+
+Two to four workers help API-heavy use; eight were slower than one, so do not add more than you have measured to help. Delivery to open WebSockets stays about the same: with 5,000 connections the p95 was 27 ms with one process and 28 ms with four (`WORKERS=4 node apps/server/scripts/load-test.mjs 5000 1000 60`).
 
 ## Deploy to a hosting service
 

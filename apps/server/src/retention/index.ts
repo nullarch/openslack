@@ -163,7 +163,7 @@ export function installRetention(kernel: Kernel): void {
     return running;
   };
   const timer = setInterval(() => {
-    if (ctx.team()) void run();
+    if (ctx.team() && ctx.instances.isLeader()) void run();
   }, 3_600_000);
   timer.unref();
   kernel.onClose.push(async () => {

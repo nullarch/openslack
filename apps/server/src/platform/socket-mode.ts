@@ -18,10 +18,23 @@ interface Connection {
 type Settlement = { acked: true; payload: unknown } | { acked: false; reason: 'timeout' | 'closed' };
 
 interface Pending {
-  connection: Connection;
+  /** The local connection it went out on, or null when another process holds the connection. */
+  connection: Connection | null;
   timer: NodeJS.Timeout;
   settle: (result: Settlement) => void;
 }
+
+/** An envelope handed to the process that holds the app's connection. */
+interface Forwarded {
+  envelopeId: string;
+  appId: string;
+  type: EnvelopeType;
+  payload: unknown;
+  extra: Record<string, unknown>;
+}
+
+/** Waiting for an answer from another process takes longer than the app's own window by this much. */
+const FORWARD_MARGIN_MS = 2000;
 
 export type EnvelopeType = 'events_api' | 'interactive' | 'slash_commands';
 
@@ -36,12 +49,17 @@ const APPROXIMATE_CONNECTION_SECONDS = 18_000;
  * interactions and slash commands over it instead of exposing an HTTP endpoint.
  * The protocol is the one `apps.connections.open` hands out on Slack: a `hello`,
  * then envelopes the app acknowledges by `envelope_id`.
+ *
+ * With several processes, the app's connections may be held by another one
+ * than the process where an event happens. Each process records how many it
+ * holds per app in `instance_sockets`; an envelope with no local connection to
+ * go out on is handed to a process that has one, which sends it and passes the
+ * acknowledgement (and any response payload) back.
  */
 export class SocketHub {
   private readonly ctx: Ctx;
   private readonly options: PlatformOptions;
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 4 * 1024 * 1024 });
-  private readonly tickets = new Map<string, { appId: string; expires: number }>();
   private readonly connections = new Map<string, Connection[]>();
   private readonly pending = new Map<string, Pending>();
   private readonly retryTimers = new Set<NodeJS.Timeout>();
@@ -59,7 +77,8 @@ export class SocketHub {
       const app = getApp(this.ctx, actor.appId) ?? fail('invalid_auth');
       if (this.count(app.id) >= MAX_CONNECTIONS_PER_APP) fail('too_many_websockets');
       const ticket = newSecret(24);
-      this.tickets.set(ticket, { appId: app.id, expires: Date.now() + TICKET_TTL_MS });
+      // The socket may reach another process than this call.
+      this.ctx.transient.put('socket_ticket', ticket, { appId: app.id }, TICKET_TTL_MS);
       const origin = this.ctx.config.publicUrl.replace(/^http/, 'ws');
       return { url: `${origin}/link/?ticket=${ticket}&app_id=${app.id}` };
     });
@@ -67,22 +86,75 @@ export class SocketHub {
     kernel.onClose.push(() => this.stop());
     this.pinger = setInterval(() => this.ping(), PING_INTERVAL_MS);
     this.pinger.unref();
+
+    const { instances } = this.ctx;
+    instances.on('socket.disconnect', (body) => {
+      const { appId, reason } = body as { appId: string; reason: string };
+      this.disconnectApp(appId, reason, false);
+    });
+    instances.on('socket.deliver', (body, origin) => this.deliverForwarded(body as Forwarded, origin));
+    instances.on('socket.result', (body) => {
+      const { envelopeId, ...result } = body as Settlement & { envelopeId: string };
+      const pending = this.pending.get(envelopeId);
+      if (!pending || pending.connection) return;
+      this.pending.delete(envelopeId);
+      clearTimeout(pending.timer);
+      pending.settle(result);
+    });
+    // Connections held by a process that is gone no longer count.
+    instances.onGone((ids) => {
+      const marks = ids.map(() => '?').join(', ');
+      for (const row of this.ctx.db.all<{ app_id: string }>(`SELECT DISTINCT app_id FROM instance_sockets WHERE instance IN (${marks})`, ...ids)) {
+        setImmediate(() => this.announce(row.app_id));
+      }
+    });
   }
 
   isConnected(appId: string): boolean {
     return this.count(appId) > 0;
   }
 
+  /** Open connections for the app, in every process. */
   private count(appId: string): number {
+    return this.localCount(appId) + this.remote(appId).reduce((sum, row) => sum + row.connections, 0);
+  }
+
+  private localCount(appId: string): number {
     return this.connections.get(appId)?.length ?? 0;
+  }
+
+  /** Other live processes holding connections for the app. */
+  private remote(appId: string): { instance: string; connections: number }[] {
+    const { instances } = this.ctx;
+    if (!instances.shared) return [];
+    return this.ctx.db.all<{ instance: string; connections: number }>(
+      'SELECT s.instance, s.connections FROM instance_sockets s JOIN instances i ON i.id = s.instance WHERE s.app_id = ? AND s.instance != ? AND i.seen > ?',
+      appId,
+      instances.id,
+      instances.cutoff(),
+    );
+  }
+
+  /** Record this process's count for the app where the others can see it. */
+  private record(appId: string): void {
+    const { instances } = this.ctx;
+    if (!instances.shared) return;
+    const count = this.localCount(appId);
+    if (count === 0) this.ctx.db.run('DELETE FROM instance_sockets WHERE instance = ? AND app_id = ?', instances.id, appId);
+    else {
+      this.ctx.db.run(
+        'INSERT INTO instance_sockets (instance, app_id, connections) VALUES (?, ?, ?) ON CONFLICT (instance, app_id) DO UPDATE SET connections = excluded.connections',
+        instances.id,
+        appId,
+        count,
+      );
+    }
   }
 
   private handleUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer, url: URL): boolean => {
     if (url.pathname !== '/link/' && url.pathname !== '/link') return false;
-    const ticket = url.searchParams.get('ticket') ?? '';
-    const entry = this.tickets.get(ticket);
-    this.tickets.delete(ticket);
-    const app = entry && entry.expires > Date.now() ? getApp(this.ctx, entry.appId) : undefined;
+    const entry = this.ctx.transient.take<{ appId: string }>('socket_ticket', url.searchParams.get('ticket') ?? '');
+    const app = entry ? getApp(this.ctx, entry.appId) : undefined;
     if (!app || app.socket_mode !== 1 || this.count(app.id) >= MAX_CONNECTIONS_PER_APP) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       socket.destroy();
@@ -97,6 +169,7 @@ export class SocketHub {
     const list = this.connections.get(appId) ?? [];
     list.push(connection);
     this.connections.set(appId, list);
+    this.record(appId);
 
     socket.on('pong', () => {
       connection.alive = true;
@@ -108,7 +181,7 @@ export class SocketHub {
     socket.on('error', () => this.drop(connection));
     this.send(connection, {
       type: 'hello',
-      num_connections: list.length,
+      num_connections: this.count(appId),
       debug_info: {
         host: 'applink-1',
         build_number: 1,
@@ -125,6 +198,7 @@ export class SocketHub {
     if (!list || index < 0) return;
     list.splice(index, 1);
     if (list.length === 0) this.connections.delete(connection.appId);
+    this.record(connection.appId);
     // Whatever this connection had not acknowledged is treated as undelivered.
     for (const [id, pending] of this.pending) {
       if (pending.connection !== connection) continue;
@@ -179,10 +253,11 @@ export class SocketHub {
     payload: unknown,
     extra: Record<string, unknown>,
     avoid?: Connection,
+    envelopeId: string = randomUUID(),
+    forwardable = true,
   ): Promise<Settlement & { connection?: Connection }> | null {
     const connection = this.pick(appId, avoid);
-    if (!connection) return null;
-    const envelopeId = randomUUID();
+    if (!connection) return forwardable ? this.forward(appId, type, payload, extra, envelopeId) : null;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(envelopeId);
@@ -192,6 +267,34 @@ export class SocketHub {
       this.pending.set(envelopeId, { connection, timer, settle: (result) => resolve({ ...result, connection }) });
       this.send(connection, { envelope_id: envelopeId, payload, type, ...extra });
     });
+  }
+
+  /** No local connection: hand the envelope to a process that holds one, and wait for its answer. */
+  private forward(appId: string, type: EnvelopeType, payload: unknown, extra: Record<string, unknown>, envelopeId: string): Promise<Settlement> | null {
+    const holders = this.remote(appId);
+    if (holders.length === 0) return null;
+    const target = holders[Math.floor(Math.random() * holders.length)]!.instance;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(envelopeId);
+        resolve({ acked: false, reason: 'timeout' });
+      }, this.options.ackTimeoutMs + FORWARD_MARGIN_MS);
+      timer.unref();
+      this.pending.set(envelopeId, { connection: null, timer, settle: resolve });
+      const forwarded: Forwarded = { envelopeId, appId, type, payload, extra };
+      this.ctx.instances.publish('socket.deliver', forwarded, target);
+    });
+  }
+
+  /** Another process's envelope for an app connected here: send it and report how it went. */
+  private deliverForwarded(forwarded: Forwarded, origin: string): void {
+    const reply = (result: Settlement): void => this.ctx.instances.publish('socket.result', { envelopeId: forwarded.envelopeId, ...result }, origin);
+    const sent = this.dispatch(forwarded.appId, forwarded.type, forwarded.payload, forwarded.extra, undefined, forwarded.envelopeId, false);
+    if (!sent) {
+      reply({ acked: false, reason: 'closed' });
+      return;
+    }
+    void sent.then(({ connection: _connection, ...result }) => reply(result as Settlement));
   }
 
   /**
@@ -234,8 +337,9 @@ export class SocketHub {
     return result.payload;
   }
 
-  /** Close an app's connections, telling it why (`link_disabled` when Socket Mode was switched off). */
-  disconnectApp(appId: string, reason: string): void {
+  /** Close an app's connections, here and in other processes, telling it why (`link_disabled` when Socket Mode was switched off). */
+  disconnectApp(appId: string, reason: string, everywhere = true): void {
+    if (everywhere) this.ctx.instances.publish('socket.disconnect', { appId, reason });
     for (const connection of [...(this.connections.get(appId) ?? [])]) {
       this.send(connection, { type: 'disconnect', reason, debug_info: { host: 'applink-1' } });
       connection.socket.close(1000);
@@ -243,10 +347,6 @@ export class SocketHub {
   }
 
   private ping(): void {
-    const now = Date.now();
-    for (const [ticket, entry] of this.tickets) {
-      if (entry.expires <= now) this.tickets.delete(ticket);
-    }
     for (const list of this.connections.values()) {
       for (const connection of [...list]) {
         if (!connection.alive) {

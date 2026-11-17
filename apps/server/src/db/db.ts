@@ -15,11 +15,13 @@ export class Db {
 
   constructor(path: string) {
     this.raw = new DatabaseSync(path);
+    // The busy timeout first: another process may be writing while this one opens the file,
+    // and every later statement (switching to WAL included) should wait for it, not fail.
     this.raw.exec(`
+      PRAGMA busy_timeout = 5000;
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = NORMAL;
       PRAGMA foreign_keys = ON;
-      PRAGMA busy_timeout = 5000;
     `);
     this.migrate();
   }
@@ -63,16 +65,21 @@ export class Db {
     }
   }
 
+  /**
+   * Bring the schema up to date. Several processes may start at once against
+   * the same file: each migration takes the write lock first and reads the
+   * version again under it, so only one of them applies it.
+   */
   private migrate(): void {
-    const row = this.raw.prepare('PRAGMA user_version').get() as { user_version: number };
-    let version = row.user_version;
-    for (; version < MIGRATIONS.length; version += 1) {
-      const sql = MIGRATIONS[version];
-      if (!sql) break;
-      this.raw.exec('BEGIN');
+    const version = (): number => (this.raw.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
+    while (version() < MIGRATIONS.length) {
+      this.raw.exec('BEGIN IMMEDIATE');
       try {
-        this.raw.exec(sql);
-        this.raw.exec(`PRAGMA user_version = ${version + 1}`);
+        const current = version();
+        if (current < MIGRATIONS.length) {
+          this.raw.exec(MIGRATIONS[current]!);
+          this.raw.exec(`PRAGMA user_version = ${current + 1}`);
+        }
         this.raw.exec('COMMIT');
       } catch (error) {
         this.raw.exec('ROLLBACK');

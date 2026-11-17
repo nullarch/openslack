@@ -15,7 +15,10 @@ function microsToTs(micros: bigint): string {
 
 /**
  * Issues message timestamps. A `ts` identifies a message inside its conversation,
- * so it must be unique and strictly increasing per conversation.
+ * so it must be unique and strictly increasing per conversation. The latest
+ * stored `ts` is read each time (an index lookup): another process sharing the
+ * database may have written one since; callers issue inside the transaction
+ * that inserts, which holds the write lock.
  */
 export class Clock {
   private readonly last = new Map<string, bigint>();
@@ -39,14 +42,10 @@ export class Clock {
   }
 
   next(conversationId: string): string {
-    let last = this.last.get(conversationId);
-    if (last === undefined) {
-      const row = this.db.get<{ ts: string | null }>(
-        'SELECT max(ts) AS ts FROM messages WHERE conversation_id = ?',
-        conversationId,
-      );
-      last = row?.ts ? tsToMicros(row.ts) : 0n;
-    }
+    const row = this.db.get<{ ts: string | null }>('SELECT max(ts) AS ts FROM messages WHERE conversation_id = ?', conversationId);
+    const stored = row?.ts ? tsToMicros(row.ts) : 0n;
+    const remembered = this.last.get(conversationId) ?? 0n;
+    const last = stored > remembered ? stored : remembered;
     const now = this.now();
     const value = now > last ? now : last + 1n;
     this.last.set(conversationId, value);

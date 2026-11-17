@@ -20,11 +20,6 @@ import { teamToApi } from '../api/methods/client.ts';
  * Slack has retired RTM for new apps; it is kept here so old bots keep working.
  */
 
-interface Ticket {
-  actor: Actor;
-  expires: number;
-}
-
 interface Connection {
   socket: WebSocket;
   actor: Actor;
@@ -42,7 +37,6 @@ const CLIENT_EVENTS_FOR_RTM = new Set(['user_typing', 'channel_marked', 'channel
 export class RtmHub {
   private readonly ctx: Ctx;
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
-  private readonly tickets = new Map<string, Ticket>();
   private readonly connections = new Set<Connection>();
   private pinger: NodeJS.Timeout | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -55,7 +49,8 @@ export class RtmHub {
     const open = (actor: Actor): { url: string } => {
       if (actor.kind === 'app' || actor.kind === 'session') fail('not_allowed_token_type');
       const ticket = newSecret(24);
-      this.tickets.set(ticket, { actor, expires: Date.now() + TICKET_TTL_MS });
+      // The socket may reach another process than this call: the ticket is kept where all can read it.
+      this.ctx.transient.put('rtm_ticket', ticket, { ...actor, scopes: actor.scopes ? [...actor.scopes] : null }, TICKET_TTL_MS);
       return { url: `${this.ctx.config.publicUrl.replace(/^http/, 'ws')}/rtm/?ticket=${ticket}` };
     };
     const identity = (actor: Actor): Record<string, unknown> => {
@@ -92,7 +87,7 @@ export class RtmHub {
     });
 
     kernel.upgrades.push(this.handleUpgrade);
-    this.unsubscribe = this.ctx.bus.subscribe((event) => this.deliver(event));
+    this.unsubscribe = this.ctx.bus.subscribe((event) => this.deliver(event), { everywhere: true });
     this.pinger = setInterval(() => this.ping(), PING_INTERVAL_MS);
     this.pinger.unref();
     kernel.onClose.push(() => this.stop());
@@ -108,14 +103,14 @@ export class RtmHub {
 
   private handleUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer, url: URL): boolean => {
     if (url.pathname !== '/rtm/' && url.pathname !== '/rtm') return false;
-    const ticket = this.tickets.get(url.searchParams.get('ticket') ?? '');
-    this.tickets.delete(url.searchParams.get('ticket') ?? '');
-    if (!ticket || ticket.expires < Date.now() || getUser(this.ctx, ticket.actor.userId)?.deleted !== 0) {
+    const stored = this.ctx.transient.take<Omit<Actor, 'scopes'> & { scopes: string[] | null }>('rtm_ticket', url.searchParams.get('ticket') ?? '');
+    if (!stored || getUser(this.ctx, stored.userId)?.deleted !== 0) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       socket.destroy();
       return true;
     }
-    this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, ticket.actor));
+    const actor: Actor = { ...stored, scopes: stored.scopes ? new Set(stored.scopes) : null };
+    this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, actor));
     return true;
   };
 
@@ -224,10 +219,6 @@ export class RtmHub {
   }
 
   private ping(): void {
-    const now = Date.now();
-    for (const [ticket, entry] of this.tickets) {
-      if (entry.expires <= now) this.tickets.delete(ticket);
-    }
     for (const connection of this.connections) {
       if (!connection.alive) {
         connection.socket.terminate();

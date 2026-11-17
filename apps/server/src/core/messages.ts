@@ -321,10 +321,12 @@ export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const subtype = broadcast ? 'thread_broadcast' : (input.subtype ?? null);
   const topLevel = threadTs === null || broadcast;
 
-  const ts = input.ts ?? ctx.clock.next(conv.id);
   if (input.ts) ctx.clock.observe(conv.id, input.ts);
+  let ts = input.ts ?? '';
 
   ctx.db.tx(() => {
+    // Issued under the write lock, so two processes never hand out the same ts in one conversation.
+    if (!input.ts) ts = ctx.clock.next(conv.id);
     ctx.db.run(
       `INSERT INTO messages (conversation_id, ts, user_id, bot_id, app_id, subtype, text, plain, blocks, attachments, files,
          metadata, username, icon_url, icon_emoji, thread_ts, is_broadcast, client_msg_id, streaming)

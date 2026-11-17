@@ -1,5 +1,6 @@
 import { ApiError } from '../core/errors.ts';
 import { newHex } from '../core/ids.ts';
+import type { Transient } from '../core/transient.ts';
 
 interface Trigger {
   appId: string;
@@ -10,27 +11,31 @@ interface Trigger {
   used: boolean;
 }
 
-const MAX_TRIGGERS = 10_000;
+const KIND = 'trigger';
+/** Kept a little past expiry so a late exchange still gets the precise error. */
+const KEEP_AFTER_MS = 60_000;
 
 /**
  * `trigger_id`: handed to an app with every interaction, slash command and
  * shortcut. The app exchanges it once, within a few seconds, to open a modal
- * for the person who acted (`views.open`, `views.push`).
+ * for the person who acted (`views.open`, `views.push`). Kept in the shared
+ * short-lived store: the app's `views.open` may reach another process.
  */
 export class Triggers {
+  private readonly transient: Transient;
   private readonly ttlMs: number;
-  private readonly triggers = new Map<string, Trigger>();
 
-  constructor(ttlMs: number) {
+  constructor(transient: Transient, ttlMs: number) {
+    this.transient = transient;
     this.ttlMs = ttlMs;
   }
 
   /** A new trigger for `userId`, usable by `appId` only. Slack's three-part form. */
   issue(appId: string, userId: string, channel: string | null = null): string {
-    this.sweep();
     const digits = (): string => String(Math.floor(1e11 + Math.random() * 9e11));
     const id = `${digits()}.${digits()}.${newHex(16)}`;
-    this.triggers.set(id, { appId, userId, channel, expires: Date.now() + this.ttlMs, used: false });
+    const trigger: Trigger = { appId, userId, channel, expires: Date.now() + this.ttlMs, used: false };
+    this.transient.put(KIND, id, trigger, this.ttlMs + KEEP_AFTER_MS);
     return id;
   }
 
@@ -45,21 +50,21 @@ export class Triggers {
   /** Like `consume`, with the conversation the trigger came from. */
   exchange(id: string | undefined, appId: string): { userId: string; channel: string | null } {
     if (!id || !/^\d+\.\d+\.[0-9a-f]+$/.test(id)) throw new ApiError('invalid_trigger_id');
-    const trigger = this.triggers.get(id);
     // A trigger issued for another app is no trigger at all for this one.
-    if (!trigger || trigger.appId !== appId) throw new ApiError('invalid_trigger_id');
-    if (trigger.used) throw new ApiError('exchanged_trigger_id');
-    if (trigger.expires <= Date.now()) throw new ApiError('expired_trigger_id');
-    trigger.used = true;
-    return { userId: trigger.userId, channel: trigger.channel };
-  }
-
-  private sweep(): void {
-    if (this.triggers.size < MAX_TRIGGERS) return;
-    // Kept a little past expiry so a late exchange still gets the precise error.
-    const cutoff = Date.now() - 60_000;
-    for (const [id, trigger] of this.triggers) {
-      if (trigger.expires < cutoff || this.triggers.size >= MAX_TRIGGERS) this.triggers.delete(id);
-    }
+    let error = 'invalid_trigger_id';
+    const used = this.transient.update<Trigger>(KIND, id, (trigger) => {
+      if (trigger.appId !== appId) return undefined;
+      if (trigger.used) {
+        error = 'exchanged_trigger_id';
+        return undefined;
+      }
+      if (trigger.expires <= Date.now()) {
+        error = 'expired_trigger_id';
+        return undefined;
+      }
+      return { ...trigger, used: true };
+    });
+    if (!used) throw new ApiError(error);
+    return { userId: used.userId, channel: used.channel };
   }
 }

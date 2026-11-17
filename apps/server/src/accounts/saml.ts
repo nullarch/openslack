@@ -1,4 +1,4 @@
-import { InMemoryCacheProvider, SAML, ValidateInResponseTo, generateServiceProviderMetadata, type Profile as SamlProfile } from '@node-saml/node-saml';
+import { SAML, ValidateInResponseTo, generateServiceProviderMetadata, type CacheProvider, type Profile as SamlProfile } from '@node-saml/node-saml';
 import type { ServerResponse } from 'node:http';
 import { readBody } from '../api/http.ts';
 import type { Kernel } from '../app.ts';
@@ -118,8 +118,18 @@ function redirect(res: ServerResponse, location: string): void {
 export function installSaml(kernel: Kernel): void {
   const { ctx, router } = kernel;
   const provider = (): IdentityProviderConfig | undefined => (ctx.config.identityProviders ?? []).find((item) => item.kind === 'saml');
-  // Request ids this server issued, each accepted once.
-  const requests = new InMemoryCacheProvider({ keyExpirationPeriodMs: STATE_TTL * 1000 });
+  // Request ids this server issued, each accepted once. Kept in the shared store:
+  // the identity provider's answer may reach another process than the request.
+  const requests: CacheProvider = {
+    saveAsync: async (key, value) => {
+      const createdAt = Date.now();
+      ctx.transient.put('saml_request', key, { value, createdAt }, STATE_TTL * 1000);
+      return { value, createdAt };
+    },
+    getAsync: async (key) => ctx.transient.get<{ value: string }>('saml_request', key)?.value ?? null,
+    removeAsync: async (key) => (key === null ? null : (ctx.transient.take<{ value: string }>('saml_request', key)?.value ?? null)),
+    consumeAsync: async (key) => ctx.transient.take<{ value: string }>('saml_request', key)?.value ?? null,
+  };
   let client: { saml: SAML; at: number } | null = null;
 
   const entityId = (config: IdentityProviderConfig): string => config.saml?.entityId || `${ctx.config.publicUrl}/auth/saml/metadata`;

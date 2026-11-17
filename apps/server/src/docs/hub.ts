@@ -24,6 +24,12 @@ import { FIELD, fragmentToPlain, mentionedUsers } from './markdown.ts';
  * arrives; the stored updates are merged into one when they pile up, and a
  * version is kept at most every few minutes of editing.
  *
+ * With several processes, people editing one canvas may be connected to
+ * different ones: each process stores the updates it receives and passes them,
+ * and cursor changes, to the others, which apply them to their copy of the
+ * document if they have it open. Compaction merges what is stored, never just
+ * one process's copy.
+ *
  * Read-only viewers receive updates but anything they send is dropped.
  * Sockets closed for good use 44xx codes (4403 access removed, 4404 deleted),
  * which the y-websocket client treats as final and does not retry.
@@ -57,8 +63,8 @@ interface Room {
   changedSinceVersion: boolean;
 }
 
-/** Who made a change: a socket connection, or a user id for API edits. */
-type Origin = Connection | { api: string } | 'load';
+/** Who made a change: a socket connection, a user id for API edits, or another process. */
+type Origin = Connection | { api: string } | 'load' | 'remote';
 
 export class CanvasHub {
   private readonly ctx: Ctx;
@@ -72,6 +78,19 @@ export class CanvasHub {
   install(kernel: Kernel): void {
     kernel.upgrades.push(this.handleUpgrade);
     kernel.onClose.push(() => this.close());
+    const { instances } = this.ctx;
+    instances.on('canvas.update', (body) => {
+      const { doc, update } = body as { doc: string; update: string };
+      const room = this.rooms.get(doc);
+      if (room) Y.applyUpdate(room.doc, Buffer.from(update, 'base64'), 'remote');
+    });
+    instances.on('canvas.awareness', (body) => {
+      const { doc, update } = body as { doc: string; update: string };
+      const room = this.rooms.get(doc);
+      if (room) awarenessProtocol.applyAwarenessUpdate(room.awareness, Buffer.from(update, 'base64'), 'remote');
+    });
+    instances.on('canvas.drop', (body) => this.drop((body as { doc: string }).doc, false));
+    instances.on('canvas.recheck', (body) => this.recheck((body as { doc: string }).doc, false));
   }
 
   // ── Rooms ─────────────────────────────────────────────────────────────────
@@ -103,10 +122,12 @@ export class CanvasHub {
         for (const id of added) connection.awarenessIds.add(id);
         for (const id of removed) connection.awarenessIds.delete(id);
       }
+      const update = awarenessProtocol.encodeAwarenessUpdate(awareness, changed);
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
-      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changed));
+      encoding.writeVarUint8Array(encoder, update);
       this.broadcast(current, encoding.toUint8Array(encoder), null);
+      if (origin !== 'remote') this.ctx.instances.publish('canvas.awareness', { doc: id, update: Buffer.from(update).toString('base64') });
     });
     this.rooms.set(id, room);
     this.scheduleUnload(room);
@@ -124,16 +145,18 @@ export class CanvasHub {
     return this.room(id).doc.getXmlFragment(FIELD);
   }
 
-  /** Forget a deleted canvas: close its sockets and drop it from memory. */
-  drop(id: string): void {
+  /** Forget a deleted canvas: close its sockets and drop it from memory, in every process. */
+  drop(id: string, everywhere = true): void {
+    if (everywhere) this.ctx.instances.publish('canvas.drop', { doc: id });
     const room = this.rooms.get(id);
     if (!room) return;
     for (const connection of room.connections) connection.socket.close(4404, 'canvas deleted');
     this.unload(room);
   }
 
-  /** Re-check open connections after access changed; close those that may no longer open the canvas. */
-  recheck(id: string): void {
+  /** Re-check open connections after access changed, in every process; close those that may no longer open the canvas. */
+  recheck(id: string, everywhere = true): void {
+    if (everywhere) this.ctx.instances.publish('canvas.recheck', { doc: id });
     const room = this.rooms.get(id);
     const doc = getDoc(this.ctx, id, 'canvas');
     if (!room) return;
@@ -144,6 +167,15 @@ export class CanvasHub {
 
   private onUpdate(room: Room, update: Uint8Array, origin: Origin): void {
     if (origin === 'load') return;
+    if (origin === 'remote') {
+      // Stored and flushed by the process that received it; only pass it to the people connected here.
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, MESSAGE_SYNC);
+      syncProtocol.writeUpdate(encoder, update);
+      this.broadcast(room, encoding.toUint8Array(encoder), null);
+      return;
+    }
+    this.ctx.instances.publish('canvas.update', { doc: room.id, update: Buffer.from(update).toString('base64') });
     const userId = typeof origin === 'object' && 'api' in origin ? origin.api : (origin as Connection).userId;
     this.ctx.db.run('INSERT INTO canvas_updates (doc_id, data, user_id, created) VALUES (?, ?, ?, ?)', room.id, update, userId, nowSeconds());
     room.pending += 1;
@@ -241,11 +273,22 @@ export class CanvasHub {
     return versionId;
   }
 
-  /** Replace the many stored updates with one, keeping the document identical. */
+  /**
+   * Replace the many stored updates with one, keeping the document identical.
+   * Built from what is stored, under the write lock: another process may have
+   * stored an update this copy has not applied yet.
+   */
   compact(room: Room): void {
-    const merged = Y.encodeStateAsUpdate(room.doc);
     this.ctx.db.tx(() => {
-      this.ctx.db.run('DELETE FROM canvas_updates WHERE doc_id = ?', room.id);
+      const rows = this.ctx.db.all<{ id: number; data: Uint8Array }>('SELECT id, data FROM canvas_updates WHERE doc_id = ? ORDER BY id', room.id);
+      if (rows.length < 2) return;
+      const doc = new Y.Doc({ gc: true });
+      doc.transact(() => {
+        for (const row of rows) Y.applyUpdate(doc, row.data);
+      });
+      const merged = Y.encodeStateAsUpdate(doc);
+      doc.destroy();
+      this.ctx.db.run('DELETE FROM canvas_updates WHERE doc_id = ? AND id <= ?', room.id, rows.at(-1)!.id);
       this.ctx.db.run('INSERT INTO canvas_updates (doc_id, data, user_id, created) VALUES (?, ?, ?, ?)', room.id, merged, room.lastEditor, nowSeconds());
     });
     room.pending = 1;

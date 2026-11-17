@@ -1077,4 +1077,61 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (conversation_id, app_id, name)
   ) WITHOUT ROWID;
   `,
+  // 33: several processes sharing one database. Each process registers itself and
+  // renews `seen`; one holds the `leader` lease and runs the periodic jobs. Processes
+  // tell each other about events through `instance_messages`, read by polling.
+  // `transient` holds short-lived values any process may be asked about (response
+  // URLs, trigger ids, one-time codes). `streams` keeps open streamed messages.
+  `
+  CREATE TABLE instances (
+    id TEXT PRIMARY KEY,
+    host TEXT NOT NULL,
+    pid INTEGER NOT NULL,
+    -- 1 when started to share the database (CLUSTER=1 or WORKERS).
+    shared INTEGER NOT NULL,
+    started INTEGER NOT NULL,
+    seen INTEGER NOT NULL
+  );
+  CREATE TABLE instance_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    origin TEXT NOT NULL,
+    target TEXT,
+    topic TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+  CREATE TABLE leases (
+    name TEXT PRIMARY KEY,
+    holder TEXT NOT NULL,
+    expires INTEGER NOT NULL
+  ) WITHOUT ROWID;
+  CREATE TABLE transient (
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    expires INTEGER NOT NULL,
+    PRIMARY KEY (kind, key)
+  ) WITHOUT ROWID;
+  CREATE INDEX transient_expires ON transient (expires);
+  CREATE TABLE instance_presence (
+    instance TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    PRIMARY KEY (instance, user_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX instance_presence_user ON instance_presence (user_id);
+  CREATE TABLE instance_sockets (
+    instance TEXT NOT NULL,
+    app_id TEXT NOT NULL,
+    connections INTEGER NOT NULL,
+    PRIMARY KEY (instance, app_id)
+  ) WITHOUT ROWID;
+  CREATE TABLE streams (
+    conversation_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    state TEXT NOT NULL,
+    expires INTEGER NOT NULL,
+    PRIMARY KEY (conversation_id, ts)
+  ) WITHOUT ROWID;
+  `,
 ];

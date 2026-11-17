@@ -173,6 +173,23 @@ export class Engine {
     }
   }
 
+  /**
+   * Move a waiting run on: running again, at `pc`, with `vars`. False when it
+   * was not waiting any more, because a submission or completion that reached
+   * another process (or a second click) got there first.
+   */
+  private resume(run: RunRow, pc: number, vars: Vars): boolean {
+    return (
+      this.ctx.db.run(
+        "UPDATE workflow_runs SET status = 'running', waiting = NULL, pc = ?, vars = ?, updated = ? WHERE id = ? AND status = 'waiting'",
+        pc,
+        JSON.stringify(vars),
+        nowSeconds(),
+        run.id,
+      ).changes === 1
+    );
+  }
+
   private save(runId: string, fields: Partial<Pick<RunRow, 'pc' | 'vars' | 'status' | 'waiting' | 'error' | 'finished'>>): void {
     const names = Object.keys(fields) as (keyof typeof fields)[];
     if (names.length === 0) return;
@@ -416,6 +433,7 @@ export class Engine {
       put(vars, `steps.${waiting.step}.${field.key}`, { value, kind: field.type === 'user' ? 'user' : field.type === 'channel' ? 'channel' : 'text' });
     }
     put(vars, `steps.${waiting.step}.user`, { value: userId, kind: 'user' });
+    if (!this.resume(run, run.pc + 1, vars)) return {};
     // Answers posted for the team to see, when the step asks for it.
     if (waiting.post_to && workflow) {
       try {
@@ -435,7 +453,6 @@ export class Engine {
       }
     }
     this.log(run, { step: waiting.step, type: 'form', at: nowSeconds(), ok: true, detail: 'submitted' });
-    this.save(run.id, { status: 'running', waiting: null, pc: run.pc + 1, vars: JSON.stringify(vars) });
     void this.advance(run.id);
     return {};
   }
@@ -471,9 +488,9 @@ export class Engine {
       const text = typeof value === 'string' ? value : JSON.stringify(value);
       put(vars, `steps.${waiting.step}.${name}`, { value: text, kind: /^U[A-Z0-9]+$/.test(text) ? 'user' : /^C[A-Z0-9]+$/.test(text) ? 'channel' : 'text' });
     }
+    if (!this.resume(run, run.pc + 1, vars)) throw new ApiError('function_execution_not_found');
     this.ctx.db.run('DELETE FROM tokens WHERE token_hash = ?', waiting.token_hash);
     this.log(run, { step: waiting.step, type: 'app', at: nowSeconds(), ok: true, detail: 'completed by the app' });
-    this.save(run.id, { status: 'running', waiting: null, pc: run.pc + 1, vars: JSON.stringify(vars) });
     void this.advance(run.id);
   }
 

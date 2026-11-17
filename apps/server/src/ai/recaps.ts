@@ -198,7 +198,7 @@ export function installRecaps(kernel: Kernel): void {
   const interval = Number(process.env.AI_RECAP_INTERVAL_MS ?? 60_000);
   let busy = false;
   const tick = (): void => {
-    if (busy || !ctx.team()) return;
+    if (busy || !ctx.team() || !ctx.instances.isLeader()) return;
     busy = true;
     void runDue(ctx)
       .catch((error) => console.error('[ai] recap check failed', error))

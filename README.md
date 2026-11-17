@@ -29,7 +29,7 @@ docker run -p 3000:3000 -v openslack:/data ghcr.io/nullarch/openslack
 - **AI that stays yours.** Off until you connect a model (Claude by default, or any local OpenAI-compatible one): summaries, daily recaps, answers above search results, notes after a call, and an assistant that remembers only what you let it.
 - **Calls and clips.** Huddles with video, screen sharing, drawing on a shared screen, background blur and live captions (through [LiveKit](https://livekit.io)), and recorded audio, video and screen clips with transcripts.
 - **The admin features are in the free edition.** Single sign-on (SAML 2.0, OpenID Connect, Google, GitHub), two-factor sign-in, SCIM provisioning, an audit log in the shape of Slack's Audit Logs API, retention, legal hold, sensitive-information rules, encryption at rest, guests and analytics. Other tools can also use the workspace to sign people in.
-- **One process, one folder.** Node.js and a data directory holding a SQLite file and your uploads. Back up the folder and you have backed up everything.
+- **One process, one folder.** Node.js and a data directory holding a SQLite file and your uploads. Back up the folder and you have backed up everything. When one processor core is not enough, `WORKERS=4` serves from four processes sharing that folder.
 - **Nothing held back.** Apache-2.0. No user cap, no history limit, no paid edition, no telemetry.
 
 ## Point a Slack app at it

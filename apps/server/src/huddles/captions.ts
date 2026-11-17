@@ -183,10 +183,12 @@ export function installHuddleCaptions(kernel: Kernel): void {
   });
   kernel.onClose.push(unsubscribe);
 
-  // Captions left from huddles that ended while the server was down.
-  for (const row of ctx.db.all<{ huddle_id: string }>(
-    'SELECT DISTINCT c.huddle_id FROM huddle_captions c JOIN huddles h ON h.id = c.huddle_id WHERE h.ended IS NOT NULL',
-  )) {
-    void finishCaptions(ctx, row.huddle_id).catch(() => undefined);
-  }
+  // Captions left from huddles that ended while the server (or the process that ended them) was down.
+  ctx.instances.onLeader(() => {
+    for (const row of ctx.db.all<{ huddle_id: string }>(
+      'SELECT DISTINCT c.huddle_id FROM huddle_captions c JOIN huddles h ON h.id = c.huddle_id WHERE h.ended IS NOT NULL',
+    )) {
+      void finishCaptions(ctx, row.huddle_id).catch(() => undefined);
+    }
+  });
 }

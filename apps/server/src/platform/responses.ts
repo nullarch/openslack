@@ -20,7 +20,6 @@ export interface ResponseContent {
 const MAX_USES = 5;
 const TTL_MS = 30 * 60_000;
 const EPHEMERAL_TTL_MS = 30 * 60_000;
-const MAX_EPHEMERALS = 5000;
 
 function sameSecret(a: string, b: string): boolean {
   const left = Buffer.from(a);
@@ -65,13 +64,14 @@ export interface EphemeralRecord {
 }
 
 /**
- * Ephemeral messages are never stored, yet a button on one must still reach
- * the app that sent it, and the app may replace or delete it through a
- * `response_url`. This keeps recent ones in memory, picked up from the bus.
+ * Ephemeral messages are never stored with the conversation, yet a button on
+ * one must still reach the app that sent it, and the app may replace or delete
+ * it through a `response_url`. Recent ones are picked up from the bus and kept
+ * for half an hour in the shared short-lived store, where any process can find
+ * them.
  */
 export class EphemeralStore {
   private readonly ctx: Ctx;
-  private readonly records = new Map<string, EphemeralRecord>();
 
   constructor(ctx: Ctx) {
     this.ctx = ctx;
@@ -83,8 +83,7 @@ export class EphemeralStore {
       if (event.type !== 'message' || event.is_ephemeral !== true || event.subtype !== undefined) return;
       if (!('users' in audience) || audience.users.length !== 1) return;
       if (typeof event.channel !== 'string' || typeof event.ts !== 'string') return;
-      this.sweep();
-      this.records.set(`${event.channel}:${event.ts}`, {
+      this.save({
         message: event as unknown as Message,
         conversationId: event.channel,
         userId: audience.users[0]!,
@@ -95,17 +94,12 @@ export class EphemeralStore {
     kernel.onClose.push(unsubscribe);
   }
 
-  private sweep(): void {
-    if (this.records.size < MAX_EPHEMERALS) return;
-    const now = Date.now();
-    for (const [key, record] of this.records) {
-      if (record.expires <= now || this.records.size >= MAX_EPHEMERALS) this.records.delete(key);
-    }
+  private save(record: EphemeralRecord): void {
+    this.ctx.transient.put('ephemeral', `${record.conversationId}:${record.message.ts}`, record, Math.max(1, record.expires - Date.now()));
   }
 
   get(conversationId: string, ts: string): EphemeralRecord | undefined {
-    const record = this.records.get(`${conversationId}:${ts}`);
-    return record && record.expires > Date.now() ? record : undefined;
+    return this.ctx.transient.get<EphemeralRecord>('ephemeral', `${conversationId}:${ts}`);
   }
 
   /** Show a message to one member only, as the app. Returns its timestamp. */
@@ -139,6 +133,7 @@ export class EphemeralStore {
     if (content.blocks?.length) next.blocks = content.blocks;
     if (content.attachments?.length) next.attachments = content.attachments;
     record.message = next;
+    this.save(record);
     const eventTs = this.ctx.clock.eventTs();
     this.ctx.bus.emit({
       event: {
@@ -158,7 +153,7 @@ export class EphemeralStore {
   }
 
   remove(record: EphemeralRecord): void {
-    this.records.delete(`${record.conversationId}:${record.message.ts}`);
+    this.ctx.transient.delete('ephemeral', `${record.conversationId}:${record.message.ts}`);
     const eventTs = this.ctx.clock.eventTs();
     this.ctx.bus.emit({
       event: {
@@ -207,12 +202,12 @@ export interface NewHook {
  * `response_url`: a short-lived URL handed to an app with each interaction and
  * slash command. The app may POST a message payload to it up to five times
  * within thirty minutes to answer where the interaction happened, without any
- * channel permission.
+ * channel permission. Kept in the shared short-lived store, so the URL works
+ * whichever process the app's call reaches.
  */
 export class ResponseHooks {
   private readonly ctx: Ctx;
   private readonly ephemerals: EphemeralStore;
-  private readonly hooks = new Map<string, Hook>();
 
   constructor(ctx: Ctx, ephemerals: EphemeralStore) {
     this.ctx = ctx;
@@ -222,7 +217,7 @@ export class ResponseHooks {
   install(kernel: Kernel): void {
     kernel.router.add('POST', /^\/hooks\/(actions|commands)\/([A-Z0-9]+)\/([A-Z0-9]+)\/([A-Za-z0-9_-]+)$/, async ({ req, res, params }) => {
       const [kind, appId, id, secret] = params;
-      const hook = this.hooks.get(id!);
+      const hook = this.ctx.transient.get<Hook>('response_url', id!);
       const app = hook ? getApp(this.ctx, hook.appId) : undefined;
       const valid = hook && app && hook.kind === kind && hook.appId === appId && sameSecret(hook.secret, secret!);
       if (!hook || !app || !valid || hook.expires <= Date.now()) {
@@ -242,8 +237,13 @@ export class ResponseHooks {
           throw new ApiError('invalid_payload', {}, 400);
         }
       }
-      hook.uses += 1;
-      this.apply(hook, app, body);
+      // Counted under the write lock: five uses in all, whichever processes they reach.
+      const counted = this.ctx.transient.update<Hook>('response_url', id!, (current) => (current.uses >= MAX_USES ? undefined : { ...current, uses: current.uses + 1 }));
+      if (!counted) {
+        sendJson(res, 404, { ok: false, error: 'used_url' });
+        return;
+      }
+      this.apply(counted, app, body);
       sendJson(res, 200, { ok: true });
     });
   }
@@ -251,12 +251,9 @@ export class ResponseHooks {
   /** Create a `response_url` for one interaction. */
   create(input: NewHook): string {
     const now = Date.now();
-    for (const [key, hook] of this.hooks) {
-      if (hook.expires <= now) this.hooks.delete(key);
-    }
     const id = newId('', 12);
     const secret = newSecret(18);
-    this.hooks.set(id, {
+    const hook: Hook = {
       secret,
       appId: input.app.id,
       kind: input.kind,
@@ -266,7 +263,8 @@ export class ResponseHooks {
       sourceEphemeral: input.sourceEphemeral ?? false,
       uses: 0,
       expires: now + TTL_MS,
-    });
+    };
+    this.ctx.transient.put('response_url', id, hook, TTL_MS);
     return `${this.ctx.config.publicUrl}/hooks/${input.kind}/${input.app.id}/${id}/${secret}`;
   }
 

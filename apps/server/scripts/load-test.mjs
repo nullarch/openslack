@@ -9,7 +9,13 @@
 // time from sending the request to the event arriving. Reports p50/p95/p99
 // over all deliveries. Client and server share one machine, so the numbers
 // include the cost of the client side too.
+//
+// With WORKERS=N the server runs as separate processes instead (`WORKERS=1`:
+// one server process; `WORKERS=4`: four workers sharing the port and the
+// database), so the client no longer shares the server's event loop.
+import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WebSocket } from 'ws';
@@ -23,8 +29,10 @@ const PEOPLE = Number(process.argv[3] ?? 250);
 const MESSAGES = Number(process.argv[4] ?? 60);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const WORKERS = process.env.WORKERS ? Number(process.env.WORKERS) : 0;
+
 const dataDir = mkdtempSync(join(tmpdir(), 'chat-load-'));
-const app = createApp({
+const config = {
   port: 0,
   host: '127.0.0.1',
   dataDir,
@@ -34,9 +42,30 @@ const app = createApp({
   cookieSecure: false,
   version: 'load-test',
   quiet: true,
-});
-const port = await app.listen();
-const base = `http://127.0.0.1:${port}`;
+};
+let base;
+let server = null;
+// In this process the app serves; with WORKERS it only writes people to the shared database.
+const app = createApp(config);
+if (WORKERS) {
+  const port = await new Promise((resolve) => {
+    const probe = createServer().listen(0, '127.0.0.1', () => {
+      const chosen = probe.address().port;
+      probe.close(() => resolve(chosen));
+    });
+  });
+  server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', join(import.meta.dirname, '../src/main.ts')], {
+    env: { ...process.env, WORKERS: String(WORKERS), PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dataDir, QUIET: '1', LINK_PREVIEWS: '0', WEB_DIR: '' },
+    stdio: 'inherit',
+  });
+  base = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 200; i += 1) {
+    if ((await fetch(`${base}/healthz`).catch(() => null))?.ok) break;
+    await sleep(100);
+  }
+} else {
+  base = `http://127.0.0.1:${await app.listen()}`;
+}
 
 try {
   // ── Workspace and people ─────────────────────────────────────────────────
@@ -111,6 +140,7 @@ try {
         latencyMs: { p50: at(0.5), p95: at(0.95), p99: at(0.99), max: latencies.at(-1).toFixed(1) },
         deliveriesPerSecond: Math.round(received / (elapsed / 1000)),
         rssMB: Math.round(rssAfterConnect / 1048576),
+        server: WORKERS ? `${WORKERS} process${WORKERS > 1 ? 'es' : ''}` : 'in the test process',
         node: process.version,
       },
       null,
@@ -120,6 +150,10 @@ try {
   if (received < expected) process.exitCode = 1;
   for (const socket of sockets) socket.terminate();
 } finally {
+  if (server) {
+    server.kill('SIGTERM');
+    await new Promise((resolve) => server.once('exit', resolve));
+  }
   await app.close();
   rmSync(dataDir, { recursive: true, force: true });
 }

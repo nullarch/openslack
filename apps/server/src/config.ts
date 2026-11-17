@@ -80,6 +80,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     mailFrom: env.MAIL_FROM?.trim() || undefined,
     identityProviders: identityProvidersFromEnv(env),
     metricsToken: env.METRICS_TOKEN?.trim() || null,
+    cluster: env.CLUSTER === '1',
   };
 }
 

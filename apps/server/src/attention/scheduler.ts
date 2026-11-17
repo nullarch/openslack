@@ -4,7 +4,13 @@
  * wakes at the earliest of them, and at least once a minute. Items stored in
  * the database survive a restart: whatever fell due while the server was down
  * runs at start-up.
+ *
+ * With several processes only the leader runs it. Another process that
+ * schedules or cancels something tells the leader to look again, and a process
+ * that becomes the leader runs whatever fell due meanwhile.
  */
+import type { Instances } from '../core/instances.ts';
+
 
 export interface TimedSource {
   /** The next due time in seconds, or null when nothing is waiting. */
@@ -17,9 +23,21 @@ const MAX_SLEEP_MS = 60_000;
 
 export class Scheduler {
   private readonly sources: TimedSource[] = [];
+  private readonly instances: Instances;
+  private readonly topic: string;
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
   private running = false;
+
+  /** `name` tells this scheduler's messages between processes apart from another's. */
+  constructor(instances: Instances, name: string) {
+    this.instances = instances;
+    this.topic = `scheduler.${name}`;
+    instances.on(this.topic, () => {
+      if (instances.isLeader()) this.arm();
+    });
+    instances.onLeader(() => this.arm());
+  }
 
   add(source: TimedSource): void {
     this.sources.push(source);
@@ -29,6 +47,11 @@ export class Scheduler {
   arm(): void {
     if (this.stopped) return;
     if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    if (!this.instances.isLeader()) {
+      this.instances.publish(this.topic, null);
+      return;
+    }
     let next: number | null = null;
     for (const source of this.sources) {
       const due = source.next();
@@ -40,7 +63,7 @@ export class Scheduler {
   }
 
   private tick(): void {
-    if (this.stopped || this.running) return;
+    if (this.stopped || this.running || !this.instances.isLeader()) return;
     this.running = true;
     try {
       const now = Math.floor(Date.now() / 1000);

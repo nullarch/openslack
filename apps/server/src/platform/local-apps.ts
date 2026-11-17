@@ -31,6 +31,7 @@ export interface LocalApp {
 }
 
 const localApps = new WeakMap<Ctx, Map<string, LocalApp>>();
+const finders = new WeakMap<Ctx, (() => void)[]>();
 
 export function registerLocalApp(ctx: Ctx, app: LocalApp): void {
   let apps = localApps.get(ctx);
@@ -38,11 +39,30 @@ export function registerLocalApp(ctx: Ctx, app: LocalApp): void {
   apps.set(app.appId, app);
 }
 
+/**
+ * A built-in app created on demand (the Workflows app, when the first workflow
+ * is built) is registered by the process that created it. Another process
+ * sharing the database learns of it here: `find` registers the app if its row
+ * exists by now, and runs before every lookup.
+ */
+export function findLocalAppWith(ctx: Ctx, find: () => void): void {
+  const list = finders.get(ctx) ?? [];
+  list.push(find);
+  finders.set(ctx, list);
+}
+
+function findAll(ctx: Ctx): void {
+  for (const find of finders.get(ctx) ?? []) find();
+}
+
 export function localApp(ctx: Ctx, appId: string | null | undefined): LocalApp | undefined {
-  return appId ? localApps.get(ctx)?.get(appId) : undefined;
+  if (!appId) return undefined;
+  if (!localApps.get(ctx)?.has(appId)) findAll(ctx);
+  return localApps.get(ctx)?.get(appId);
 }
 
 export function allLocalApps(ctx: Ctx): LocalApp[] {
+  findAll(ctx);
   return [...(localApps.get(ctx)?.values() ?? [])];
 }
 

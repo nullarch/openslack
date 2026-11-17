@@ -48,7 +48,7 @@ export function installPlatform(kernel: Kernel): void {
   hooks.install(kernel);
 
   const delivery: Delivery = { ctx, sockets, http };
-  const interactivity = { ctx, options, sockets, hooks, ephemerals, triggers: new Triggers(options.triggerTtlMs) };
+  const interactivity = { ctx, options, sockets, hooks, ephemerals, triggers: new Triggers(ctx.transient, options.triggerTtlMs) };
   installInteractivity(kernel, interactivity);
   installCommands(kernel, interactivity);
   installShortcuts(kernel, interactivity);
