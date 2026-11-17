@@ -5,8 +5,9 @@ import { mailEnabled } from '../core/mail.ts';
 import { getUser } from '../core/users.ts';
 import { expireGuests, guestExpired } from './guests.ts';
 import { registerInvites } from './invites.ts';
-import { allowedTo, teamPrefs } from './prefs.ts';
+import { teamPrefs } from './prefs.ts';
 import { registerSignIn, TWO_FACTOR_SETUP_METHODS, twoFactorPending } from './signin.ts';
+import { installWorkspace, permissionsFor, profileFields } from './workspace.ts';
 
 type Loose = Record<string, unknown>;
 
@@ -28,6 +29,7 @@ export function installAccounts(kernel: Kernel): void {
   const { ctx, registry } = kernel;
   registerSignIn(registry);
   registerInvites(registry);
+  installWorkspace(kernel);
 
   // Expired guests lose access the moment they next call, and in a sweep every minute.
   registry.guards.push((name, actor) => {
@@ -53,21 +55,11 @@ export function installAccounts(kernel: Kernel): void {
     two_factor_setup_required: actor?.kind === 'session' ? twoFactorPending(ctx, actor.userId) : false,
   }));
 
-  wrap(kernel, 'client.boot', (result, { actor }) => {
-    const prefs = teamPrefs(ctx);
-    const self = getUser(ctx, actor.userId);
-    return {
-      ...result,
-      mail_enabled: mailEnabled(ctx),
-      permissions: {
-        create_channels: allowedTo(ctx, actor.userId, 'who_can_create_channels'),
-        invite: allowedTo(ctx, actor.userId, 'who_can_invite'),
-        manage_emoji: allowedTo(ctx, actor.userId, 'who_can_manage_emoji'),
-        at_channel: allowedTo(ctx, actor.userId, 'who_can_at_channel'),
-        manage_usergroups: allowedTo(ctx, actor.userId, 'who_can_manage_usergroups'),
-        browse_channels: self?.guest === '',
-      },
-      signup_domains: prefs.signup_domains ?? [],
-    };
-  });
+  wrap(kernel, 'client.boot', (result, { actor }) => ({
+    ...result,
+    mail_enabled: mailEnabled(ctx),
+    permissions: permissionsFor(ctx, actor.userId),
+    signup_domains: teamPrefs(ctx).signup_domains ?? [],
+    profile_fields: profileFields(ctx, false).map((row) => ({ id: row.id, label: row.label, hint: row.hint, type: row.type, possible_values: row.possible_values ? JSON.parse(row.possible_values) : null })),
+  }));
 }

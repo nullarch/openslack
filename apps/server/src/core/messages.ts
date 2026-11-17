@@ -259,9 +259,23 @@ function refreshLastTs(ctx: Ctx, conversationId: string): void {
   ctx.db.run('UPDATE conversations SET last_ts = ? WHERE id = ?', row?.ts ?? ZERO_TS, conversationId);
 }
 
+/**
+ * Checks run before a person's message is stored or changed (not for imports).
+ * A check throws to refuse it. Workspace policies register here.
+ */
+export const contentChecks: ((ctx: Ctx, userId: string, text: string, blocks: unknown) => void)[] = [];
+
+function runContentChecks(ctx: Ctx, userId: string | null, text: string, blocks: unknown): void {
+  if (!userId) return;
+  for (const check of contentChecks) check(ctx, userId, text, blocks);
+}
+
 export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const { conv } = input;
   const text = input.text ?? '';
+  // System lines (joins, topic changes) are written by the server, not composed by the person.
+  const system = input.subtype?.startsWith('channel_') || input.subtype === 'pinned_item';
+  if (!input.silent && !system) runContentChecks(ctx, input.userId, text, input.blocks);
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const hasContent = text.length > 0 || input.blocks?.length || input.attachments?.length || input.fileIds?.length;
   if (!hasContent && !input.streaming && !input.allowEmpty) fail('no_text');
@@ -394,6 +408,7 @@ export function updateMessage(
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const blocks = patch.blocks === undefined ? parseJson<Block[]>(row.blocks) : patch.blocks;
   const attachments = patch.attachments === undefined ? parseJson<Attachment[]>(row.attachments) : patch.attachments;
+  if (options.markEditedBy) runContentChecks(ctx, options.markEditedBy, text, blocks);
   const eventTs = ctx.clock.eventTs();
 
   ctx.db.tx(() => {
