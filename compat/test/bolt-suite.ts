@@ -84,6 +84,33 @@ function registerListeners(app: BoltApp, delivered: Set<string>): void {
     await respond({ response_type: 'in_channel', text: `<@${command.user_id}> said: ${command.text}` });
   });
 
+  // A legacy dialog, as older apps still open them.
+  app.command('/laptop', async ({ command, ack, client }) => {
+    await ack();
+    await client.dialog.open({
+      trigger_id: command.trigger_id,
+      dialog: {
+        title: 'Request a laptop',
+        callback_id: 'laptop',
+        state: 'desk-7',
+        elements: [
+          { type: 'text', label: 'Email', name: 'email' },
+          { type: 'select', label: 'Model', name: 'model', options: [{ label: 'Air', value: 'air' }, { label: 'Pro', value: 'pro' }] },
+        ],
+      },
+    });
+  });
+
+  app.action({ type: 'dialog_submission', callback_id: 'laptop' }, async ({ ack, body, respond }) => {
+    const submission = (body as Json).submission as Json;
+    if (!String(submission.email).includes('@')) {
+      await ack({ errors: [{ name: 'email', error: 'Use your work address' }] });
+      return;
+    }
+    await ack();
+    await respond({ text: `Laptop ${submission.model} for ${submission.email} (${(body as Json).state})`, response_type: 'in_channel' });
+  });
+
   app.message(/report/, async ({ message, client }) => {
     await client.files.uploadV2({
       channel_id: message.channel,
@@ -282,6 +309,7 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
         registerListeners(app, delivered);
         await app.start();
         await owner.ok('client.apps.commands.set', { app: creds.id, command: '/echo', description: 'Say it back' });
+        await owner.ok('client.apps.commands.set', { app: creds.id, command: '/laptop', description: 'Request a laptop' });
       } else {
         app = new App({ token: creds.botToken, signingSecret: creds.signingSecret, clientOptions, logLevel: LogLevel.ERROR });
         registerListeners(app, delivered);
@@ -291,6 +319,7 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
         // Saving the URL performs the verification handshake against Bolt's receiver.
         await owner.ok('client.apps.update', { app: creds.id, events_url: url, interactivity_url: url });
         await owner.ok('client.apps.commands.set', { app: creds.id, command: '/echo', description: 'Say it back', url });
+        await owner.ok('client.apps.commands.set', { app: creds.id, command: '/laptop', description: 'Request a laptop', url });
       }
       stream = await member.connect();
     });
@@ -360,6 +389,22 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
       assert.equal(immediate.user, creds.botUserId);
       const shared = await fromBot((event) => event.text === `<@${member.userId}> said: ship it`);
       assert.equal(shared.is_ephemeral, undefined);
+    });
+
+    test('client.dialog.open and app.action(dialog_submission): a legacy dialog with errors, then accepted', async () => {
+      await member.ok('client.commands.run', { channel: general, command: '/laptop', text: '' });
+      const stack = (await stream.next((event) => event.type === 'view_stack' && event.stack.length === 1, 5000)).stack as Json[];
+      const view = stack[0]!;
+      const blocks = view.blocks as Json[];
+      const values = (email: string): Json => ({
+        [blocks[0]!.block_id]: { email: { type: 'plain_text_input', value: email } },
+        [blocks[1]!.block_id]: { model: { type: 'static_select', selected_option: { text: { type: 'plain_text', text: 'Pro' }, value: 'pro' } } },
+      });
+      const refused = await member.ok('client.views.submit', { view_id: view.id, state: { values: values('nope') } });
+      assert.deepEqual(refused.errors, { [blocks[0]!.block_id]: 'Use your work address' });
+      const accepted = await member.ok('client.views.submit', { view_id: view.id, state: { values: values('mina@acme.test') } });
+      assert.deepEqual(accepted.stack, []);
+      await fromBot((event) => event.text === 'Laptop pro for mina@acme.test (desk-7)');
     });
 
     test('client.files.uploadV2: the three-step upload ends as a message with a file', async () => {

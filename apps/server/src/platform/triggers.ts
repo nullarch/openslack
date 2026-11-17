@@ -4,6 +4,8 @@ import { newHex } from '../core/ids.ts';
 interface Trigger {
   appId: string;
   userId: string;
+  /** The conversation the interaction happened in, when there was one (legacy dialogs report it). */
+  channel: string | null;
   expires: number;
   used: boolean;
 }
@@ -24,11 +26,11 @@ export class Triggers {
   }
 
   /** A new trigger for `userId`, usable by `appId` only. Slack's three-part form. */
-  issue(appId: string, userId: string): string {
+  issue(appId: string, userId: string, channel: string | null = null): string {
     this.sweep();
     const digits = (): string => String(Math.floor(1e11 + Math.random() * 9e11));
     const id = `${digits()}.${digits()}.${newHex(16)}`;
-    this.triggers.set(id, { appId, userId, expires: Date.now() + this.ttlMs, used: false });
+    this.triggers.set(id, { appId, userId, channel, expires: Date.now() + this.ttlMs, used: false });
     return id;
   }
 
@@ -37,6 +39,11 @@ export class Triggers {
    * `views.open`: `invalid_trigger_id`, `expired_trigger_id`, `exchanged_trigger_id`.
    */
   consume(id: string | undefined, appId: string): string {
+    return this.exchange(id, appId).userId;
+  }
+
+  /** Like `consume`, with the conversation the trigger came from. */
+  exchange(id: string | undefined, appId: string): { userId: string; channel: string | null } {
     if (!id || !/^\d+\.\d+\.[0-9a-f]+$/.test(id)) throw new ApiError('invalid_trigger_id');
     const trigger = this.triggers.get(id);
     // A trigger issued for another app is no trigger at all for this one.
@@ -44,7 +51,7 @@ export class Triggers {
     if (trigger.used) throw new ApiError('exchanged_trigger_id');
     if (trigger.expires <= Date.now()) throw new ApiError('expired_trigger_id');
     trigger.used = true;
-    return trigger.userId;
+    return { userId: trigger.userId, channel: trigger.channel };
   }
 
   private sweep(): void {

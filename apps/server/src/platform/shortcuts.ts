@@ -43,7 +43,7 @@ export function installShortcuts(kernel: Kernel, deps: Interactivity): void {
     const team = ctx.requireTeam();
     const base: Json = {
       callback_id: callbackId,
-      trigger_id: deps.triggers.issue(app.id, actor.userId),
+      trigger_id: deps.triggers.issue(app.id, actor.userId, args.str('context_channel') ?? null),
       user: payloadUser(ctx, actor.userId),
       team: { id: team.id, domain: team.domain },
       token: app.verification_token,

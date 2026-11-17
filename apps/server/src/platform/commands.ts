@@ -97,7 +97,7 @@ export function installCommands(kernel: Kernel, deps: Interactivity): void {
       api_app_id: app.id,
       is_enterprise_install: 'false',
       response_url: deps.hooks.create({ app, kind: 'commands', conversationId: conv.id, userId: user.id }),
-      trigger_id: deps.triggers.issue(app.id, user.id),
+      trigger_id: deps.triggers.issue(app.id, user.id, conv.id),
     };
     // Slack has no commands inside threads; when the client runs one there, answer there.
     const threadTs = args.ts('thread_ts');

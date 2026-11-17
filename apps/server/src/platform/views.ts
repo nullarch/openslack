@@ -1,14 +1,15 @@
 import type { Block } from '@app/shared';
 import type { Kernel } from '../app.ts';
 import type { Actor, Ctx } from '../ctx.ts';
-import { openDirect } from '../core/conversations.ts';
+import { getConv, openDirect } from '../core/conversations.ts';
 import { ApiError, fail } from '../core/errors.ts';
 import { newHex, newId, nowSeconds } from '../core/ids.ts';
 import { getUser } from '../core/users.ts';
 import { getApp, requireApp, type AppRow } from './apps.ts';
 import { sendToApp, type Delivery } from './dispatch.ts';
 import { assignIds, locate, sanitizeState, type Json, type StateValues } from './elements.ts';
-import { buildAction, deliverInteractive, payloadUser, type Interactivity } from './interactivity.ts';
+import { dialogErrors, dialogOptions, dialogSubmission, dialogToView, type DialogMeta } from './dialogs.ts';
+import { buildAction, deliverInteractive, payloadChannelName, payloadUser, type Interactivity } from './interactivity.ts';
 import { localApp } from './local-apps.ts';
 
 /**
@@ -221,6 +222,25 @@ export class Views {
     else this.emitStack(row.user_id);
   }
 
+  // ── Legacy dialogs ────────────────────────────────────────────────────────
+
+  /** The fields every legacy dialog payload carries. */
+  private dialogBase(app: AppRow, userId: string, meta: DialogMeta): Json {
+    const team = this.ctx.requireTeam();
+    const user = getUser(this.ctx, userId);
+    const conv = meta.channel ? getConv(this.ctx, meta.channel) : undefined;
+    return {
+      token: app.verification_token,
+      action_ts: this.ctx.clock.eventTs(),
+      team: { id: team.id, domain: team.domain },
+      user: { id: userId, name: user?.name ?? '' },
+      ...(conv ? { channel: { id: conv.id, name: payloadChannelName(conv) } } : {}),
+      callback_id: meta.callback_id,
+      state: meta.state,
+      ...(conv ? { response_url: this.deps.hooks.create({ app, kind: 'actions', conversationId: conv.id, userId }) } : {}),
+    };
+  }
+
   // ── What apps call ────────────────────────────────────────────────────────
 
   private callerApp(actor: Actor): AppRow {
@@ -267,6 +287,41 @@ export class Views {
       });
       this.emitStack(userId);
       return { view: this.toApi(row) };
+    });
+
+    /** A legacy dialog, shown as a modal; its answers reach the app in the dialog shapes. */
+    registry.add('dialog.open', {}, ({ actor, args }) => {
+      const app = this.callerApp(actor);
+      const raw = args.raw.dialog;
+      if (raw === undefined || raw === null || raw === '') fail('missing_dialog');
+      let dialog: unknown = raw;
+      if (typeof raw === 'string') {
+        try {
+          dialog = JSON.parse(raw);
+        } catch {
+          fail('validation_errors', { response_metadata: { messages: ['[ERROR] dialog must be valid JSON [json-pointer:/dialog]'] } });
+        }
+      }
+      const triggerId = args.str('trigger_id');
+      if (!triggerId) fail('missing_trigger');
+      if (!app.socket_mode && !app.interactivity_url) fail('app_missing_action_url');
+      const built = dialogToView(dialog, null);
+      if ('messages' in built) fail('validation_errors', { response_metadata: { messages: built.messages } });
+      let opened: { userId: string; channel: string | null };
+      try {
+        opened = this.deps.triggers.exchange(triggerId, app.id);
+      } catch (error) {
+        const code = error instanceof ApiError ? error.code : '';
+        fail(code === 'expired_trigger_id' ? 'trigger_expired' : code === 'exchanged_trigger_id' ? 'trigger_exchanged' : 'invalid_trigger');
+      }
+      const body = readView(built.view, ['modal']);
+      body.dialog = { ...built.meta, channel: opened.channel };
+      ctx.db.tx(() => {
+        ctx.db.run("DELETE FROM app_views WHERE user_id = ? AND type = 'modal'", opened.userId);
+        this.insert(app, opened.userId, body, { root: null, previous: null, depth: 0 });
+      });
+      this.emitStack(opened.userId);
+      return {};
     });
 
     registry.add('views.push', {}, ({ actor, args }) => {
@@ -327,6 +382,18 @@ export class Views {
       const state = sanitizeState((body.blocks ?? []) as Block[], sent && typeof sent === 'object' ? sent.values : undefined);
       ctx.db.run('UPDATE app_views SET state = ? WHERE id = ?', JSON.stringify(state), row.id);
       const fresh = this.get(row.id)!;
+      const dialog = body.dialog as DialogMeta | undefined;
+      if (dialog) {
+        const answer = await deliverInteractive(this.deps, app, 'interactive', {
+          type: 'dialog_submission',
+          ...this.dialogBase(app, actor.userId, dialog),
+          submission: dialogSubmission(dialog, { values: state }),
+        }, app.interactivity_url);
+        const errors = dialogErrors(dialog, answer);
+        if (errors) return { stack: this.stack(actor.userId).map((entry) => this.toClient(entry)), errors };
+        ctx.db.run('DELETE FROM app_views WHERE id = ?', row.id);
+        return { stack: this.emitStack(actor.userId) };
+      }
       const payload: Json = {
         type: 'view_submission',
         team: { id: ctx.requireTeam().id, domain: ctx.requireTeam().domain },
@@ -360,6 +427,11 @@ export class Views {
       ctx.db.run(clear ? "DELETE FROM app_views WHERE user_id = ? AND type = 'modal'" : 'DELETE FROM app_views WHERE id = ?', clear ? actor.userId : row.id);
       localApp(ctx, notified.app_id)?.closeView?.(actor.userId, this.toApi(notified));
       const notifyBody = parse<Json>(notified.body, {});
+      const dialog = notifyBody.dialog as DialogMeta | undefined;
+      if (dialog?.notify_on_cancel) {
+        const app = getApp(ctx, notified.app_id);
+        if (app) deliverInteractive(this.deps, app, 'interactive', { type: 'dialog_cancellation', ...this.dialogBase(app, actor.userId, dialog) }, app.interactivity_url).catch(() => undefined);
+      }
       if (notifyBody.notify_on_close === true) {
         const app = getApp(ctx, notified.app_id);
         if (app) {
@@ -423,6 +495,16 @@ export class Views {
       const blocks = (parse<Json>(row.body, {}).blocks ?? []) as Block[];
       const located = locate(blocks, args.req('action_id'), args.str('block_id'));
       if (!located || !String(located.element.type).includes('external_select')) fail('action_not_found');
+      const dialog = parse<Json>(row.body, {}).dialog as DialogMeta | undefined;
+      if (dialog) {
+        const answer = await deliverInteractive(this.deps, app, 'interactive', {
+          type: 'dialog_suggestion',
+          ...this.dialogBase(app, actor.userId, dialog),
+          name: located.element.action_id,
+          value: (args.str('value') ?? '').slice(0, 1000),
+        }, app.interactivity_url);
+        return dialogOptions(answer);
+      }
       const team = ctx.requireTeam();
       const payload: Json = {
         type: 'block_suggestion',

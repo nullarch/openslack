@@ -157,7 +157,7 @@ export function installInteractivity(kernel: Kernel, deps: Interactivity): void 
       api_app_id: app.id,
       token: app.verification_token,
       container,
-      trigger_id: deps.triggers.issue(app.id, actor.userId),
+      trigger_id: deps.triggers.issue(app.id, actor.userId, conv.id),
       team: { id: team.id, domain: team.domain },
       enterprise: null,
       is_enterprise_install: false,

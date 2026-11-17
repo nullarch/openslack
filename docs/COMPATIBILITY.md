@@ -11,9 +11,9 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | Run | SDK | Web API methods called | Payload types received |
 |---|---|---|---|
 | `bolt-js-function` | @slack/bolt 5.1.0 | 4 | 1 |
-| `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 57 | 14 |
+| `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 58 | 15 |
 | `bolt-js-oauth` | @slack/bolt 5.1.0 | 3 | 0 |
-| `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 58 | 14 |
+| `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 59 | 15 |
 | `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
@@ -98,7 +98,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **177 supported**, 120 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **178 supported**, 119 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -194,6 +194,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **177 supported**, 120 
 | `conversations.setPurpose` |  | ✓ |  |
 | `conversations.setTopic` | ✓ | ✓ |  |
 | `conversations.unarchive` |  |  |  |
+| `dialog.open` | ✓ | ✓ | Shown as a modal. `dialog_submission`, `dialog_cancellation` and `dialog_suggestion` reach the app as Slack sent them; text `subtype` is a hint, as on Slack. |
 | `dnd.endDnd` |  | ✓ |  |
 | `dnd.endSnooze` |  | ✓ |  |
 | `dnd.info` |  | ✓ | Also allowed with `users:read`, so apps with the default bot scopes can check before notifying. |
@@ -291,7 +292,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **177 supported**, 120 
 | `apps` | 3 | `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `blocks` | 1 | `blocks.validate` |
 | `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
-| `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 1 | `files.comments.delete` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |

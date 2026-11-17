@@ -75,6 +75,7 @@ const NOTES: Record<string, string> = {
   'team.integrationLogs': 'From the audit log: apps added, removed, updated and granted tokens.',
   'migration.exchange': 'Always `not_enterprise_team`: there is no Enterprise organisation.',
   'auth.teams.list': 'Always the one workspace.',
+  'dialog.open': 'Shown as a modal. `dialog_submission`, `dialog_cancellation` and `dialog_suggestion` reach the app as Slack sent them; text `subtype` is a hint, as on Slack.',
   'files.remote.add': 'Only web addresses are accepted as `external_url`.',
   'admin.emoji.remove': 'Browser session only.',
   'apps.connections.open': 'A bot token gets `missing_scope` rather than `not_allowed_token_type`.',
