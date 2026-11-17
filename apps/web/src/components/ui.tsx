@@ -3,11 +3,13 @@ import { X } from 'lucide-react';
 import {
   forwardRef,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -98,11 +100,40 @@ interface PopoverProps {
   /** Preferred side; it flips when there is no room. */
   side?: 'bottom' | 'top';
   className?: string;
+  /**
+   * `menu` (the default for a popover whose class names it a menu) follows the
+   * ARIA menu pattern: focus starts on the first item, arrow keys, Home and End
+   * move between items, Tab and Escape close it. Anything else is a labelled,
+   * non-modal dialog when `label` is given.
+   */
+  role?: 'menu' | 'dialog';
+  label?: string;
 }
 
-export function Popover({ anchor, onClose, children, align = 'start', side = 'bottom', className = '' }: PopoverProps) {
+const MENU_ITEMS = '[role="menuitem"]:not([disabled]), [role="menuitemradio"]:not([disabled]), [role="menuitemcheckbox"]:not([disabled])';
+
+export function Popover({ anchor, onClose, children, align = 'start', side = 'bottom', className = '', role, label }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden', top: 0, left: 0 });
+  const menu = (role ?? (/\bmenu\b/.test(className) ? 'menu' : undefined)) === 'menu';
+
+  // However it closes (a pick, Escape, a click elsewhere), focus that was inside goes back to the control that opened it.
+  // A layout effect, so this runs while the popover is still in the document.
+  useLayoutEffect(
+    () => () => {
+      const node = ref.current;
+      if (node && node.contains(document.activeElement) && anchor?.isConnected) anchor.focus();
+    },
+    [anchor],
+  );
+
+  // A menu takes focus on its first item once it is visible, unless something inside already has it.
+  useEffect(() => {
+    if (!menu || style.visibility !== 'visible') return;
+    const node = ref.current;
+    if (!node || node.contains(document.activeElement)) return;
+    node.querySelector<HTMLElement>(MENU_ITEMS)?.focus();
+  }, [menu, style.visibility]);
 
   useLayoutEffect(() => {
     const node = ref.current;
@@ -130,6 +161,14 @@ export function Popover({ anchor, onClose, children, align = 'start', side = 'bo
     };
   }, [anchor, align, side]);
 
+  // The button that opened it says so while it is open (a link opening a context menu keeps being a link).
+  useEffect(() => {
+    if (!anchor || !anchor.matches('button, [role="button"]')) return;
+    if (!anchor.hasAttribute('aria-haspopup')) anchor.setAttribute('aria-haspopup', menu ? 'menu' : 'dialog');
+    anchor.setAttribute('aria-expanded', 'true');
+    return () => anchor.setAttribute('aria-expanded', 'false');
+  }, [anchor, menu]);
+
   useEffect(() => {
     const onPointer = (event: MouseEvent): void => {
       const target = event.target as Node;
@@ -150,8 +189,35 @@ export function Popover({ anchor, onClose, children, align = 'start', side = 'bo
     };
   }, [anchor, onClose]);
 
+  const onMenuKey = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (!menu) return;
+    const items = [...(ref.current?.querySelectorAll<HTMLElement>(MENU_ITEMS) ?? [])];
+    if (items.length === 0) return;
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const go = (next: number): void => {
+      event.preventDefault();
+      items[(next + items.length) % items.length]?.focus();
+    };
+    if (event.key === 'ArrowDown') go(index + 1);
+    else if (event.key === 'ArrowUp') go(index < 0 ? items.length - 1 : index - 1);
+    else if (event.key === 'Home') go(0);
+    else if (event.key === 'End') go(items.length - 1);
+    else if (event.key === 'Tab') {
+      event.preventDefault();
+      onClose();
+      anchor?.focus();
+    }
+  };
+
   return createPortal(
-    <div ref={ref} className={`popover ${className}`} style={style} role="dialog">
+    <div
+      ref={ref}
+      className={`popover ${className}`}
+      style={style}
+      role={menu ? 'menu' : label ? 'dialog' : undefined}
+      aria-label={label}
+      onKeyDown={onMenuKey}
+    >
       {children}
     </div>,
     document.body,
@@ -195,16 +261,41 @@ interface ModalProps {
   className?: string;
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
 export function Modal({ title, onClose, children, footer, width = 520, className = '' }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
+    // A dialog opened from a menu item finds focus already back on the menu's button (see Popover).
     const previous = document.activeElement as HTMLElement | null;
     const node = ref.current;
-    const target = node?.querySelector<HTMLElement>('[data-autofocus], input, textarea, select') ?? node;
+    // The first field that can take focus (a hidden file input cannot), else the dialog itself.
+    const fields = [...(node?.querySelectorAll<HTMLElement>('[data-autofocus], input:not([disabled]), textarea:not([disabled]), select:not([disabled])') ?? [])];
+    const target = fields.find((field) => field.matches('[data-autofocus]') && field.getClientRects().length > 0) ?? fields.find((field) => field.getClientRects().length > 0) ?? node;
     target?.focus();
-    return () => previous?.focus?.();
+    return () => {
+      if (previous && previous !== document.body && previous.isConnected) previous.focus();
+    };
   }, []);
+
+  /** Keep Tab inside the dialog. */
+  const trap = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key !== 'Tab' || !ref.current) return;
+    // What Tab can reach: shown, and not taken out of the order (a roving group's other items).
+    const items = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((item) => item.tabIndex >= 0 && (item.getClientRects().length > 0 || item === document.activeElement));
+    if (items.length === 0) return;
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   return createPortal(
     <div
@@ -219,22 +310,24 @@ export function Modal({ title, onClose, children, footer, width = 520, className
         style={{ width }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.stopPropagation();
             onClose();
           }
+          trap(event);
         }}
       >
-        <header className="modal-head">
-          <h2>{title}</h2>
+        <div className="modal-head">
+          <h2 id={titleId}>{title}</h2>
           <IconButton label={S.close} onClick={onClose}>
             <X size={18} />
           </IconButton>
-        </header>
+        </div>
         <div className="modal-body">{children}</div>
-        {footer ? <footer className="modal-foot">{footer}</footer> : null}
+        {footer ? <div className="modal-foot">{footer}</div> : null}
       </div>
     </div>,
     document.body,
@@ -276,16 +369,32 @@ export function CopyField({ value, label }: { value: string; label?: string }) {
   );
 }
 
+/**
+ * Toasts are read out: the live regions stay mounted (a region inserted with its
+ * text is often missed by screen readers); errors interrupt, the rest wait.
+ */
 export function Toasts() {
   const toasts = useStore((state) => state.toasts);
-  if (toasts.length === 0) return null;
   return createPortal(
-    <div className="toasts" role="status" aria-live="polite">
-      {toasts.map((item) => (
-        <div key={item.id} className={`toast toast-${item.kind}`}>
-          {item.text}
-        </div>
-      ))}
+    <div className="toasts">
+      <div className="toast-region" role="status" aria-live="polite">
+        {toasts
+          .filter((item) => item.kind !== 'error')
+          .map((item) => (
+            <div key={item.id} className={`toast toast-${item.kind}`}>
+              {item.text}
+            </div>
+          ))}
+      </div>
+      <div className="toast-region" role="alert" aria-live="assertive">
+        {toasts
+          .filter((item) => item.kind === 'error')
+          .map((item) => (
+            <div key={item.id} className={`toast toast-${item.kind}`}>
+              {item.text}
+            </div>
+          ))}
+      </div>
     </div>,
     document.body,
   );

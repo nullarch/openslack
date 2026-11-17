@@ -21,6 +21,7 @@ import { S } from '../strings';
 import '../styles/platform.css';
 import { Blocks } from './blocks';
 import { Avatar, Button, Field, IconButton, MenuDivider, MenuItem, Modal, Popover, Spinner } from './ui';
+import { useTabList } from '../lib/roving';
 
 // ── Surfaces for views ──────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ export function useAppTab(appId: string | null): 'home' | 'messages' {
 
 export function AppTabs({ appId }: { appId: string }) {
   const tab = useAppTab(appId);
+  const tabList = useTabList();
   const known = usePlatform((state) => state.homes[appId] !== undefined);
   useEffect(() => {
     if (!known) void loadHome(appId);
@@ -186,7 +188,7 @@ export function AppTabs({ appId }: { appId: string }) {
     setAppTab(appId, tab);
   }, [appId, known, tab]);
   return (
-    <div className="app-tabs" role="tablist">
+    <div ref={tabList} className="app-tabs" role="tablist">
       {(['home', 'messages'] as const).map((entry) => (
         <button key={entry} type="button" role="tab" aria-selected={tab === entry} className={`app-tab ${tab === entry ? 'is-on' : ''}`} onClick={() => setAppTab(appId, entry)}>
           {entry === 'home' ? S.platform.tabHome : S.platform.tabMessages}

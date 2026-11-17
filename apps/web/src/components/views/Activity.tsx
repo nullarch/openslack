@@ -55,19 +55,20 @@ function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: Acti
   };
 
   return (
-    <div
-      className={`result activity-item ${item.is_unread ? 'is-unread' : ''}`}
-      role="button"
-      tabIndex={0}
-      data-activity={item.type}
-      onClick={open}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') open();
-      }}
-    >
+    // The whole card opens on a click; for the keyboard and screen readers the headline is the button.
+    <div className={`result activity-item ${item.is_unread ? 'is-unread' : ''}`} data-activity={item.type} onClick={open}>
       <div className="result-place">
         <span className={`activity-icon is-${item.type}`}>{doc ? docActivityIcon(item.type) : activityIcon(item)}</span>
-        <strong className="activity-headline">{headline}</strong>
+        <button
+          type="button"
+          className="activity-headline"
+          onClick={(event) => {
+            event.stopPropagation();
+            open();
+          }}
+        >
+          {headline}
+        </button>
         {doc ? null : (
           <>
             <span className="activity-in">{S.att.activity.inPlace('')}</span>

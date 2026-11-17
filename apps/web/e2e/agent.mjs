@@ -109,10 +109,13 @@ async function main() {
   await mention.locator('.thread-summary').click({ timeout: 15_000 });
   const panel = page.locator('.panel');
   await panel.locator('.md', { hasText: 'Recent activity' }).waitFor({ timeout: 15_000 });
+  // While it streams, screen readers are told the reply is still being written.
+  await panel.locator('[role="article"][aria-busy="true"]', { hasText: 'Recent activity' }).waitFor({ timeout: 3000 });
   await page.screenshot({ path: join(shots, 'agent-streaming-live.png') });
   const confirm = panel.getByRole('button', { name: 'Looks right' });
   await confirm.waitFor({ timeout: 20_000 });
   await panel.locator('.md', { hasText: 'slackApiUrl' }).waitFor();
+  assert.equal(await panel.locator('[role="article"][aria-busy="true"]').count(), 0, 'a finished reply is no longer busy');
   console.log('  ok    the reply streamed into the thread as Markdown and ended with buttons');
   await page.mouse.move(700, 22);
   await page.waitForTimeout(300);

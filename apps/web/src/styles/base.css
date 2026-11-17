@@ -125,6 +125,13 @@ textarea:focus {
   box-shadow: 0 0 0 3px var(--primary-ring);
 }
 
+/* Safari draws no shadow on a native select: the same ring as an outline. */
+select:focus {
+  outline: 3px solid var(--primary-ring);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--text-3);
@@ -259,7 +266,7 @@ input[type='checkbox'] {
 .btn-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--danger-text);
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -468,9 +475,10 @@ input[type='checkbox'] {
   color: var(--danger);
 }
 
-.menu-item.is-danger:hover {
+.menu-item.is-danger:hover,
+.menu-item.is-danger:focus-visible {
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-text);
 }
 
 .menu-icon {

@@ -11,6 +11,12 @@
   scrollbar-width: none;
 }
 
+.doc-tab-list {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
 .doc-tabs::-webkit-scrollbar {
   display: none;
 }

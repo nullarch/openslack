@@ -40,6 +40,8 @@
   --primary-ring: rgba(14, 95, 119, 0.22);
   --link: #0b6b8f;
   --danger: #c9353b;
+  /* Text on a danger-filled control (4.5:1 or better). */
+  --danger-text: #ffffff;
 
   --mention-bg: rgba(11, 107, 143, 0.1);
   --mention-me-bg: rgba(245, 182, 58, 0.3);
@@ -80,6 +82,7 @@
   --primary-ring: rgba(44, 147, 177, 0.3);
   --link: #6dc7e3;
   --danger: #f0696e;
+  --danger-text: #1f0809;
 
   --mention-bg: rgba(109, 199, 227, 0.15);
   --mention-me-bg: rgba(245, 182, 58, 0.22);

@@ -1,7 +1,7 @@
 import type { User } from '@app/shared';
 import { AtSign, Bold, CalendarClock, ChevronDown, Clock, Code, FileCode2, Hash, Italic, Link2, Moon, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, Users, X, FileText } from 'lucide-react';
 import { ShortcutsButton } from './AppViews';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { errorText, loadCommands, openModal, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { canPostIn, draftEvents, draftKey as serverDraftKey, notifyAnyway, saveDraft, scheduleMessage, serverDraft, userInDnd } from '../lib/attention';
@@ -164,6 +164,7 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   });
 
   const suggestions = useMemo(() => (trigger ? suggest(trigger, channel) : null), [trigger, channel]);
+  const suggestId = useId();
   const open = suggestions !== null && suggestions.items.length > 0;
 
   const setText = (value: string): void => {
@@ -494,12 +495,16 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
         </div>
       ) : null}
       {open && suggestions ? (
-        <div className="suggest" role="listbox">
-          <div className="suggest-head">{suggestions.heading}</div>
+        <div className="suggest" role="listbox" id={suggestId} aria-labelledby={`${suggestId}-head`}>
+          <div className="suggest-head" id={`${suggestId}-head`}>
+            {suggestions.heading}
+          </div>
           {suggestions.items.map((item, itemIndex) => (
             <button
               key={item.key}
+              id={`${suggestId}-${itemIndex}`}
               type="button"
+              tabIndex={-1}
               role="option"
               aria-selected={itemIndex === index}
               className={`suggest-item ${itemIndex === index ? 'is-active' : ''}`}
@@ -556,6 +561,9 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           value={text}
           placeholder={placeholder}
           aria-label={placeholder}
+          aria-autocomplete="list"
+          aria-controls={open ? suggestId : undefined}
+          aria-activedescendant={open && suggestions?.items[index] ? `${suggestId}-${index}` : undefined}
           onChange={(event) => {
             setText(event.target.value);
             refreshTrigger(event.target.value, event.target.selectionStart);

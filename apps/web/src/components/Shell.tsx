@@ -1,7 +1,7 @@
 import { BRAND } from '@app/shared';
 import { AccountsModalHost } from './accounts/ModalHost';
 import { Search, WifiOff } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import { closeModal, go, openModal, setPanel } from '../lib/actions';
 import { enableNotifications } from '../lib/notify';
 import { conversation, conversationName, currentId, get, set, useStore } from '../lib/store';
@@ -19,6 +19,7 @@ import { HuddleDock } from './Huddle';
 import { DetailsPanel, ProfilePanel, ThreadPanel } from './panels';
 import { QuickSwitcher, SearchView } from './Search';
 import { Sidebar } from './Sidebar';
+import { focusInto } from '../lib/roving';
 import { Button, Mark, Modal } from './ui';
 import type { ViewName } from '../lib/router';
 import { BookmarkDialog, DndScheduleDialog, ForwardDialog, ScheduleDialog, ShareFileDialog, SnippetDialog } from './dialogs/attention';
@@ -193,13 +194,21 @@ export function Shell() {
   useTitle();
   useShortcuts();
 
+  const skip = (event: ReactMouseEvent<HTMLAnchorElement>): void => {
+    event.preventDefault();
+    focusInto(document.querySelector<HTMLElement>('.conversation .message-scroll') ?? document.querySelector<HTMLElement>('#main'));
+  };
+
   return (
     <div className={`frame ${drawer ? 'is-drawer-open' : ''} ${panel ? 'has-panel' : ''}`}>
+      <a className="skip-link" href="#main" onClick={skip}>
+        {route.name === 'conversation' ? S.a11y.skipToMessages : S.a11y.skipToContent}
+      </a>
       <TopBar />
       <div className="frame-body">
         <Sidebar />
         <button type="button" className="drawer-scrim" aria-label={S.close} onClick={() => set({ drawer: false })} />
-        <main className="sheet">
+        <main className="sheet" id="main" tabIndex={-1}>
           <NotifyPrompt />
           <div className="sheet-row">
             {route.name === 'search' ? (

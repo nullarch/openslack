@@ -2,7 +2,7 @@ import type { Message, Reaction } from '@app/shared';
 import { AlarmClock, BellOff, BellRing, Bookmark, Copy, EyeOff, Flag, Forward, Link2, MessageSquareText, MoreHorizontal, Pencil, Pin, PinOff, Share2, SmilePlus, Trash2 } from 'lucide-react';
 import { canDeleteOwn, canEditMessage, remindAbout, setThreadFollow, toggleSaved } from '../lib/attention';
 import { RemindMenu } from './views/Later';
-import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   attempt,
   deleteMessage,
@@ -21,6 +21,7 @@ import { call } from '../lib/api';
 import { useShallow } from 'zustand/react/shallow';
 import { composeGroups } from '../lib/accounts';
 import { decodeMessage, encodeMessage } from '../lib/compose';
+import { nativeEmoji } from '../lib/emoji';
 import { conversation, displayName, get, set, useStore, type LocalMessage } from '../lib/store';
 import { clock, fullDateTime, relative } from '../lib/time';
 import { S } from '../strings';
@@ -288,7 +289,7 @@ function Toolbar({ channel, message, inThread, onOpenChange }: ToolbarProps) {
   return (
     <div className="msg-toolbar" role="toolbar">
       {QUICK_REACTIONS.map((name) => (
-        <IconButton key={name} label={`:${name}:`} onClick={() => void toggleReaction(channel, message, name)}>
+        <IconButton key={name} label={S.a11y.reactWith(nativeEmoji(name) ?? `:${name}:`)} onClick={() => void toggleReaction(channel, message, name)}>
           <Emoji name={name} />
         </IconButton>
       ))}
@@ -421,14 +422,14 @@ interface RowProps {
   highlighted?: boolean;
 }
 
-function Body({ channel, message }: { channel: string; message: LocalMessage }) {
+function Body({ channel, message, id }: { channel: string; message: LocalMessage; id?: string }) {
   let content: ReactNode = null;
   if (message.subtype === 'tombstone') content = <span className="msg-deleted">{S.messages.deleted}</span>;
   else if (message.subtype === 'huddle_thread') content = <HuddleCard channel={channel} message={message} />;
   else if (message.blocks?.length) content = <Blocks blocks={message.blocks} fallbackText={message.text} channel={channel} message={message} />;
   else if (message.text) content = <Mrkdwn text={message.text} />;
   return (
-    <div className={`msg-body ${message.streaming ? 'is-streaming' : ''} ${message.subtype === 'me_message' ? 'is-me-message' : ''}`}>
+    <div id={id} className={`msg-body ${message.streaming ? 'is-streaming' : ''} ${message.subtype === 'me_message' ? 'is-me-message' : ''}`}>
       {content}
       {message.streaming && !content ? <span className="msg-streaming-empty">{S.messages.streaming}</span> : null}
       {message.edited && !message.bot_id ? <span className="msg-edited">{S.messages.edited}</span> : null}
@@ -446,10 +447,15 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
   // People this viewer chose to hide: their messages fold to one line until asked for.
   const hiddenAuthor = useStore((state) => Boolean(message.user && Array.isArray(state.prefs.hidden_users) && (state.prefs.hidden_users as string[]).includes(message.user)));
   const [revealed, setRevealed] = useState(false);
+  // A message is an article named by its author, time and text, so a screen reader reads all three on reaching it.
+  const ids = useId();
+  const authorId = `${ids}a`;
+  const timeId = `${ids}t`;
+  const bodyId = `${ids}b`;
 
   if (isSystem(message)) {
     return (
-      <div className={`msg msg-system ${highlighted ? 'is-highlighted' : ''}`} data-ts={message.ts}>
+      <div className={`msg msg-system ${highlighted ? 'is-highlighted' : ''}`} data-ts={message.ts} role="article">
         <span className="msg-gutter" />
         <div className="msg-system-text">
           <Mrkdwn text={systemText(message)} inline />
@@ -461,7 +467,7 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
 
   if (hiddenAuthor && !revealed) {
     return (
-      <div className={`msg msg-system is-hidden-author ${highlighted ? 'is-highlighted' : ''}`} data-ts={message.ts}>
+      <div className={`msg msg-system is-hidden-author ${highlighted ? 'is-highlighted' : ''}`} data-ts={message.ts} role="article">
         <span className="msg-gutter" />
         <div className="msg-system-text">
           {S.messages.hiddenAuthor}{' '}
@@ -497,7 +503,14 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
   };
 
   return (
-    <div className={classes} data-ts={message.ts} onClick={onTap}>
+    <div
+      className={classes}
+      data-ts={message.ts}
+      onClick={onTap}
+      role="article"
+      aria-labelledby={`${authorId} ${timeId} ${bodyId}`}
+      aria-busy={message.streaming || message.pending ? true : undefined}
+    >
       <div className="msg-gutter">
         {showHeader ? (
           <button type="button" className="msg-avatar" onClick={() => author && setPanel({ kind: 'profile', user: author.id })} tabIndex={-1} aria-hidden="true">
@@ -514,9 +527,17 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
             )}
           </button>
         ) : (
-          <time className="msg-gutter-time" title={fullDateTime(message.ts)}>
-            {clock(message.ts).replace(/\s?[AP]M$/i, '')}
-          </time>
+          <>
+            <span className="sr-only" id={authorId}>
+              {name}
+            </span>
+            <span className="sr-only" id={timeId}>
+              {clock(message.ts)}
+            </span>
+            <time className="msg-gutter-time" title={fullDateTime(message.ts)} aria-hidden="true">
+              {clock(message.ts).replace(/\s?[AP]M$/i, '')}
+            </time>
+          </>
         )}
       </div>
       <div className="msg-main">
@@ -537,7 +558,7 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
         ) : null}
         {showHeader ? (
           <div className="msg-head">
-            <button type="button" className="msg-author" onClick={() => author && setPanel({ kind: 'profile', user: author.id })}>
+            <button type="button" className="msg-author" id={authorId} onClick={() => author && setPanel({ kind: 'profile', user: author.id })}>
               {name}
             </button>
             {isBot ? <span className="tag">{S.messages.app}</span> : null}
@@ -546,13 +567,13 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
                 <Emoji name={author.profile.status_emoji.replace(/:/g, '')} />
               </span>
             ) : null}
-            <time className="msg-time" title={fullDateTime(message.ts)}>
+            <time className="msg-time" id={timeId} title={fullDateTime(message.ts)}>
               {clock(message.ts)}
             </time>
             {message.is_ephemeral ? <span className="msg-note">{S.messages.onlyYou}</span> : null}
           </div>
         ) : null}
-        {editing ? <EditBox channel={channel} message={message} /> : <Body channel={channel} message={message} />}
+        {editing ? <EditBox channel={channel} message={message} /> : <Body channel={channel} message={message} id={bodyId} />}
         {message.files?.length ? <Files files={message.files} collapsed={collapsed} /> : null}
         {message.attachments?.length ? <Attachments attachments={message.attachments} channel={channel} message={message} /> : null}
         {message.text && message.subtype !== 'tombstone' ? <DocCards text={message.text} /> : null}

@@ -613,6 +613,18 @@ const en = {
     addBarrier: 'Add barrier',
     needGroups: 'Create at least two user groups first.',
   },
+  /** Words only screen readers hear. */
+  a11y: {
+    skipToMessages: 'Skip to messages',
+    skipToContent: 'Skip to content',
+    messagesIn: (place: string) => `Messages in ${place}`,
+    newMessage: (author: string, text: string) => `${author}: ${text}`,
+    emojiCategories: 'Emoji categories',
+    channelTabs: 'Messages, canvases and lists',
+    reactWith: (emoji: string) => `React with ${emoji}`,
+    emojiResults: 'Emoji',
+    workspaceMenu: (team: string) => `${team}, workspace menu`,
+  },
   calls: {
     join: 'Join',
     untitled: 'Call',

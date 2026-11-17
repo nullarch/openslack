@@ -4,7 +4,7 @@ import { BellOff, Bell, BellRing, Hash, LogOut, MessageSquare, Pencil, UserMinus
 import { markThreadSeen, setThreadFollow } from '../lib/attention';
 import { PostingPermissions } from './Posting';
 import { FileList } from './views/Later';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   attempt,
   closeDirect,
@@ -31,15 +31,30 @@ import { confirmDialog, promptDialog } from './dialogs/confirm';
 import { MessageRow } from './Message';
 import { Emoji, Mrkdwn } from './text';
 import { Avatar, Button, IconButton, Spinner } from './ui';
+import { useTabList } from '../lib/roving';
 
 function PanelFrame({ title, subtitle, children, dropLabel, actions }: { title: ReactNode; subtitle?: ReactNode; children: ReactNode; dropLabel?: string; actions?: ReactNode }) {
   // A panel with a composer accepts dropped files anywhere on it.
   const drop = dropLabel ? { 'data-drop-scope': '', 'data-drop-label': dropLabel } : {};
+  const ref = useRef<HTMLElement>(null);
+  const titleId = useId();
+  // Closing the panel puts focus back where it was opened from: the button, or the message it belongs to
+  // when that button was a toolbar that has since hidden.
+  useLayoutEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const message = opener?.closest<HTMLElement>('.msg[data-ts]') ?? null;
+    return () => {
+      const node = ref.current;
+      if (!node || !(node.contains(document.activeElement) || document.activeElement === document.body)) return;
+      if (opener?.isConnected && opener.getClientRects().length > 0) opener.focus();
+      else if (message?.isConnected) message.focus();
+    };
+  }, []);
   return (
-    <aside className="panel" {...drop}>
+    <aside ref={ref} className="panel" aria-labelledby={titleId} {...drop}>
       <header className="panel-head">
         <div className="panel-title">
-          <h2>{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           {subtitle ? <span>{subtitle}</span> : null}
         </div>
         {actions}
@@ -434,7 +449,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
         <>
           <section className="about-item">
             <div className="about-head">
-              <h4>{S.details.topic}</h4>
+              <h3>{S.details.topic}</h3>
               {isMember && !conv.is_archived ? (
                 <button type="button" className="link-btn" onClick={() => void editTopic(conv)}>
                   {S.details.edit}
@@ -445,7 +460,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
           </section>
           <section className="about-item">
             <div className="about-head">
-              <h4>{S.details.description}</h4>
+              <h3>{S.details.description}</h3>
               {isMember && !conv.is_archived ? (
                 <button type="button" className="link-btn" onClick={() => void editPurpose()}>
                   {S.details.edit}
@@ -504,6 +519,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
 }
 
 export function DetailsPanel({ channel, tab }: { channel: string; tab: 'about' | 'members' | 'pins' | 'files' }) {
+  const tabList = useTabList();
   const conv = useStore((state) => conversation(state, channel));
   const name = useStore((state) => conversationName(state, conv));
   const self = useStore((state) => state.self);
@@ -518,7 +534,7 @@ export function DetailsPanel({ channel, tab }: { channel: string; tab: 'about' |
   ];
   return (
     <PanelFrame title={conv.is_channel ? `#${name}` : name} subtitle={conv.is_private && conv.is_channel ? S.header.private : undefined}>
-      <div className="tabs" role="tablist">
+      <div ref={tabList} className="tabs" role="tablist">
         {tabs.map((item) => (
           <button
             key={item.id}

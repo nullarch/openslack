@@ -1,6 +1,6 @@
 import type { Conversation, Message, User } from '@app/shared';
 import { Hash, Lock, Menu, Search as SearchIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { closeModal, errorText, go, openDirect, openMessage } from '../lib/actions';
 import { call } from '../lib/api';
 import { conversationName, displayName, get, set, useStore } from '../lib/store';
@@ -15,6 +15,7 @@ import { recentSearches, recordSearch } from '../lib/attention';
 import { ChannelResults, FileResults, PeopleResults, SearchSuggestions, type SearchTab } from './SearchTabs';
 import { DocSearchResults } from './docs';
 import { History } from 'lucide-react';
+import { useTabList } from '../lib/roving';
 
 // ── Search results ──────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ function ResultRow({ match }: { match: Match }) {
 }
 
 export function SearchView({ query }: { query: string }) {
+  const tabList = useTabList();
   const [input, setInput] = useState(query);
   const [tab, setTab] = useState<SearchTab>('messages');
   const [focused, setFocused] = useState(false);
@@ -151,7 +153,7 @@ export function SearchView({ query }: { query: string }) {
           {focused && !input.trim() ? <SearchSuggestions input="" onPick={submit} /> : null}
         </form>
       </header>
-      <div className="tabs search-tabs" role="tablist">
+      <div ref={tabList} className="tabs search-tabs" role="tablist">
         {(
           [
             ['messages', S.att.search.messages],
@@ -242,6 +244,7 @@ interface Entry {
 }
 
 export function QuickSwitcher() {
+  const listId = useId();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const [browsable, setBrowsable] = useState<Conversation[]>([]);
@@ -349,14 +352,28 @@ export function QuickSwitcher() {
     <Modal title={S.topbar.jump} onClose={closeModal} width={600} className="switcher">
       <div className="switcher-input">
         <SearchIcon size={18} />
-        <input value={query} placeholder={S.switcher.placeholder} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} aria-label={S.switcher.placeholder} data-autofocus />
+        <input
+          value={query}
+          placeholder={S.switcher.placeholder}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={onKeyDown}
+          aria-label={S.switcher.placeholder}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={entries.length > 0}
+          aria-controls={listId}
+          aria-activedescendant={entries[index] ? `${listId}-${index}` : undefined}
+          data-autofocus
+        />
       </div>
-      <div className="switcher-list" ref={listRef} role="listbox">
-        {entries.length === 0 ? <p className="panel-empty">{S.switcher.none}</p> : null}
+      {entries.length === 0 ? <p className="panel-empty">{S.switcher.none}</p> : null}
+      <div className="switcher-list" ref={listRef} role="listbox" id={listId} aria-label={S.topbar.jump}>
         {entries.map((entry, entryIndex) => (
           <button
             key={entry.key}
+            id={`${listId}-${entryIndex}`}
             type="button"
+            tabIndex={-1}
             role="option"
             aria-selected={entryIndex === index}
             className={`switcher-item ${entryIndex === index ? 'is-active' : ''}`}

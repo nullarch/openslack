@@ -17,6 +17,7 @@ import { BarriersSetting, IpAllowlistSetting } from '../admin/Network';
 import { AuditAdmin, ReportsAdmin, RetentionSetting, ServiceTokens } from '../admin/Governance';
 import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
 import { GuestControls, InviteRequests, WorkspaceSettings } from '../accounts/Admin';
+import { useTabList } from '../../lib/roving';
 
 // ── Members ─────────────────────────────────────────────────────────────────
 
@@ -661,6 +662,7 @@ function MessagePolicyAdmin() {
 }
 
 export function AdminDialog({ tab }: { tab: AdminTab }) {
+  const tabList = useTabList();
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'members', label: S.admin.members },
     { id: 'emoji', label: S.admin.emoji },
@@ -673,7 +675,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
   ];
   return (
     <Modal title={S.admin.title} onClose={closeModal} width={720} className="admin-modal">
-      <div className="tabs" role="tablist">
+      <div ref={tabList} className="tabs" role="tablist">
         {tabs.map((item) => (
           <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? 'is-active' : ''} onClick={() => openModal({ kind: 'admin', tab: item.id })}>
             {item.label}

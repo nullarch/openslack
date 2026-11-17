@@ -297,7 +297,25 @@
 
 .canvas-content ul[data-type='taskList'] li > label {
   flex: none;
-  margin-top: 0.3em;
+  display: flex;
+}
+
+/* A 16px box inside a 24px target (WCAG 2.5.8): the transparent border is part of what can be clicked. */
+.canvas-content ul[data-type='taskList'] li > label > input[type='checkbox'] {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin: 1px -4px 0;
+  border: 4px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  cursor: pointer;
+}
+
+.canvas-content ul[data-type='taskList'] li > label > input[type='checkbox']:checked {
+  background: var(--primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat padding-box;
+  box-shadow: none;
 }
 
 .canvas-content ul[data-type='taskList'] li > div {
@@ -882,7 +900,8 @@
   font-weight: 650;
   white-space: nowrap;
   background: color-mix(in srgb, var(--opt) 18%, transparent);
-  color: color-mix(in srgb, var(--opt) 72%, var(--text));
+  /* Mostly text color, tinted: every chip color reads at 4.5:1 on its own tint, light and dark. */
+  color: color-mix(in srgb, var(--opt) 45%, var(--text));
   --opt: #7c8b91;
 }
 
