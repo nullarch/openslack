@@ -987,4 +987,9 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX huddle_captions_huddle ON huddle_captions (huddle_id, at);
   `,
+
+  /* 26: clips — WebVTT captions a recording browser attaches to an audio or video file */ `
+  ALTER TABLE files ADD COLUMN transcript TEXT;
+  ALTER TABLE files ADD COLUMN transcript_locale TEXT;
+  `,
 ];

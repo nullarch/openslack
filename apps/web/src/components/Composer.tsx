@@ -1,3 +1,4 @@
+import { ClipButton } from './ClipRecorder';
 import type { User } from '@app/shared';
 import { AtSign, Bold, CalendarClock, ChevronDown, Clock, Code, FileCode2, Hash, Italic, Link2, Moon, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, Users, X, FileText } from 'lucide-react';
 import { ShortcutsButton } from './AppViews';
@@ -6,7 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { errorText, loadCommands, openModal, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { canPostIn, draftEvents, draftKey as serverDraftKey, notifyAnyway, saveDraft, scheduleMessage, serverDraft, userInDnd } from '../lib/attention';
 import { BUILT_INS, findBuiltIn } from '../lib/builtins';
-import { asset, uploadFile } from '../lib/api';
+import { asset, call, uploadFile } from '../lib/api';
 import { accounts } from '../lib/accounts';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
 import { searchEmoji } from '../lib/emoji';
@@ -138,6 +139,7 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   const storageKey = draftKey(channel, threadTs);
   const [text, setTextState] = useState(() => localStorage.getItem(storageKey) ?? serverDraft(channel, threadTs) ?? '');
   const [uploads, setUploads] = useState<Upload[]>([]);
+  const clipTranscripts = useRef(new Map<File, { vtt: string; locale: string }>());
   const [broadcast, setBroadcast] = useState(false);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
   const [index, setIndex] = useState(0);
@@ -239,7 +241,13 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
       uploadFile(file, (fraction) => {
         setUploads((current) => current.map((item) => (item.key === key ? { ...item, progress: fraction } : item)));
       })
-        .then((fileId) => {
+        .then(async (fileId) => {
+          // A clip's captions go with it, before it is sent.
+          const transcript = clipTranscripts.current.get(file);
+          if (transcript) {
+            clipTranscripts.current.delete(file);
+            await call('client.files.setTranscript', { file: fileId, vtt: transcript.vtt, locale: transcript.locale }).catch((error: unknown) => toast(errorText(error), 'error'));
+          }
           setUploads((current) => current.map((item) => (item.key === key ? { ...item, fileId, progress: 1 } : item)));
         })
         .catch((error: unknown) => {
@@ -597,6 +605,12 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           <IconButton label={S.composer.attach} onClick={() => fileInput.current?.click()}>
             <Paperclip size={17} />
           </IconButton>
+          <ClipButton
+            onClip={(file, transcript) => {
+              if (transcript) clipTranscripts.current.set(file, transcript);
+              addFiles([file]);
+            }}
+          />
           <IconButton ref={emojiButton} label={S.composer.emoji} onClick={() => setPicking(true)}>
             <Smile size={17} />
           </IconButton>

@@ -127,6 +127,10 @@ Anyone in a huddle can turn on captions. Speech becomes text in that person's ow
 
 Finished lines go to everyone in the huddle and are kept while it runs. When it ends they become a text file, *Huddle transcript YYYY-MM-DD.txt*, posted by the built-in Huddles bot in the huddle's thread, and, when a model is connected and *Notes after a huddle* is on in the AI settings, a summary with decisions and action items alongside it. The kept lines are then deleted; the file is an ordinary file under retention and legal hold. An admin can turn transcripts off under **Administration → Compliance**: captions are then live only.
 
+## Clips
+
+The composer's clip button records an audio clip, a video clip or the screen (with the microphone), up to five minutes, in the browser (MediaRecorder); nothing is sent until the person adds it to a message. Captions are made while recording, in the same way as huddle captions: by the browser's speech recognition, from the microphone. They are attached to the file as WebVTT (`client.files.setTranscript`, uploader only), shown on the video and as a transcript under the player, and searchable in **Files**. Sensitive-information rules apply to what was said. Chrome writes WebM files without a duration, so the player shows it only once played through.
+
 ## AI features
 
 Summaries, daily recaps, answers above search results, translation, writing help, a built-in assistant with memory, notes after a huddle, and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.

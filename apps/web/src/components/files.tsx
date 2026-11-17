@@ -193,6 +193,20 @@ function SnippetFile({ file }: { file: FileObject }) {
   );
 }
 
+/** What was said in a clip, folded under the player. */
+function Transcript({ file }: { file: FileObject }) {
+  if (!file.transcription?.preview.content) return null;
+  return (
+    <details className="file-transcript">
+      <summary>{S.clips.transcript}</summary>
+      <p>
+        {file.transcription.preview.content}
+        {file.transcription.preview.has_more ? '…' : ''}
+      </p>
+    </details>
+  );
+}
+
 export function Files({ files, collapsed = false }: { files: FileObject[]; collapsed?: boolean }) {
   if (collapsed) {
     return (
@@ -213,8 +227,11 @@ export function Files({ files, collapsed = false }: { files: FileObject[]; colla
         if (file.mimetype.startsWith('video/')) {
           return (
             <div key={file.id} className="file-media">
-              <video controls preload="metadata" src={asset(file.url_private)} />
+              <video controls preload="metadata" src={asset(file.url_private)}>
+                {file.transcription ? <track kind="captions" src={asset(file.transcription.vtt_url)} srcLang={file.transcription.locale || undefined} label={S.clips.captions} default /> : null}
+              </video>
               <FileCardHead file={file} />
+              <Transcript file={file} />
             </div>
           );
         }
@@ -223,6 +240,7 @@ export function Files({ files, collapsed = false }: { files: FileObject[]; colla
             <div key={file.id} className="file-media is-audio">
               <FileCardHead file={file} />
               <audio controls preload="metadata" src={asset(file.url_private)} />
+              <Transcript file={file} />
             </div>
           );
         }

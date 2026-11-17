@@ -1647,3 +1647,20 @@ ol.rich-list {
   flex: none;
   text-decoration: none;
 }
+
+/* What was said in a clip, folded under its player. */
+.file-transcript {
+  padding: 0 14px 10px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.file-transcript summary {
+  cursor: pointer;
+  width: fit-content;
+  font-weight: 600;
+}
+.file-transcript p {
+  margin: 4px 0 0;
+  white-space: pre-line;
+  color: var(--text);
+}

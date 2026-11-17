@@ -155,6 +155,8 @@ export interface FileObject {
   thumb_720_w?: number;
   thumb_720_h?: number;
   alt_txt?: string;
+  /** Captions of a recording (clips), as Slack reports audio and video transcriptions; `vtt_url` serves them as WebVTT. */
+  transcription?: { status: 'complete'; locale: string; preview: { content: string; has_more: boolean }; vtt_url: string };
   channels: string[];
   groups: string[];
   ims: string[];

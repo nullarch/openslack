@@ -1257,3 +1257,58 @@ g.is-hover .viz-hit {
   flex: 1;
   min-width: 0;
 }
+
+/* Recording a clip */
+.clip-recorder .clip-video {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  border-radius: 10px;
+  background: #000;
+  object-fit: contain;
+}
+.clip-recorder .clip-video.is-mirrored {
+  transform: scaleX(-1);
+}
+.clip-recorder .clip-audio {
+  display: grid;
+  place-items: center;
+  height: 140px;
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--text-2);
+}
+.clip-recorder .clip-audio-player {
+  width: 100%;
+}
+.clip-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.clip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--alert);
+  animation: clip-pulse 1.2s ease-in-out infinite;
+}
+@keyframes clip-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clip-dot {
+    animation: none;
+  }
+}
+.clip-words {
+  margin: 10px 0 0;
+  max-height: 140px;
+  overflow: auto;
+  color: var(--text);
+}

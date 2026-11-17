@@ -1,3 +1,4 @@
+import { vttText } from '../clips/vtt.ts';
 import type { Readable } from 'node:stream';
 import { scanStream } from './scanner.ts';
 import { indexFileText } from './file-text.ts';
@@ -27,6 +28,9 @@ export interface FileRow {
   thumb?: string | null;
   /** Set while the file has a public link: the secret part of that link. */
   public_secret?: string | null;
+  /** WebVTT captions of a recording, attached by the browser that made it. */
+  transcript?: string | null;
+  transcript_locale?: string | null;
 }
 
 interface TypeInfo {
@@ -51,6 +55,7 @@ const TYPES: Record<string, TypeInfo> = {
   wav: { mimetype: 'audio/wav', filetype: 'wav', pretty: 'WAV' },
   ogg: { mimetype: 'audio/ogg', filetype: 'ogg', pretty: 'Ogg' },
   m4a: { mimetype: 'audio/mp4', filetype: 'm4a', pretty: 'MPEG 4 Audio' },
+  weba: { mimetype: 'audio/webm', filetype: 'weba', pretty: 'WebM Audio' },
   txt: { mimetype: 'text/plain', filetype: 'text', pretty: 'Plain Text' },
   log: { mimetype: 'text/plain', filetype: 'text', pretty: 'Plain Text' },
   md: { mimetype: 'text/markdown', filetype: 'markdown', pretty: 'Markdown' },
@@ -161,6 +166,15 @@ export function fileToApi(ctx: Ctx, row: FileRow): FileObject {
     file_access: 'visible',
   };
   if (row.alt_txt) file.alt_txt = row.alt_txt;
+  if (row.transcript) {
+    const words = vttText(row.transcript);
+    file.transcription = {
+      status: 'complete',
+      locale: row.transcript_locale ?? '',
+      preview: { content: words.slice(0, 500), has_more: words.length > 500 },
+      vtt_url: `${ctx.config.publicUrl}/files-vtt/${ctx.requireTeam().id}-${row.id}`,
+    };
+  }
   if (row.public_secret) file.permalink_public = `${ctx.config.publicUrl}/files-pub/${ctx.requireTeam().id}-${row.id}-${row.public_secret}`;
   if (row.width && row.height) {
     file.original_w = row.width;
