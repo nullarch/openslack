@@ -2,10 +2,7 @@
 
 **Open-source Slack. One command. Your Slack bots and agents already speak it.**
 
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshot-light.png">
-  <img src="docs/assets/screenshot-dark.png" alt="A channel with a thread in which an AI agent explains a failing test and offers buttons">
-</picture>
+![One command, a familiar screen, one changed line in a Bolt app, and the agent answering in a thread](docs/assets/demo.gif)
 
 OpenSlack is a self-hosted team chat that implements the Slack API: the Web API, Events API, Socket Mode and Block Kit. Apps built with Bolt or any Slack SDK connect by changing one address. The database is built in, so there is nothing else to install.
 
@@ -109,6 +106,13 @@ Configuration is environment variables only:
 | Built for | Small and mid-size teams, agents | Large organisations | Large organisations, omnichannel | Topic-threaded discussion at scale |
 
 The others are mature products with years of production use and far more features. OpenSlack is new; its bet is drop-in Slack compatibility and a one-command start.
+
+## Screenshots
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshot-light.png">
+  <img src="docs/assets/screenshot-dark.png" alt="A channel with a thread in which an AI agent explains a failing test and offers buttons">
+</picture>
 
 ## Documentation
 

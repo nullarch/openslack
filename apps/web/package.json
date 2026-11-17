@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test \"test/**/*.test.ts\"",
     "e2e": "node e2e/smoke.mjs && node e2e/files-people-apps.mjs",
-    "e2e:agent": "node e2e/agent.mjs"
+    "e2e:agent": "node e2e/agent.mjs",
+    "demo": "node e2e/demo.mjs"
   },
   "dependencies": {
     "@app/shared": "workspace:*",
