@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
     "@app/shared": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
     "busboy": "^1.6.0",

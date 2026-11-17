@@ -18,6 +18,7 @@ import { fail } from './core/errors.ts';
 import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
+import { installAi } from './ai/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
 import { Gateway } from './realtime/gateway.ts';
@@ -85,6 +86,7 @@ export function createApp(config: Config): App {
   registerFileRoutes(ctx, router);
   installPlatform(kernel);
   installMcp(kernel);
+  installAi(kernel);
   gateway.start(ctx);
 
   const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });
