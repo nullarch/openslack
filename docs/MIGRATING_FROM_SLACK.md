@@ -29,6 +29,8 @@ The import keeps Slack's ids for people, channels and messages, so `@mentions`, 
 
 At the end it prints what it could not carry over exactly, one line per item, for example a reply whose thread starter was not in the export.
 
+**Channels that already exist here.** A public channel from the export joins a public channel of the same name on this server (usually `#general`). A private channel never joins an existing channel by name: if the name is taken it is imported as `name-imported`, and the report says so, so its history is never shown to people who were not in it. Private channels keep their members, group DMs (`mpims.json`) and DMs (`dms.json`) keep theirs, and nobody else can find their messages in search. The Mattermost and Discord imports follow the same rule.
+
 **Files.** With `--download-files` each file is fetched from the address recorded in the export. Those addresses stop working after a while; if downloads fail, export again and import again (already-imported messages are skipped). Without the flag, messages keep a link to the file in Slack.
 
 ## 4. Invite people

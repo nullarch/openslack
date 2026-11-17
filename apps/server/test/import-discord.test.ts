@@ -158,3 +158,33 @@ describe('Discord (DiscordChatExporter) import', () => {
     assert.equal(report.reactions, 0);
   });
 });
+
+describe('Discord import next to a private channel of the same name', () => {
+  let t: TestApp;
+  let owner: Session;
+  let dir: string;
+
+  before(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'discord-export-clash-'));
+    writeExport(dir);
+    t = await startApp();
+    owner = await setupWorkspace(t);
+    await owner.ok('conversations.create', { name: 'projects-2025', is_private: true });
+  });
+  after(async () => {
+    await t.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('a public Discord channel does not land in a private channel; a second run finds it again', async () => {
+    const report = await importDiscord(t.app.ctx, dir);
+    assert.ok(report.problems.some((line) => line.includes('projects-2025-imported')), report.problems.join('\n'));
+    const kinds = () => t.app.ctx.db.all<{ name: string; kind: string }>("SELECT name, kind FROM conversations WHERE name LIKE 'projects-2025%' ORDER BY name").map((row) => ({ ...row }));
+    assert.deepEqual(kinds(), [
+      { name: 'projects-2025', kind: 'private' },
+      { name: 'projects-2025-imported', kind: 'public' },
+    ]);
+    await importDiscord(t.app.ctx, dir);
+    assert.equal(kinds().length, 2);
+  });
+});

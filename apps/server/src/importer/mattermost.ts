@@ -1,3 +1,4 @@
+import { separateChannel } from './names.ts';
 import { readFileSync, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { channelNameError, normalizeChannelName } from '@app/shared';
@@ -175,7 +176,15 @@ export async function importMattermost(ctx: Ctx, path: string, log: (line: strin
         if (!original) continue;
         let name = (nameCounts.get(original) ?? 0) > 1 ? normalizeChannelName(`${team}-${original}`) : original;
         if (channelNameError(name)) name = name.replace(/[^\p{Ll}\p{Lo}\p{N}_-]+/gu, '-').slice(0, 80);
+        const kind = channel.type === 'P' ? 'private' : 'public';
         let conv = ctx.db.get<ConvRow>("SELECT * FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name);
+        // Never across kinds: a private channel merged into a public one would show its history to everyone.
+        if (conv && conv.kind !== kind) {
+          const separate = separateChannel<ConvRow>(ctx, name, kind);
+          problem(`${kind} channel ${name}: a ${conv.kind} channel with that name already exists here; imported separately as ${separate.name}`);
+          name = separate.name;
+          conv = separate.conv;
+        }
         if (conv) {
           report.channels.matched += 1;
         } else {
@@ -185,7 +194,7 @@ export async function importMattermost(ctx: Ctx, path: string, log: (line: strin
             `INSERT INTO conversations (id, kind, name, topic, topic_creator, topic_set, purpose, purpose_creator, purpose_set, creator, created, updated)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             id,
-            channel.type === 'P' ? 'private' : 'public',
+            kind,
             name,
             String(channel.header ?? '').slice(0, 250),
             channel.header ? owner.id : '',

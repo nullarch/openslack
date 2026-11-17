@@ -1,3 +1,4 @@
+import { freeChannelName } from './names.ts';
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { channelNameError, normalizeChannelName, type Attachment, type Block } from '@app/shared';
@@ -215,9 +216,19 @@ export async function importSlackExport(ctx: Ctx, path: string, options: ImportO
           name = name.replace(/[^\p{Ll}\p{Lo}\p{N}_-]+/gu, '-').slice(0, 80) || channel.id.toLowerCase();
           problem(`channel ${channel.name}: renamed to ${name}`);
         }
-        let conv =
-          getConv(ctx, channel.id) ??
-          ctx.db.get<ConvRow>("SELECT * FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name);
+        // Matched by id on a second run. By name only public to public: merging a private channel into
+        // another of the same name would show its history to that channel's members, and into a public
+        // one to everyone.
+        let conv = getConv(ctx, channel.id);
+        if (!conv) {
+          const sameName = ctx.db.get<ConvRow>("SELECT * FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name);
+          if (sameName && !isPrivate && sameName.kind === 'public') conv = sameName;
+          else if (sameName) {
+            const renamed = freeChannelName(ctx, name);
+            problem(`${isPrivate ? 'private' : 'public'} channel ${channel.name}: a ${sameName.kind} channel with that name already exists here; imported separately as ${renamed}`);
+            name = renamed;
+          }
+        }
         if (conv) {
           if (conv.id !== channel.id) report.channels.merged += 1;
         } else {

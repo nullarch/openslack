@@ -1,3 +1,4 @@
+import { freeChannelName } from './names.ts';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
 import { Readable } from 'node:stream';
@@ -250,6 +251,13 @@ export async function importDiscord(ctx: Ctx, path: string, options: DiscordOpti
     let local = normalizeChannelName(name);
     if (channelNameError(local)) local = local.replace(/[^\p{Ll}\p{Lo}\p{N}_-]+/gu, '-').slice(0, 80) || `discord-${discordId}`;
     let conv = ctx.db.get<ConvRow>("SELECT * FROM conversations WHERE name = ? AND kind IN ('public', 'private')", local);
+    // Discord channels arrive public: never into a private channel that happens to share the name.
+    if (conv && conv.kind !== 'public') {
+      const renamed = freeChannelName(ctx, local);
+      problem(`channel ${name}: a private channel with that name already exists here; imported separately as ${renamed}`);
+      local = renamed;
+      conv = undefined;
+    }
     if (conv) {
       report.channels.matched += 1;
     } else {

@@ -169,3 +169,34 @@ describe('Mattermost bulk export import', () => {
     assert.ok(boot.channels.some((channel: Json) => channel.name === 'ops-town-square'));
   });
 });
+
+describe('Mattermost import next to a channel of the same name', () => {
+  let t: TestApp;
+  let owner: Session;
+  let dir: string;
+
+  before(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'mm-export-clash-'));
+    writeFileSync(join(dir, 'export.jsonl'), exportLines());
+    t = await startApp();
+    owner = await setupWorkspace(t);
+    await owner.ok('conversations.create', { name: 'backend' });
+  });
+  after(async () => {
+    await t.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('a private channel is never merged into a public one; a second run finds it again', async () => {
+    const report = await importMattermost(t.app.ctx, join(dir, 'export.jsonl'));
+    assert.ok(report.problems.some((line) => line.includes('backend-imported')), report.problems.join('\n'));
+    const rows = t.app.ctx.db.all<{ name: string; kind: string }>("SELECT name, kind FROM conversations WHERE name LIKE 'backend%' ORDER BY name");
+    assert.deepEqual(rows.map((row) => ({ ...row })), [
+      { name: 'backend', kind: 'public' },
+      { name: 'backend-imported', kind: 'private' },
+    ]);
+    const again = await importMattermost(t.app.ctx, join(dir, 'export.jsonl'));
+    assert.equal(again.messages.imported, 0);
+    assert.equal(t.app.ctx.db.all("SELECT 1 FROM conversations WHERE name LIKE 'backend%'").length, 2);
+  });
+});
