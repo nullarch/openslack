@@ -9,6 +9,7 @@ import { S } from '../strings';
 import { AiChannelButton } from './ai/AiControls';
 import { AppHomeView, AppTabs, useAppOf, useAppTab } from './AppViews';
 import { Composer } from './Composer';
+import { ChannelDocBody, DocTabs, useOpenDocTab } from './docs';
 import { HuddleHeaderButton } from './Huddle';
 import { promptDialog } from './dialogs/confirm';
 import { MessageList } from './MessageList';
@@ -105,6 +106,7 @@ export function ConversationView({ channel }: { channel: string }) {
   const name = useStore((state) => conversationName(state, conv));
   const appId = useAppOf(channel);
   const appTab = useAppTab(appId);
+  const docTab = useOpenDocTab(channel);
 
   if (!conv) {
     return (
@@ -121,8 +123,11 @@ export function ConversationView({ channel }: { channel: string }) {
     <section className="conversation" data-drop-scope data-drop-label={S.composer.dropHere}>
       <Header conv={conv} isMember={isMember} />
       {appId ? <AppTabs key={`tabs:${channel}`} appId={appId} /> : null}
+      {!appId ? <DocTabs key={`docs:${channel}`} channel={channel} canAdd={isMember && !conv.is_archived} /> : null}
       {appId && appTab === 'home' ? (
         <AppHomeView appId={appId} />
+      ) : docTab && !appId ? (
+        <ChannelDocBody channel={channel} doc={docTab} />
       ) : (
         <ConversationBody channel={channel} conv={conv} isMember={isMember} name={name} placeholder={placeholder} />
       )}

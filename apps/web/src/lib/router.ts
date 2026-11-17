@@ -8,11 +8,12 @@ export type Route =
   | { name: 'setup' }
   | { name: 'signin' }
   | { name: 'join'; code: string }
-  | { name: 'view'; view: ViewName };
+  | { name: 'view'; view: ViewName }
+  | { name: 'doc'; kind: 'canvas' | 'list'; id: string };
 
 /** Workspace-wide views reached from the top of the sidebar. */
-export type ViewName = 'activity' | 'threads' | 'unreads' | 'later' | 'drafts' | 'files';
-export const VIEW_NAMES: ViewName[] = ['activity', 'threads', 'unreads', 'later', 'drafts', 'files'];
+export type ViewName = 'activity' | 'threads' | 'unreads' | 'later' | 'drafts' | 'files' | 'canvases' | 'lists';
+export const VIEW_NAMES: ViewName[] = ['activity', 'threads', 'unreads', 'later', 'drafts', 'files', 'canvases', 'lists'];
 
 /** `p1700000000123456` → `1700000000.123456` */
 function permalinkTs(value: string): string | undefined {
@@ -28,6 +29,11 @@ export function parseRoute(location: { pathname: string; search: string }): Rout
   if (parts[0] === 'signin') return { name: 'signin' };
   if (parts[0] === 'join' && parts[1]) return { name: 'join', code: decodeURIComponent(parts[1]) };
   if (parts[0] === 'search') return { name: 'search', query: query.get('q') ?? '' };
+  // Canvas and list links: `/docs/<team>/<id>` and `/lists/<team>/<id>` (the team part is optional).
+  if ((parts[0] === 'docs' || parts[0] === 'lists') && parts[1]) {
+    const id = parts[2] ?? parts[1];
+    if (/^F[A-Z0-9]+$/.test(id)) return { name: 'doc', kind: parts[0] === 'docs' ? 'canvas' : 'list', id };
+  }
   if (parts[0] && (VIEW_NAMES as string[]).includes(parts[0])) return { name: 'view', view: parts[0] as ViewName };
   if (parts[0] === 'agents') return { name: 'agents' };
   if (parts[0] === 'c' && parts[1]) {
@@ -63,6 +69,8 @@ export function routePath(route: Route): string {
       return `/c/${route.id}`;
     case 'view':
       return `/${route.view}`;
+    case 'doc':
+      return `/${route.kind === 'canvas' ? 'docs' : 'lists'}/${route.id}`;
     case 'home':
       return '/';
   }

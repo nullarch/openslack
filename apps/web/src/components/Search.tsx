@@ -13,6 +13,7 @@ import { Mrkdwn } from './text';
 import { Avatar, Button, IconButton, Modal, Spinner } from './ui';
 import { recentSearches, recordSearch } from '../lib/attention';
 import { ChannelResults, FileResults, PeopleResults, SearchSuggestions, type SearchTab } from './SearchTabs';
+import { DocSearchResults } from './docs';
 import { History } from 'lucide-react';
 
 // ── Search results ──────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ export function SearchView({ query }: { query: string }) {
             ['files', S.att.search.files],
             ['channels', S.att.search.channels],
             ['people', S.att.search.people],
+            ['docs', S.att.search.docs],
           ] as [SearchTab, string][]
         ).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>
@@ -169,6 +171,7 @@ export function SearchView({ query }: { query: string }) {
           {tab === 'files' ? <FileResults query={query} /> : null}
           {tab === 'channels' ? <ChannelResults query={query} /> : null}
           {tab === 'people' ? <PeopleResults query={query} /> : null}
+          {tab === 'docs' ? <DocSearchResults query={query} /> : null}
           {tab === 'messages' ? (
             <>
           {query ? (

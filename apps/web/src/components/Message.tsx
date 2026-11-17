@@ -26,6 +26,7 @@ import { AiMessageItems, AiTranslation } from './ai/AiControls';
 import { Attachments, Blocks } from './blocks';
 import { confirmDialog } from './dialogs/confirm';
 import { Files } from './files';
+import { DocCards } from './docs';
 import { Emoji, Mrkdwn } from './text';
 import { MessageShortcutItems } from './AppViews';
 import { Avatar, IconButton, MenuDivider, MenuItem, Popover, Spinner } from './ui';
@@ -490,6 +491,7 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
         {editing ? <EditBox channel={channel} message={message} /> : <Body channel={channel} message={message} />}
         {message.files?.length ? <Files files={message.files} collapsed={collapsed} /> : null}
         {message.attachments?.length ? <Attachments attachments={message.attachments} channel={channel} message={message} /> : null}
+        {message.text && message.subtype !== 'tombstone' ? <DocCards text={message.text} /> : null}
         {message.failed ? (
           <div className="msg-failed">
             {S.messages.failed}{' '}

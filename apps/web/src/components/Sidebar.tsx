@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Compass,
   FileStack,
+  FileText,
+  ListChecks,
   FolderInput,
   FolderMinus,
   FolderPlus,
@@ -245,6 +247,8 @@ function SideNav() {
       <NavItem view="later" icon={<BookmarkIcon size={16} />} badge={later} />
       <NavItem view="drafts" icon={<Send size={16} />} badge={drafts} />
       <NavItem view="files" icon={<FileStack size={16} />} />
+      <NavItem view="canvases" icon={<FileText size={16} />} />
+      <NavItem view="lists" icon={<ListChecks size={16} />} />
     </nav>
   );
 }
