@@ -61,6 +61,18 @@ Apps that Slack or a vendor runs for you (installed from the Slack Marketplace, 
 - Slack Connect channels shared with other organisations.
 - Each person's preferences, sidebar sections, saved items and reminders.
 
+## Coming from Mattermost
+
+Export with `mmctl export create` (add the flag for attachments if you want files), download the zip, then:
+
+```bash
+openslack import-mattermost ./export.zip
+```
+
+Teams fold into the one workspace; channels whose names collide across teams get the team's name in front (`eng-town-square`). Messages, replies, reactions, direct and group messages and attached files come across; Markdown is converted. As with Slack, people claim their account by accepting an invite with the same email address, and running the import again adds only what is new.
+
+The importer follows Mattermost's documented bulk format. It has been tested with a hand-written export in that format, not yet with a real `mmctl` export; the documentation does not describe where attachments sit inside the zip, so the importer looks for each path as written, under the export file's folder and under `data/`.
+
 ## Running both for a while
 
 You can keep Slack running while the team tries the new workspace, and import again just before switching: the second import adds only what is new.
