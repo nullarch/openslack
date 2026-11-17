@@ -8,11 +8,12 @@ import type { Ctx } from '../ctx.ts';
 import { accessOf, emitDocChanged, getDoc, permalink, requireDoc, visibleDocs, type DocKind, type DocRow } from './access.ts';
 import { canvasToApi, createCanvas, hostConversation, registerCanvases } from './canvases.ts';
 import { CanvasHub } from './hub.ts';
-import { createList, itemTitle, listExtra, listToApi, registerLists } from './lists.ts';
+import { createList, createListItem, itemTitle, listExtra, listToApi, registerLists } from './lists.ts';
+import { setListItemCreator } from '../workflows/index.ts';
 import { fragmentToMarkdown } from './markdown.ts';
 import { getTemplate, listTemplates, type CanvasBody, type ListBody } from './templates.ts';
 
-export { createListItem } from './lists.ts';
+export { createListItem };
 
 /**
  * Canvases (collaborative documents) and lists (structured trackers). Both are
@@ -34,6 +35,8 @@ export function installDocs(kernel: Kernel): CanvasHub {
   hub.install(kernel);
   registerCanvases(registry, hub);
   registerLists(kernel);
+  // Workflow "add a list item" steps go through the same checks as the API.
+  setListItemCreator(ctx, (c, actor, listId, fields) => createListItem(c, actor, listId, fields) as { id: string });
 
   const kindArg = (value: string | undefined): DocKind | undefined => {
     if (value === undefined || value === '') return undefined;

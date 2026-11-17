@@ -656,6 +656,46 @@ describe('lists', () => {
   });
 });
 
+describe('lists in workflows', () => {
+  test('a workflow step adds a list item through the list\'s own checks, and its assignee hears about it', async () => {
+    const t = await startApp();
+    try {
+      const owner = await setupWorkspace(t);
+      const mina = await addMember(t, owner, 'Mina Park');
+      const channel = (await owner.ok('conversations.create', { name: 'intake' })).channel.id;
+      const { list_id: listId } = await owner.ok('slackLists.create', {
+        name: 'Requests',
+        channel_id: channel,
+        schema: [
+          { key: 'title', name: 'Request', type: 'text' },
+          { key: 'status', name: 'Status', type: 'select', options: { choices: [{ label: 'New' }, { label: 'Done' }] } },
+          { key: 'owner', name: 'Owner', type: 'user' },
+        ],
+      });
+      assert.equal((await owner.ok('client.workflows.stepTypes')).lists_available, true);
+      const saved = await owner.ok('client.workflows.save', {
+        name: 'File a request',
+        trigger: { type: 'webhook', variables: ['what'] },
+        steps: [{ id: 'add', type: 'list_item', list_id: listId, fields: { title: '{{webhook.what}}', Status: 'New', owner: `<@${mina.userId}>` } }],
+      });
+      const workflow = (await owner.ok('client.workflows.publish', { workflow: saved.workflow.id })).workflow;
+      const full = (await owner.ok('client.workflows.get', { workflow: workflow.id })).workflow;
+      const response = await fetch(`${t.base}${new URL(full.webhook_url).pathname}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ what: 'New laptop' }) });
+      assert.equal(response.status, 200);
+      await until(async () => (await owner.ok('client.workflows.runs', { workflow: workflow.id })).runs[0]?.status === 'completed');
+      const items = (await owner.ok('slackLists.items.list', { list_id: listId })).items;
+      assert.equal(items.length, 1);
+      const fields = Object.fromEntries(items[0].fields.map((field: Json) => [field.key, field]));
+      assert.equal(fields.title.text, 'New laptop');
+      assert.deepEqual(fields.status.select, ['New']);
+      assert.deepEqual(fields.owner.user, [mina.userId]);
+      assert.ok((await mina.ok('client.activity.list', {})).items.some((entry: Json) => entry.type === 'list_assigned'));
+    } finally {
+      await t.close();
+    }
+  });
+});
+
 describe('templates', () => {
   let test_: TestApp;
   let owner: Session;

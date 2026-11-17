@@ -166,6 +166,10 @@ function plainOfRich(value: unknown): string {
 
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : value === undefined || value === null || value === '' ? [] : [value]);
 
+/** A plain string may hold several values ("U1, U2" or "<@U1> <@U2>"), as workflow steps send them. */
+const splitIds = (value: unknown): unknown[] =>
+  typeof value === 'string' ? value.split(/[\s,]+/).map((part) => part.replace(/^<[@#]|[|>].*$/g, '')).filter(Boolean) : asArray(value);
+
 /**
  * Normalise one value for a column, from Slack's field shape (`{ select: [...] }`)
  * or a plain value (`'Done'`, `3`, `['U123']`). Returns undefined to clear.
@@ -185,20 +189,21 @@ export function readValue(ctx: Ctx, column: Column, input: unknown): unknown {
     }
     case 'select': {
       const choices = column.options?.choices ?? [];
-      const values = asArray(input)
+      const raw = typeof input === 'string' && column.options?.format === 'multi_select' ? input.split(',').map((part) => part.trim()).filter(Boolean) : asArray(input);
+      const values = raw
         .map((value) => String(value))
         .map((value) => choices.find((choice) => choice.value === value || choice.label.toLowerCase() === value.toLowerCase())?.value)
         .filter((value): value is string => Boolean(value));
-      if (asArray(input).length && !values.length) fail('invalid_value', { detail: `${column.name}: unknown option` });
+      if (raw.length && !values.length) fail('invalid_value', { detail: `${column.name}: unknown option` });
       return values.length ? (column.options?.format === 'multi_select' ? [...new Set(values)] : [values[0]]) : undefined;
     }
     case 'user': {
-      const ids = asArray(input).map(String);
+      const ids = splitIds(input).map(String);
       for (const id of ids) if (!getUser(ctx, id)) fail('invalid_value', { detail: `${column.name}: unknown user ${id}` });
       return ids.length ? [...new Set(ids)] : undefined;
     }
     case 'channel': {
-      const ids = asArray(input).map(String);
+      const ids = splitIds(input).map(String);
       for (const id of ids) if (!getConv(ctx, id)) fail('invalid_value', { detail: `${column.name}: unknown channel ${id}` });
       return ids.length ? ids : undefined;
     }
@@ -229,7 +234,10 @@ export function readValue(ctx: Ctx, column: Column, input: unknown): unknown {
 /** Read Slack-shaped fields (`[{ column_id, select: [...] }]`) or a plain object keyed by column key or id. */
 export function readFields(ctx: Ctx, schema: Column[], input: unknown): Values {
   const out: Values = {};
-  const find = (ref: string): Column => schema.find((column) => column.id === ref || column.key === ref) ?? fail('invalid_value', { detail: `unknown column ${ref}` });
+  const find = (ref: string): Column =>
+    schema.find((column) => column.id === ref || column.key === ref) ??
+    schema.find((column) => column.name.toLowerCase() === ref.toLowerCase()) ??
+    fail('invalid_value', { detail: `unknown column ${ref}` });
   if (Array.isArray(input)) {
     for (const entry of input) {
       const field = (entry ?? {}) as Record<string, unknown>;
