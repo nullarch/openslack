@@ -284,6 +284,15 @@
   margin: 0.3em 0;
 }
 
+/* The base stylesheet removes list markers everywhere; a document shows them. */
+.canvas-content ul {
+  list-style: disc;
+}
+
+.canvas-content ol {
+  list-style: decimal;
+}
+
 .canvas-content ul[data-type='taskList'] {
   list-style: none;
   padding-left: 0.2em;

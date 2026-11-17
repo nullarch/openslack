@@ -160,6 +160,13 @@ export function readManifest(input: unknown): { manifest: ParsedManifest | null;
     const value = features ? section(features, view, `/features/${view}`) : null;
     if (value) text(value, view === 'assistant_view' ? 'assistant_description' : 'agent_description', `/features/${view}`, { required: true, max: 300 });
   }
+  // Code channels: where an agent's channel commands go when the app uses HTTP (read back from the stored manifest).
+  const codeChannels = features ? section(features, 'code_channels', '/features/code_channels') : null;
+  if (codeChannels) {
+    flag(codeChannels, 'enabled', '/features/code_channels/enabled');
+    const commandUrl = text(codeChannels, 'slash_command_url', '/features/code_channels/slash_command_url', { max: 3000 });
+    if (commandUrl !== null && !isHttpUrl(commandUrl)) problem('/features/code_channels/slash_command_url', '`slash_command_url` must be an http(s) URL.');
+  }
 
   const settings = section(raw, 'settings', '/settings');
   const socketMode = flag(settings, 'socket_mode_enabled', '/settings/socket_mode_enabled');

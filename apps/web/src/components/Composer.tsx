@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { errorText, loadCommands, openModal, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { canPostIn, draftEvents, draftKey as serverDraftKey, notifyAnyway, saveDraft, scheduleMessage, serverDraft, userInDnd } from '../lib/attention';
 import { BUILT_INS, findBuiltIn } from '../lib/builtins';
+import { commandsIn } from '../lib/codeChannels';
 import { asset, call, uploadFile } from '../lib/api';
 import { accounts } from '../lib/accounts';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
@@ -123,7 +124,7 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
     label: `${command.command}${command.usage ? ` ${command.usage}` : ''}`,
     sub: command.description,
   }));
-  const items = state.commands
+  const items = commandsIn(state.commands, channel)
     .filter((command) => command.command.slice(1).startsWith(query) && !findBuiltIn(command.command))
     .map((command) => ({
       key: command.command,
@@ -398,7 +399,7 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     }
     if (command) {
       const name = command[1]!.toLowerCase();
-      const known = (): boolean => get().commands.some((item) => item.command === name);
+      const known = (): boolean => commandsIn(get().commands, channel).some((item) => item.command === name);
       // The list was loaded when this tab started; a command added since is one request away.
       if (!known()) await loadCommands();
       if (known()) {

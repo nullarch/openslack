@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test \"test/**/*.test.ts\"",
-    "e2e": "node e2e/smoke.mjs && node e2e/files-people-apps.mjs && node e2e/platform.mjs && node e2e/attention.mjs && node e2e/huddles.mjs && node e2e/ai.mjs && node e2e/workflows.mjs && node e2e/accounts.mjs && node e2e/admin.mjs && node e2e/canvases.mjs && node e2e/clips.mjs && node e2e/documents.mjs && node e2e/i18n.mjs && node e2e/a11y.mjs",
+    "e2e": "node e2e/smoke.mjs && node e2e/files-people-apps.mjs && node e2e/platform.mjs && node e2e/attention.mjs && node e2e/huddles.mjs && node e2e/ai.mjs && node e2e/code-channels.mjs && node e2e/workflows.mjs && node e2e/accounts.mjs && node e2e/admin.mjs && node e2e/canvases.mjs && node e2e/clips.mjs && node e2e/documents.mjs && node e2e/i18n.mjs && node e2e/a11y.mjs",
     "e2e:agent": "node e2e/agent.mjs",
     "e2e:push": "node e2e/push.mjs",
     "e2e:a11y": "node e2e/a11y.mjs",

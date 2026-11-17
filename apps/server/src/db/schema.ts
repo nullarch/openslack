@@ -1019,4 +1019,48 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE agent_threads ADD COLUMN initiator TEXT;
   CREATE INDEX agent_threads_thread ON agent_threads (conversation_id, thread_ts);
   `,
+
+  /* 30: code channels — channels an agent works in (agents.conversations.*): where they started, their context bar, view tabs and commands; the channel's session is an agent_threads row with thread_ts '' */ `
+  CREATE TABLE agent_channels (
+    conversation_id TEXT PRIMARY KEY,
+    app_id TEXT NOT NULL,
+    session_id TEXT,
+    origin_channel TEXT,
+    origin_ts TEXT,
+    context_bar TEXT NOT NULL DEFAULT '[]',
+    summary_message TEXT,
+    agent_resource TEXT,
+    created INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX agent_channels_session ON agent_channels (app_id, session_id) WHERE session_id IS NOT NULL;
+  CREATE TABLE agent_views (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    app_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    -- The agent's upsert key; '' for the channel's one diff.
+    view_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    file_id TEXT NOT NULL,
+    canvas_id TEXT,
+    -- HTML or diff text, Block Kit JSON, or a pull request URL.
+    body TEXT NOT NULL DEFAULT '',
+    options TEXT NOT NULL DEFAULT '{}',
+    content_version INTEGER NOT NULL DEFAULT 1,
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX agent_views_key ON agent_views (conversation_id, view_key);
+  CREATE TABLE agent_commands (
+    conversation_id TEXT NOT NULL,
+    app_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    argument_hint TEXT NOT NULL DEFAULT '',
+    should_escape INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL,
+    created INTEGER NOT NULL,
+    PRIMARY KEY (conversation_id, app_id, name)
+  ) WITHOUT ROWID;
+  `,
 ];

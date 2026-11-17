@@ -2,6 +2,7 @@ import type { Ctx } from '../ctx.ts';
 import type { Actor } from '../ctx.ts';
 import type { Delivery } from './dispatch.ts';
 import type { Json } from './elements.ts';
+import type { Interactivity } from './interactivity.ts';
 import type { Views } from './views.ts';
 
 /**
@@ -45,10 +46,11 @@ export function allLocalApps(ctx: Ctx): LocalApp[] {
   return [...(localApps.get(ctx)?.values() ?? [])];
 }
 
-/** Platform services other modules need: opening modals for a person, delivering events to apps. */
+/** Platform services other modules need: opening modals for a person, delivering events and interactions to apps. */
 export interface PlatformServices {
   views: Views;
   delivery: Delivery;
+  interactivity: Interactivity;
 }
 
 const services = new WeakMap<Ctx, PlatformServices>();

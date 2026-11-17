@@ -2,6 +2,7 @@ import { channelNameError, normalizeChannelName } from '@app/shared';
 import type { Actor, Ctx } from '../../ctx.ts';
 import {
   addMember,
+  archiveConversation,
   canManage,
   canSee,
   convToApi,
@@ -12,6 +13,7 @@ import {
   memberIds,
   openDirect,
   removeMember,
+  renameConversation,
   resolveConv,
   setDirectOpen,
   touchConv,
@@ -209,12 +211,7 @@ export function registerConversations(registry: Registry): void {
     if (conv.is_general === 1) fail('cant_archive_general');
     if (conv.is_archived === 1) fail('already_archived');
     if (!canManage(conv, actor, ctx)) fail('restricted_action');
-    postSystemMessage(ctx, conv, actor.userId, 'channel_archive', `<@${actor.userId}> archived the channel`);
-    ctx.db.run('UPDATE conversations SET is_archived = 1, updated = ? WHERE id = ?', nowSeconds(), conv.id);
-    ctx.bus.emit({
-      event: { type: 'channel_archive', channel: conv.id, user: actor.userId, event_ts: ctx.clock.eventTs() },
-      audience: conv.kind === 'public' ? { all: true } : { conversation: conv.id },
-    });
+    archiveConversation(ctx, conv, actor.userId);
   });
 
   registry.add('conversations.unarchive', { scopes: MANAGE }, ({ ctx, actor, args }) => {
@@ -236,26 +233,7 @@ export function registerConversations(registry: Registry): void {
     const name = normalizeChannelName(args.req('name', 'invalid_name_required'));
     const error = channelNameError(name);
     if (error) fail(error);
-    if (name !== conv.name) {
-      if (ctx.db.get("SELECT 1 FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name)) fail('name_taken');
-      ctx.db.run('UPDATE conversations SET name = ?, updated = ? WHERE id = ?', name, nowSeconds(), conv.id);
-      ctx.bus.emit({
-        event: {
-          type: 'channel_rename',
-          channel: { id: conv.id, name, name_normalized: name, created: conv.created, is_channel: true },
-          event_ts: ctx.clock.eventTs(),
-        },
-        audience: conv.kind === 'public' ? { all: true } : { conversation: conv.id },
-      });
-      postSystemMessage(
-        ctx,
-        conv,
-        actor.userId,
-        'channel_name',
-        `<@${actor.userId}> has renamed the channel from "${conv.name}" to "${name}"`,
-        { old_name: conv.name, name },
-      );
-    }
+    renameConversation(ctx, conv, actor.userId, name);
     return { channel: convToApi(ctx, getConv(ctx, conv.id)!, actor.userId) };
   });
 

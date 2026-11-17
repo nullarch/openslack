@@ -664,6 +664,7 @@ function LiveEditor({
   id,
   session,
   canWrite,
+  canComment,
   isOwner,
   panel,
   onPanel,
@@ -671,6 +672,7 @@ function LiveEditor({
   id: string;
   session: Session;
   canWrite: boolean;
+  canComment: boolean;
   isOwner: boolean;
   panel: CanvasPanel;
   onPanel: (panel: CanvasPanel) => void;
@@ -700,6 +702,7 @@ function LiveEditor({
         commentHighlights(
           () => commentsRef.current,
           (commentId) => {
+            if (!canComment) return;
             setFocus(commentId);
             onPanel('comments');
           },
@@ -772,7 +775,7 @@ function LiveEditor({
       <div className="canvas-main">
         <div className="canvas-bar">
           {canWrite ? <Toolbar editor={editor} onImage={() => fileInput.current?.click()} onComment={startComment} /> : <span className="tag">{T.readOnly}</span>}
-          {!canWrite ? (
+          {!canWrite && canComment ? (
             <Button size="sm" variant="ghost" onClick={startComment}>
               <MessageSquarePlus size={15} /> {T.addComment}
             </Button>
@@ -839,7 +842,22 @@ function LiveEditor({
   );
 }
 
-export default function CanvasEditor({ id, canWrite, isOwner, panel, onPanel }: { id: string; canWrite: boolean; isOwner: boolean; panel: CanvasPanel; onPanel: (panel: CanvasPanel) => void }) {
+export default function CanvasEditor({
+  id,
+  canWrite,
+  canComment = true,
+  isOwner,
+  panel,
+  onPanel,
+}: {
+  id: string;
+  canWrite: boolean;
+  /** False for a canvas shown read-only, without comments (a code channel's `read` view). */
+  canComment?: boolean;
+  isOwner: boolean;
+  panel: CanvasPanel;
+  onPanel: (panel: CanvasPanel) => void;
+}) {
   const session = useSession(id);
   if (!session) {
     return (
@@ -848,5 +866,5 @@ export default function CanvasEditor({ id, canWrite, isOwner, panel, onPanel }: 
       </div>
     );
   }
-  return <LiveEditor key={`${id}:${canWrite}`} id={id} session={session} canWrite={canWrite} isOwner={isOwner} panel={panel} onPanel={onPanel} />;
+  return <LiveEditor key={`${id}:${canWrite}`} id={id} session={session} canWrite={canWrite} canComment={canComment} isOwner={isOwner} panel={panel} onPanel={onPanel} />;
 }

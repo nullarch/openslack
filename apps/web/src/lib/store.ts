@@ -129,6 +129,8 @@ export interface SlashCommand {
   usage_hint: string;
   app_id: string;
   app_name: string;
+  /** Set on a command an agent offers in one code channel only. */
+  channel_id?: string;
 }
 
 export interface AppState {

@@ -132,6 +132,24 @@ export const koRest = {
     },
   },
 
+  code: {
+    tabs: '메시지, 뷰, 캔버스, 리스트',
+    contextBar: '작업 정보',
+    opensNewTab: '새 탭에서 열림',
+    actionSent: '에이전트에게 보냈어요.',
+    diff: '변경 내용',
+    frameTitle: (name: string) => `에이전트가 만든 뷰: ${name}`,
+    files: (n: number) => `파일 ${n}개 변경`,
+    lineCounts: (added: number, removed: number) => `${added}줄 추가, ${removed}줄 삭제`,
+    noChanges: '이 변경 내용에는 바뀐 줄이 없어요.',
+    binary: '바이너리 파일',
+    renamed: (from: string) => `${from}에서 이름 바뀜`,
+    pullRequest: '풀 리퀘스트',
+    openPullRequest: '풀 리퀘스트 열기',
+    gone: '이 뷰는 없어졌어요.',
+    viewFailed: '이 뷰를 불러오지 못했어요.',
+  },
+
   platform: {
     confirmTitle: '계속할까요?',
     confirmYes: '확인',

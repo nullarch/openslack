@@ -213,8 +213,11 @@ function Title({ doc, editable }: { doc: DocSummary; editable: boolean }) {
   );
 }
 
-/** A canvas or a list with its header: title, who can edit, comments, history, sharing and the rest. */
-export default function DocPage({ kind, id, channel }: { kind: DocKind; id: string; channel?: string }) {
+/**
+ * A canvas or a list with its header: title, who can edit, comments, history, sharing and the rest.
+ * `canComment: false` is a canvas an agent shows read-only in a code channel.
+ */
+export default function DocPage({ kind, id, channel, canComment = true }: { kind: DocKind; id: string; channel?: string; canComment?: boolean }) {
   const version = useDocs((state) => state.version[id] ?? 0);
   const lastChange = useDocs((state) => state.lastChange[id]);
   const updatedBy = useStore((state) => state.users);
@@ -299,9 +302,11 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
         <span className="composer-spacer" />
         {kind === 'canvas' ? (
           <>
-            <Button size="sm" variant={panel === 'comments' ? 'primary' : 'ghost'} aria-pressed={panel === 'comments'} onClick={() => togglePanel('comments')}>
-              <MessageSquare size={15} /> {openComments ? T.commentsCount(openComments) : T.comments}
-            </Button>
+            {canComment || canWrite ? (
+              <Button size="sm" variant={panel === 'comments' ? 'primary' : 'ghost'} aria-pressed={panel === 'comments'} onClick={() => togglePanel('comments')}>
+                <MessageSquare size={15} /> {openComments ? T.commentsCount(openComments) : T.comments}
+              </Button>
+            ) : null}
             <IconButton label={T.versions} className={panel === 'versions' ? 'is-on' : ''} onClick={() => togglePanel('versions')}>
               <History size={17} />
             </IconButton>
@@ -323,7 +328,7 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
               </div>
             }
           >
-            <CanvasEditor id={id} canWrite={canWrite} isOwner={isOwner} panel={panel} onPanel={setPanel} />
+            <CanvasEditor id={id} canWrite={canWrite} canComment={canComment || canWrite} isOwner={isOwner} panel={panel} onPanel={setPanel} />
           </Suspense>
         ) : (
           <ListView id={id} />

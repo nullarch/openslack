@@ -8,6 +8,8 @@ import { conversation, conversationName, set, useStore } from '../lib/store';
 import { S } from '../strings';
 import { AiChannelButton } from './ai/AiControls';
 import { AppHomeView, AppTabs, useAppOf, useAppTab } from './AppViews';
+import { CodeChannelBar, CodeChannelTabs, CodeViewBody, useOpenViewTab } from './code/CodeChannel';
+import { isCodeChannel } from '../lib/codeChannels';
 import { Composer } from './Composer';
 import { ChannelDocBody, DocTabs, useOpenDocTab } from './docs';
 import { HuddleHeaderButton } from './Huddle';
@@ -109,6 +111,8 @@ export function ConversationView({ channel }: { channel: string }) {
   const appId = useAppOf(channel);
   const appTab = useAppTab(appId);
   const docTab = useOpenDocTab(channel);
+  const code = isCodeChannel(conv);
+  const viewTab = useOpenViewTab(code ? conv : undefined);
 
   if (!conv) {
     return (
@@ -124,10 +128,13 @@ export function ConversationView({ channel }: { channel: string }) {
   return (
     <section className="conversation" data-drop-scope data-drop-label={S.composer.dropHere}>
       <Header conv={conv} isMember={isMember} />
+      {code ? <CodeChannelBar conv={conv} isMember={isMember} /> : null}
       {appId ? <AppTabs key={`tabs:${channel}`} appId={appId} /> : null}
-      {!appId ? <DocTabs key={`docs:${channel}`} channel={channel} canAdd={isMember && !conv.is_archived} /> : null}
+      {code ? <CodeChannelTabs key={`code:${channel}`} conv={conv} /> : !appId ? <DocTabs key={`docs:${channel}`} channel={channel} canAdd={isMember && !conv.is_archived} /> : null}
       {appId && appTab === 'home' ? (
         <AppHomeView appId={appId} />
+      ) : viewTab ? (
+        <CodeViewBody key={`view:${viewTab.view_id}`} channel={channel} view={viewTab} />
       ) : docTab && !appId ? (
         <ChannelDocBody channel={channel} doc={docTab} />
       ) : (

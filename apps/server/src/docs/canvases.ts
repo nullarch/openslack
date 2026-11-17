@@ -24,7 +24,14 @@ import { FIELD, fragmentToHtml, fragmentToMarkdown, markdownToY, sections, type 
 
 const READ = ['canvases:read', 'canvases:write'];
 const WRITE = ['canvases:write'];
-const MAX_MARKDOWN = 400_000;
+export const MAX_MARKDOWN = 400_000;
+
+/**
+ * Checks before someone who can open a canvas comments on it; a guard throws to
+ * refuse (a code channel's read-only canvas view). Process-wide: a guard uses
+ * the ctx it is called with.
+ */
+export const commentGuards: ((ctx: Ctx, doc: DocRow, level: Level, userId: string) => void)[] = [];
 
 export function labelsFor(ctx: Ctx): Labels {
   return {
@@ -390,8 +397,9 @@ export function registerCanvases(registry: Registry, hub: CanvasHub): void {
   });
 
   registry.add('client.canvases.comments.add', { auth: 'session' }, ({ ctx, actor, args }) => {
-    // Anyone who can read the canvas can comment on it.
-    const { doc } = requireDoc(ctx, args.req('canvas_id', 'canvas_not_found'), 'canvas', actor.userId);
+    // Anyone who can read the canvas can comment on it, unless a module says otherwise.
+    const { doc, level } = requireDoc(ctx, args.req('canvas_id', 'canvas_not_found'), 'canvas', actor.userId);
+    for (const guard of commentGuards) guard(ctx, doc, level, actor.userId);
     const text = args.req('text').trim().slice(0, 4000);
     if (!text) fail('no_text');
     let rootId: string | null = null;

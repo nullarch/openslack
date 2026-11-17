@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import { call, type Json } from './api';
 
-/** What agents report about their work in a thread (agents.sessions.*), kept per thread. */
+/**
+ * What agents report about their work (agents.sessions.*), kept per session:
+ * a thread, or a whole code channel (`thread_ts` null, kept under '').
+ */
 export interface AgentSession {
   channel: string;
-  thread_ts: string;
+  thread_ts: string | null;
   status: 'active' | 'processing' | 'suspended' | 'closed';
   title: string;
   agents: { app_id: string; bot_user_id: string | null; name: string; status: string }[];
@@ -19,10 +22,11 @@ export const useAgentSessions = create<State>(() => ({ byThread: {}, loaded: {} 
 const set = useAgentSessions.setState;
 const get = useAgentSessions.getState;
 
-const key = (channel: string, threadTs: string): string => `${channel}:${threadTs}`;
+/** The store key of a session: `channel:thread_ts`, or `channel:` for a code channel. */
+export const sessionKey = (channel: string, threadTs: string | null): string => `${channel}:${threadTs ?? ''}`;
 
 function remember(session: AgentSession): void {
-  set((state) => ({ byThread: { ...state.byThread, [key(session.channel, session.thread_ts)]: session } }));
+  set((state) => ({ byThread: { ...state.byThread, [sessionKey(session.channel, session.thread_ts)]: session } }));
 }
 
 export async function loadSessions(channel: string): Promise<void> {
@@ -36,12 +40,13 @@ export async function loadSessions(channel: string): Promise<void> {
   }
 }
 
+/** Stop a thread's agents, or (`threadTs` empty) a code channel's. */
 export function stopSession(channel: string, threadTs: string): Promise<Json> {
-  return call('client.agents.stop', { channel, thread_ts: threadTs });
+  return call('client.agents.stop', threadTs ? { channel, thread_ts: threadTs } : { channel });
 }
 
 export function renameSession(channel: string, threadTs: string, title: string): Promise<Json> {
-  return call('client.agents.rename', { channel, thread_ts: threadTs, title });
+  return call('client.agents.rename', threadTs ? { channel, thread_ts: threadTs, title } : { channel, title });
 }
 
 /** Realtime events for agent sessions. Returns true when it handled one. */

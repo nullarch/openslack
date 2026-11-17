@@ -1340,6 +1340,25 @@ const en = {
     },
   },
 
+  /** Code channels: a channel an agent made for one piece of work, with its context bar and view tabs. */
+  code: {
+    tabs: 'Messages, views, canvases and lists',
+    contextBar: 'About this work',
+    opensNewTab: 'opens in a new tab',
+    actionSent: 'Sent to the agent.',
+    diff: 'Diff',
+    frameTitle: (name: string) => `View from the agent: ${name}`,
+    files: (n: number) => (n === 1 ? '1 file changed' : `${n} files changed`),
+    lineCounts: (added: number, removed: number) => `${added} ${added === 1 ? 'line' : 'lines'} added, ${removed} removed`,
+    noChanges: 'This diff has no changed lines.',
+    binary: 'Binary file',
+    renamed: (from: string) => `renamed from ${from}`,
+    pullRequest: 'Pull request',
+    openPullRequest: 'Open the pull request',
+    gone: 'This view was removed.',
+    viewFailed: 'This view could not be loaded.',
+  },
+
   platform: {
     confirmTitle: 'Are you sure?',
     confirmYes: 'Confirm',

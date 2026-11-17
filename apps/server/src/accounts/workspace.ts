@@ -170,8 +170,8 @@ export function installWorkspace(kernel: Kernel): void {
 
   // Workspace-wide permissions, enforced on every path that leads to the action.
   registry.guards.push((name, actor) => {
-    // Turning a group DM into a private channel creates a channel too.
-    const creates = name === 'conversations.create' || name === 'client.conversations.convertGroupDm';
+    // Turning a group DM into a private channel creates a channel too, and so does an agent opening a code channel.
+    const creates = name === 'conversations.create' || name === 'client.conversations.convertGroupDm' || name === 'agents.conversations.create';
     if (creates && !allowedTo(ctx, actor.userId, 'who_can_create_channels')) {
       throw new ApiError('restricted_action');
     }

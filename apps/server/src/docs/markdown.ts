@@ -378,6 +378,11 @@ function blockMarkdown(el: Y.XmlElement, indent = ''): string[] {
   }
 }
 
+/** One top-level block as Markdown: two blocks are the same section when this is equal. */
+export function blockToMarkdown(el: Y.XmlElement): string {
+  return blockMarkdown(el).join('\n');
+}
+
 export function fragmentToMarkdown(fragment: Y.XmlFragment): string {
   return fragment
     .toArray()
