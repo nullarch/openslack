@@ -80,7 +80,7 @@ export function installAdminApi(kernel: Kernel): void {
   registry.add('admin.users.list', { auth: 'admin', scopes: USERS_READ }, ({ args }) => {
     const limit = args.int('limit', 100, { min: 1, max: 1000 });
     const after = args.str('cursor') ? Buffer.from(args.str('cursor')!, 'base64').toString('utf8') : '';
-    const rows = ctx.db.all<UserRow>('SELECT * FROM users WHERE is_bot = 0 AND id > ? ORDER BY id LIMIT ?', after, limit + 1);
+    const rows = ctx.db.all<UserRow>("SELECT * FROM users WHERE is_bot = 0 AND home = '' AND id > ? ORDER BY id LIMIT ?", after, limit + 1);
     const page = rows.slice(0, limit);
     return { users: page.map(userToAdminApi), response_metadata: { next_cursor: rows.length > limit ? Buffer.from(page.at(-1)!.id).toString('base64') : '' } };
   });

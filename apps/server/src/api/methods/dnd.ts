@@ -155,7 +155,7 @@ export function registerDnd(registry: Registry): void {
 
   registry.add('dnd.teamInfo', { scopes: ['dnd:read', 'users:read'] }, ({ ctx, args }) => {
     // Without `users`, everyone in the workspace.
-    const ids = args.has('users') ? args.list('users').slice(0, 50) : ctx.db.all<{ id: string }>('SELECT id FROM users WHERE deleted = 0').map((entry) => entry.id);
+    const ids = args.has('users') ? args.list('users').slice(0, 50) : ctx.db.all<{ id: string }>("SELECT id FROM users WHERE deleted = 0 AND home = ''").map((entry) => entry.id);
     const users: Record<string, DndStatus> = {};
     for (const id of ids) {
       if (getUser(ctx, id)) users[id] = dndStatus(ctx, id, false);

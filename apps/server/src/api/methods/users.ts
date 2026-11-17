@@ -75,7 +75,7 @@ export function registerUsers(registry: Registry): void {
   registry.add('team.info', { scopes: ['team:read'] }, ({ ctx }) => ({ team: teamToApi(ctx) }));
 
   registry.add('users.list', { scopes: ['users:read'] }, ({ ctx, actor, args }) => {
-    const rows = ctx.db.all<UserRow>('SELECT * FROM users ORDER BY created, id');
+    const rows = ctx.db.all<UserRow>("SELECT * FROM users WHERE home = '' ORDER BY created, id");
     const { page, response_metadata } = pageByOffset(rows, args.str('cursor'), args.int('limit', 1000, { min: 1, max: 1000 }));
     return { members: page.map((row) => userToApi(ctx, row, actor)), cache_ts: nowSeconds(), response_metadata };
   });

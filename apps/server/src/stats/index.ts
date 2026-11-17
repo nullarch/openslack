@@ -59,7 +59,7 @@ export function workspaceStats(ctx: Ctx, days: number): Record<string, unknown> 
   const dayList = Array.from({ length: days }, (_, index) => dayOf(since + index * DAY));
 
   const people = ctx.db.get<{ total: number; joined: number }>(
-    'SELECT count(*) AS total, sum(created >= ?) AS joined FROM users WHERE is_bot = 0 AND deleted = 0',
+    "SELECT count(*) AS total, sum(created >= ?) AS joined FROM users WHERE is_bot = 0 AND deleted = 0 AND home = ''",
     Math.floor(since / DAY) * DAY,
   )!;
 
@@ -108,7 +108,7 @@ export function workspaceStats(ctx: Ctx, days: number): Record<string, unknown> 
             (SELECT count(*) FROM messages m WHERE m.user_id = u.id AND m.ts >= ? AND m.subtype IS NULL) AS messages,
             (SELECT count(*) FROM activity_days a WHERE a.user_id = u.id AND a.day >= ?) AS days_active,
             (SELECT max(day) FROM activity_days a WHERE a.user_id = u.id) AS last_active
-       FROM users u WHERE u.is_bot = 0 AND u.deleted = 0 ORDER BY messages DESC, u.real_name LIMIT 500`,
+       FROM users u WHERE u.is_bot = 0 AND u.deleted = 0 AND u.home = '' ORDER BY messages DESC, u.real_name LIMIT 500`,
     sinceTs,
     firstDay,
   );

@@ -67,7 +67,7 @@ export class RtmHub {
     // The older, heavier form: the same, plus the people and conversations the caller can see.
     kernel.registry.add('rtm.start', {}, ({ ctx, actor }) => {
       const result: Record<string, unknown> = { ...open(actor), ...identity(actor) };
-      const users = ctx.db.all<{ id: string }>('SELECT id FROM users ORDER BY created');
+      const users = ctx.db.all<{ id: string }>("SELECT id FROM users WHERE home = '' ORDER BY created");
       result.users = users.map((row) => userToApi(ctx, getUser(ctx, row.id)!, actor));
       const memberships = ctx.db.all<{ conversation_id: string }>('SELECT conversation_id FROM members WHERE user_id = ?', actor.userId);
       const conversations = memberships.map((row) => getConv(ctx, row.conversation_id)).filter((conv) => conv !== undefined);

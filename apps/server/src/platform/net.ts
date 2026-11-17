@@ -85,7 +85,7 @@ export function allowPrivateTargets(ctx: Ctx): boolean {
   }
 }
 
-function postOnce(target: URL, options: PostOptions): Promise<OutboundResponse> {
+function postOnce(target: URL, options: PostOptions, method: 'GET' | 'POST' = 'POST'): Promise<OutboundResponse> {
   return new Promise((resolve, reject) => {
     const host = target.hostname.replace(/^\[|\]$/g, '');
     if (isIP(host) !== 0 && !options.allowPrivate && isPrivateAddress(host)) {
@@ -96,12 +96,12 @@ function postOnce(target: URL, options: PostOptions): Promise<OutboundResponse> 
     const req = send(
       target,
       {
-        method: 'POST',
+        method,
         headers: {
           'user-agent': `${BRAND.slug}-delivery/1.0`,
           accept: 'application/json,*/*',
           ...options.headers,
-          'content-length': Buffer.byteLength(options.body),
+          ...(method === 'POST' ? { 'content-length': Buffer.byteLength(options.body) } : {}),
         },
         // The address is checked at connection time, so a hostname cannot be
         // re-pointed at a private address between the check and the request.
@@ -151,8 +151,21 @@ function postOnce(target: URL, options: PostOptions): Promise<OutboundResponse> 
       else if (/CERT|SSL|TLS/i.test(`${error.code ?? ''} ${error.message}`)) reject(new OutboundError('ssl_error', error.message));
       else reject(new OutboundError('connection_failed', error.message));
     });
-    req.end(options.body);
+    if (method === 'POST') req.end(options.body);
+    else req.end();
   });
+}
+
+/** GET a URL with the same guards as `post` (private addresses, a deadline, a size cap); no redirects. */
+export async function get(url: string, options: Omit<PostOptions, 'body'>): Promise<OutboundResponse> {
+  let target: URL;
+  try {
+    target = new URL(url);
+  } catch {
+    throw new OutboundError('connection_failed', 'invalid URL');
+  }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') throw new OutboundError('connection_failed', 'unsupported protocol');
+  return postOnce(target, { ...options, body: '' }, 'GET');
 }
 
 /**

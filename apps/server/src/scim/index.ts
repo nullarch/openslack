@@ -98,7 +98,7 @@ export function installScim(kernel: Kernel): void {
     };
   };
 
-  const people = (): UserRow[] => ctx.db.all<UserRow>('SELECT * FROM users WHERE is_bot = 0 ORDER BY created, id');
+  const people = (): UserRow[] => ctx.db.all<UserRow>("SELECT * FROM users WHERE is_bot = 0 AND home = '' ORDER BY created, id");
 
   /** `attr eq "value"` (optionally joined with `and`), on the attributes identity providers look people up by. */
   const matches = (filter: string): ((user: UserRow) => boolean) => {

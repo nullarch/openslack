@@ -52,6 +52,8 @@ export interface User {
   is_ultra_restricted: boolean;
   is_bot: boolean;
   is_app_user: boolean;
+  /** ext: the organisation of someone from another server (a shared channel); absent for this workspace's people. */
+  team_name?: string;
   updated: number;
 }
 
@@ -75,6 +77,12 @@ export interface Conversation {
   is_shared: boolean;
   is_ext_shared: boolean;
   is_org_shared: boolean;
+  /** Shared channels: every team in it, the team that shared it, and the other teams. */
+  shared_team_ids?: string[];
+  conversation_host_id?: string;
+  connected_team_ids?: string[];
+  /** ext: the other organisation, for channels and direct messages shared with another server. */
+  shared_with?: { id: string; name: string };
   created: number;
   updated: number;
   creator?: string;

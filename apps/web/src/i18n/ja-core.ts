@@ -659,6 +659,7 @@ export const jaCore = {
     reports: '報告',
     audit: '監査ログ',
     compliance: 'コンプライアンス',
+    connections: '共有チャンネル',
     role: {
       primary_owner: 'プライマリーオーナー',
       owner: 'オーナー',

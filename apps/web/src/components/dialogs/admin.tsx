@@ -13,6 +13,7 @@ import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
 import { AppStepsSetting } from '../workflows/AppSteps';
 import { AnalyticsAdmin } from '../admin/Analytics';
 import { LegalHolds, SensitiveInfoSetting, SessionPolicy } from '../admin/Compliance';
+import { ConnectionsAdmin } from '../admin/Connections';
 import { BarriersSetting, HuddleTranscriptsSetting, IpAllowlistSetting } from '../admin/Network';
 import { AuditAdmin, ReportsAdmin, RetentionSetting, ServiceTokens } from '../admin/Governance';
 import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
@@ -672,6 +673,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
     { id: 'reports', label: S.admin.reports },
     { id: 'audit', label: S.admin.audit },
     { id: 'compliance', label: S.admin.compliance },
+    { id: 'connections', label: S.admin.connections },
   ];
   return (
     <Modal title={S.admin.title} onClose={closeModal} width={720} className="admin-modal">
@@ -708,6 +710,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
             <LegalHolds />
           </>
         ) : null}
+        {tab === 'connections' ? <ConnectionsAdmin /> : null}
       </div>
     </Modal>
   );

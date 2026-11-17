@@ -198,6 +198,10 @@ export interface NewMessage {
   allowEmpty?: boolean;
   /** Extra fields for the emitted event only. */
   eventExtra?: Record<string, unknown>;
+  /** Written on another server, whose rules applied there: skip this server's posting guards and content checks. */
+  fromPeer?: boolean;
+  /** Runs before anyone hears of the message, inside the caller's transaction if any (a shared channel records where it came from). */
+  beforeEmit?: (row: MsgRow) => void;
 }
 
 function plainText(text: string, blocks: unknown, attachments: unknown): string {
@@ -301,11 +305,11 @@ function runContentChecks(ctx: Ctx, userId: string | null, text: string, blocks:
 
 export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const { conv } = input;
-  if (!input.silent) for (const guard of messageGuards) guard(ctx, input);
+  if (!input.silent && !input.fromPeer) for (const guard of messageGuards) guard(ctx, input);
   const text = input.text ?? '';
   // System lines (joins, topic changes) are written by the server, not composed by the person.
   const system = input.subtype?.startsWith('channel_') || input.subtype === 'pinned_item';
-  if (!input.silent && !system) runContentChecks(ctx, input.userId, text, input.blocks);
+  if (!input.silent && !system && !input.fromPeer) runContentChecks(ctx, input.userId, text, input.blocks);
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const hasContent = text.length > 0 || input.blocks?.length || input.attachments?.length || input.fileIds?.length;
   if (!hasContent && !input.streaming && !input.allowEmpty) fail('no_text');
@@ -370,6 +374,7 @@ export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   });
 
   const row = requireMessage(ctx, conv.id, ts);
+  input.beforeEmit?.(row);
   if (input.silent) return row;
 
   if (conv.kind === 'im' || conv.kind === 'mpim') reopenDirectForAll(ctx, conv);

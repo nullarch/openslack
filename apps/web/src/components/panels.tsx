@@ -1,7 +1,7 @@
 import { AgentSessionBar } from './ai/AgentSession';
 import { ChannelEmail } from './ChannelEmail';
 import { escapeText, type Conversation, type Message, type User } from '@app/shared';
-import { BellOff, Bell, BellRing, Hash, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
+import { BellOff, Bell, BellRing, Building2, Hash, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
 import { markThreadSeen, setThreadFollow } from '../lib/attention';
 import { PostingPermissions } from './Posting';
 import { FileList } from './views/Later';
@@ -31,7 +31,7 @@ import { editTopic } from './Conversation';
 import { confirmDialog, promptDialog } from './dialogs/confirm';
 import { MessageRow } from './Message';
 import { Emoji, Mrkdwn } from './text';
-import { Avatar, Button, IconButton, Spinner } from './ui';
+import { Avatar, Button, CopyField, IconButton, Spinner } from './ui';
 import { useTabList } from '../lib/roving';
 
 function PanelFrame({ title, subtitle, children, dropLabel, actions }: { title: ReactNode; subtitle?: ReactNode; children: ReactNode; dropLabel?: string; actions?: ReactNode }) {
@@ -237,6 +237,11 @@ export function ProfilePanel({ userId }: { userId: string }) {
         <h3 className="profile-name">
           {user.real_name || displayName(user)}
           {role ? <span className="tag">{role}</span> : null}
+          {user.team_name ? (
+            <span className="tag tag-external" title={S.connect.fromOrg(user.team_name)}>
+              <Building2 size={12} aria-hidden="true" /> {user.team_name}
+            </span>
+          ) : null}
         </h3>
         {user.profile.display_name && user.profile.display_name !== user.real_name ? <p className="profile-handle">{user.profile.display_name}</p> : null}
         {user.profile.title ? <p className="profile-title">{user.profile.title}</p> : null}
@@ -414,6 +419,51 @@ function PinsTab({ conv }: { conv: Conversation }) {
   );
 }
 
+/** Shared with another server: say with whom; admins share a channel, or stop sharing it. */
+function SharedChannel({ conv }: { conv: Conversation }) {
+  const isAdmin = useStore((state) => state.self?.is_admin ?? false);
+  const [link, setLink] = useState<string | null>(null);
+  if (conv.is_ext_shared && conv.shared_with) {
+    const stop = async (): Promise<void> => {
+      if (await confirmDialog(S.connect.confirmStop(conv.name ?? '', conv.shared_with!.name), S.connect.stop)) {
+        await attempt(() => call('client.connect.stop', { channel: conv.id }));
+      }
+    };
+    return (
+      <section className="about-item shared-with">
+        <p>
+          <Building2 size={15} aria-hidden="true" /> {S.connect.sharedWith(conv.shared_with.name)}
+        </p>
+        {isAdmin ? (
+          <button type="button" className="link-btn" onClick={() => void stop()}>
+            {S.connect.stop}
+          </button>
+        ) : null}
+      </section>
+    );
+  }
+  if (!isAdmin || conv.is_general || conv.is_archived || !conv.is_channel) return null;
+  const share = async (): Promise<void> => {
+    const result = await attempt(() => call('conversations.inviteShared', { channel: conv.id }));
+    if (result) setLink(String(result.url));
+  };
+  return (
+    <section className="about-item shared-with">
+      {link ? (
+        <>
+          <h3>{S.connect.shareTitle}</h3>
+          <p className="field-hint">{S.connect.shareHint}</p>
+          <CopyField value={link} label={S.connect.link} />
+        </>
+      ) : (
+        <button type="button" className="row-action" onClick={() => void share()}>
+          <Building2 size={16} /> {S.connect.share}
+        </button>
+      )}
+    </section>
+  );
+}
+
 function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage: boolean; isMember: boolean }) {
   const creator = useStore((state) => state.users[conv.creator ?? '']);
   const canCreateChannels = useAccounts((state) => state.permissions.create_channels);
@@ -474,6 +524,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
           <p className="about-created muted">{S.details.created(displayName(creator), created)}</p>
           {isMember && !conv.is_archived ? <ChannelEmail channel={conv.id} /> : null}
           <ChannelWebSettings channel={conv.id} />
+          <SharedChannel conv={conv} />
           {isMember ? <PostingPermissions conv={conv} canManage={canManage} /> : null}
         </>
       ) : null}

@@ -261,6 +261,9 @@ function handle(event: Json): void {
         is_archived: channel.is_archived,
         properties: channel.properties,
         managers: channel.managers,
+        is_shared: channel.is_shared,
+        is_ext_shared: channel.is_ext_shared,
+        shared_with: channel.shared_with,
       });
       break;
     }

@@ -91,10 +91,11 @@ export function installMetrics(kernel: Kernel): void {
     gauge('nodejs_eventloop_delay_p99_seconds', 'Event loop delay, 99th percentile since start.', [{ value: loop.percentile(99) / 1e9 }]);
     gauge('chat_connected_people', 'People with at least one realtime connection.', [{ value: ctx.presence.onlineUsers().length }]);
     gauge('chat_accounts', 'Accounts by kind.', [
-      { labels: { kind: 'member' }, value: count("SELECT count(*) AS n FROM users WHERE deleted = 0 AND is_bot = 0 AND guest = ''") },
+      { labels: { kind: 'member' }, value: count("SELECT count(*) AS n FROM users WHERE deleted = 0 AND is_bot = 0 AND guest = '' AND home = ''") },
       { labels: { kind: 'guest' }, value: count("SELECT count(*) AS n FROM users WHERE deleted = 0 AND is_bot = 0 AND guest != ''") },
       { labels: { kind: 'bot' }, value: count('SELECT count(*) AS n FROM users WHERE deleted = 0 AND is_bot = 1') },
-      { labels: { kind: 'deactivated' }, value: count('SELECT count(*) AS n FROM users WHERE deleted = 1') },
+      { labels: { kind: 'deactivated' }, value: count("SELECT count(*) AS n FROM users WHERE deleted = 1 AND home = ''") },
+      { labels: { kind: 'external' }, value: count("SELECT count(*) AS n FROM users WHERE deleted = 0 AND home != ''") },
     ]);
     gauge(
       'chat_conversations',

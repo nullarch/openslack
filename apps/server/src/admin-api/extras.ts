@@ -582,7 +582,7 @@ export function installMoreAdminApi(kernel: Kernel): void {
       const from = `${String(start).padStart(10, '0')}.000000`;
       const to = `${String(start + 86_400).padStart(10, '0')}.000000`;
       if (type === 'member') {
-        const users = ctx.db.all<UserRow & { guest: string }>("SELECT * FROM users WHERE is_bot = 0 AND id != 'USLACKBOT' AND created < ? ORDER BY id", start + 86_400);
+        const users = ctx.db.all<UserRow & { guest: string }>("SELECT * FROM users WHERE is_bot = 0 AND id != 'USLACKBOT' AND home = '' AND created < ? ORDER BY id", start + 86_400);
         for (const user of users) {
           const count = (sql: string, ...params: (string | number)[]): number => ctx.db.get<{ n: number }>(sql, ...params)?.n ?? 0;
           const messages = count('SELECT count(*) AS n FROM messages WHERE user_id = ? AND ts >= ? AND ts < ?', user.id, from, to);

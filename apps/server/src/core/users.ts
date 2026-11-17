@@ -25,6 +25,8 @@ export interface UserRow {
   role: Role;
   deleted: number;
   prefs: string;
+  /** '' for this workspace's people; the peer id for someone from another server (a stand-in). */
+  home: string;
   created: number;
   updated: number;
   /** '' for members, 'multi' or 'single' for guests. */
@@ -124,6 +126,14 @@ export function userToApi(ctx: Ctx, row: UserRow, actor: Actor | null = null): U
     is_app_user: false,
     updated: row.updated,
   };
+  if (row.home) {
+    const home = ctx.db.get<{ team_id: string; name: string }>('SELECT team_id, name FROM peers WHERE id = ?', row.home);
+    if (home) {
+      user.team_id = home.team_id;
+      user.profile.team = home.team_id;
+      user.team_name = home.name;
+    }
+  }
   if (row.email && canSeeEmail(actor)) user.profile.email = row.email;
   const fields = profileFieldValues(row);
   if (fields) user.profile.fields = fields;

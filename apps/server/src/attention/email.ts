@@ -83,7 +83,7 @@ function render(ctx: Ctx, user: UserRow, missed: Missed[]): { subject: string; t
 export async function sendEmailDigests(ctx: Ctx, now = Math.floor(Date.now() / 1000)): Promise<number> {
   if (!mailEnabled(ctx) || !ctx.team()) return 0;
   let sent = 0;
-  const people = ctx.db.all<UserRow>("SELECT * FROM users WHERE is_bot = 0 AND deleted = 0 AND email IS NOT NULL AND email != ''");
+  const people = ctx.db.all<UserRow>("SELECT * FROM users WHERE is_bot = 0 AND deleted = 0 AND home = '' AND email IS NOT NULL AND email != ''");
   for (const user of people) {
     const preference = emailPreference(user);
     if (preference === 'off') continue;

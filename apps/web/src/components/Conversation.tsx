@@ -1,5 +1,5 @@
 import type { Conversation } from '@app/shared';
-import { Hash, Info, Lock, Menu, Moon, Star, Users } from 'lucide-react';
+import { Building2, Hash, Info, Lock, Menu, Moon, Star, Users } from 'lucide-react';
 import { attempt, joinChannel, setConversationPrefs, setPanel } from '../lib/actions';
 import { userInDnd } from '../lib/attention';
 import { BookmarksBar, NotifyButton } from './Bookmarks';
@@ -59,6 +59,11 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
         {isSelf ? <span className="conv-you">{S.sidebar.you}</span> : null}
         {paused ? <Moon size={14} className="conv-dnd" aria-label={S.att.dnd.label} /> : null}
         {other?.profile.status_emoji ? <Emoji name={other.profile.status_emoji.replace(/:/g, '')} /> : null}
+        {conv.shared_with ? (
+          <span className="tag tag-external" title={S.connect.sharedWith(conv.shared_with.name)}>
+            <Building2 size={12} aria-hidden="true" /> {conv.shared_with.name}
+          </span>
+        ) : null}
       </button>
       </h1>
       {isMember ? (

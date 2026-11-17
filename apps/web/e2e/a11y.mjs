@@ -548,7 +548,7 @@ async function keyboardPath(browser, server) {
     await page.keyboard.press('ArrowRight');
     await page.locator('.admin-modal [role="tab"][aria-selected="true"]', { hasText: 'Custom emoji' }).waitFor();
     await page.keyboard.press('End');
-    await page.locator('.admin-modal [role="tab"][aria-selected="true"]', { hasText: 'Compliance' }).waitFor();
+    await page.locator('.admin-modal [role="tab"][aria-selected="true"]', { hasText: 'Shared channels' }).waitFor();
     await page.keyboard.press('Home');
     await page.locator('.admin-modal [role="tab"][aria-selected="true"]', { hasText: 'Members' }).waitFor();
     await page.keyboard.press('Escape');

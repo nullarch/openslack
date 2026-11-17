@@ -582,6 +582,11 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
               {name}
             </button>
             {isBot ? <span className="tag">{S.messages.app}</span> : null}
+            {author?.team_name ? (
+              <span className="tag tag-external" title={S.connect.fromOrg(author.team_name)}>
+                {author.team_name}
+              </span>
+            ) : null}
             {author?.profile.status_emoji && !isBot ? (
               <span className="msg-status" title={author.profile.status_text}>
                 <Emoji name={author.profile.status_emoji.replace(/:/g, '')} />

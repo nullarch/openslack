@@ -259,6 +259,8 @@ export function channelTypeWord(conv: ConvRow): 'channel' | 'group' | 'im' | 'mp
 // ── Channels ────────────────────────────────────────────────────────────────
 
 export interface NewChannel {
+  /** Use this id (a channel accepted from another server keeps the id it gave that server). */
+  id?: string;
   name: string;
   isPrivate: boolean;
   creator: string;
@@ -271,7 +273,7 @@ export function createChannel(ctx: Ctx, input: NewChannel): ConvRow {
   const error = channelNameError(name);
   if (error) fail(error);
   if (ctx.db.get("SELECT 1 FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name)) fail('name_taken');
-  const id = newId('C');
+  const id = input.id ?? newId('C');
   const now = nowSeconds();
   ctx.db.tx(() => {
     ctx.db.run(

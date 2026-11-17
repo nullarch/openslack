@@ -173,6 +173,25 @@ Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "
 
 The Agents view (workspace menu → Agents) needs no model. It lists apps acting as agents — connected over Socket Mode, or using assistant status, titles or streamed replies — with their recent threads and current status, limited to threads the viewer can read.
 
+## Shared channels with other servers
+
+Two organisations that each run their own server can share a channel, as Slack Connect does between workspaces:
+
+1. An admin opens the channel's details and chooses **Share with another organisation**. This makes an invitation link, which works once, for seven days.
+2. An admin of the other server pastes the link under **Administration → Shared channels**, picks the channel's name there, and accepts.
+
+Each server keeps its own copy of the channel. Messages, thread replies, edits, deletions, reactions, people joining and leaving, the topic and description, and the names and titles of the people in it are passed between the two servers. People from the other organisation show with their organisation's name; they cannot sign in to your server and do not count as your members. Once two servers share a channel, their people can also send each other direct messages.
+
+Either admin can stop sharing. Both sides keep the messages so far; the other organisation's people leave your copy.
+
+Requirements and limits:
+
+- Both servers must reach each other at their `PUBLIC_URL` over HTTPS. The servers sign every request with a key each makes on first use and pins the other's key when the invitation is accepted.
+- A channel is shared between two servers, not more.
+- Files are not passed on yet: the other side sees the file's name.
+- Undelivered changes wait in a queue and are retried for as long as the connection exists; **Administration → Shared channels** shows how many are waiting.
+- Turn the feature off for the whole workspace there too.
+
 ## Sign in with this workspace
 
 Other tools can let people sign in with their account here (OpenID Connect, the same flow as Slack's Sign in with Slack). Create an app under **Administration → Apps**, add the tool's callback address as a redirect URL, and give the tool:

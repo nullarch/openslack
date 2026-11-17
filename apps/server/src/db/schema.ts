@@ -1134,4 +1134,71 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (conversation_id, ts)
   ) WITHOUT ROWID;
   `,
+  // 34: channels and direct messages shared with another server. `peers` are the
+  // servers this one is connected to, each pinned to its public key. People from a
+  // peer exist here as users whose `home` is that peer. A shared conversation knows
+  // its id on the other side; a message that arrived from a peer knows its ts there.
+  // `peer_outbox` holds what is waiting to be sent, in order, per peer.
+  `
+  ALTER TABLE users ADD COLUMN home TEXT NOT NULL DEFAULT '';
+  CREATE TABLE peers (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    team_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE TABLE remote_users (
+    user_id TEXT PRIMARY KEY,
+    peer_id TEXT NOT NULL,
+    remote_id TEXT NOT NULL,
+    UNIQUE (peer_id, remote_id)
+  );
+  CREATE TABLE shared_invites (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    secret_hash TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    recipient_email TEXT,
+    status TEXT NOT NULL DEFAULT 'sent',
+    peer_id TEXT,
+    accepted_by TEXT,
+    created INTEGER NOT NULL,
+    expires INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE TABLE shared_conversations (
+    conversation_id TEXT NOT NULL,
+    peer_id TEXT NOT NULL,
+    -- The conversation's id on the peer; '' until the peer says (a direct message just opened).
+    remote_id TEXT NOT NULL,
+    -- 1 on the server whose channel it was (the host).
+    host INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created INTEGER NOT NULL,
+    PRIMARY KEY (conversation_id, peer_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX shared_conversations_remote ON shared_conversations (peer_id, remote_id);
+  CREATE TABLE remote_messages (
+    conversation_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    peer_id TEXT NOT NULL,
+    remote_ts TEXT NOT NULL,
+    PRIMARY KEY (conversation_id, peer_id, remote_ts)
+  ) WITHOUT ROWID;
+  CREATE UNIQUE INDEX remote_messages_local ON remote_messages (conversation_id, ts);
+  CREATE TABLE peer_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    peer_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    attempt INTEGER NOT NULL DEFAULT 0,
+    next_at INTEGER NOT NULL,
+    last_error TEXT,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX peer_outbox_peer ON peer_outbox (peer_id, id);
+  `,
 ];

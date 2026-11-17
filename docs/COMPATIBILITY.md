@@ -102,7 +102,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **228 supported**, 69 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **231 supported**, 66 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -224,6 +224,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **228 supported**, 69 n
 | `chat.stopStream` | ✓ | ✓ | `session_status` is accepted and ignored. |
 | `chat.unfurl` | ✓ | ✓ | Links are offered once a message is posted; `source: composer` is not supported. The app must have registered the link’s domain. |
 | `chat.update` | ✓ | ✓ |  |
+| `conversations.acceptSharedInvite` |  | ✓ |  |
 | `conversations.archive` | ✓ |  |  |
 | `conversations.canvases.create` | ✓ | ✓ |  |
 | `conversations.close` |  |  |  |
@@ -231,10 +232,12 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **228 supported**, 69 n
 | `conversations.history` | ✓ | ✓ |  |
 | `conversations.info` | ✓ | ✓ |  |
 | `conversations.invite` | ✓ | ✓ |  |
+| `conversations.inviteShared` |  | ✓ |  |
 | `conversations.join` |  | ✓ |  |
 | `conversations.kick` |  | ✓ |  |
 | `conversations.leave` |  | ✓ |  |
 | `conversations.list` | ✓ | ✓ |  |
+| `conversations.listConnectInvites` |  |  |  |
 | `conversations.mark` |  | ✓ |  |
 | `conversations.members` | ✓ | ✓ |  |
 | `conversations.open` | ✓ | ✓ |  |
@@ -344,7 +347,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **228 supported**, 69 n
 | `admin` | 42 | `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.conversations.bulkMove`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.setTeams`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.create`, `admin.teams.settings.setIcon`, `admin.usergroups.addTeams`, `admin.users.assign`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup` |
 | `apps` | 3 | `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `blocks` | 1 | `blocks.validate` |
-| `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
+| `conversations` | 6 | `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 1 | `files.comments.delete` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
@@ -366,5 +369,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **228 supported**, 69 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 198 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 202 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

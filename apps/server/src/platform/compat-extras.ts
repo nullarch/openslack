@@ -189,7 +189,7 @@ export function installCompatExtras(kernel: Kernel): void {
     if (only && !getUser(ctx, only)) fail('user_not_found');
     // Billable: active people; bots, apps and single-channel guests are not.
     const rows = ctx.db.all<{ id: string; deleted: number; is_bot: number; guest: string }>(
-      `SELECT id, deleted, is_bot, guest FROM users WHERE id != 'USLACKBOT' ${only ? 'AND id = ?' : ''} ORDER BY id`,
+      `SELECT id, deleted, is_bot, guest FROM users WHERE id != 'USLACKBOT' AND home = '' ${only ? 'AND id = ?' : ''} ORDER BY id`,
       ...(only ? [only] : []),
     );
     const { page, response_metadata } = paginate(rows.filter((row) => row.is_bot === 0), new Args({ ...call.args.raw, limit: call.args.str('limit') ?? '1000' }));
