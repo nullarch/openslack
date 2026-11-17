@@ -188,6 +188,11 @@ export const S = {
     showMore: 'Show more',
     showLess: 'Show less',
     previewFailed: 'Preview unavailable.',
+    makePublic: 'Create a public link',
+    publicLink: 'Public link: anyone with it can download this file',
+    copied: 'Public link copied',
+    revoke: 'Turn off public link',
+    revoked: 'Public link turned off',
   },
 
   search: {

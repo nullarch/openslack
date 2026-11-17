@@ -336,6 +336,31 @@ async function main(browser) {
     assert.deepEqual(readFileSync(await download.path()), bytes);
   });
 
+  await step('public link: the uploader turns one on, it works signed out, and turning it off ends it', async () => {
+    const mine = maya.locator('.message-scroll .file-card', { hasText: 'firmware.bin' }).last();
+    // Only the uploader sees the control.
+    assert.equal(await daniel.locator('.message-scroll .file-card', { hasText: 'firmware.bin' }).last().locator('button[title="Create a public link"]').count(), 0);
+    await mine.locator('button[title="Create a public link"]').click();
+    const on = mine.locator('.public-link');
+    await on.waitFor();
+    const fileId = await maya.evaluate(async () => {
+      const response = await fetch('/api/files.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const body = await response.json();
+      return body.files.find((file) => file.name === 'firmware.bin').id;
+    });
+    const info = await maya.evaluate(async (id) => {
+      const response = await fetch('/api/files.info', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ file: id }) });
+      return (await response.json()).file;
+    }, fileId);
+    const publicPath = new URL(info.permalink_public).pathname;
+    const signedOut = await fetch(`${server.base}${publicPath}`);
+    assert.equal(signedOut.status, 200);
+    assert.equal((await signedOut.arrayBuffer()).byteLength, 2048);
+    await on.locator('.link-btn').click();
+    await mine.locator('button[title="Create a public link"]').waitFor();
+    assert.equal((await fetch(`${server.base}${publicPath}`)).status, 404);
+  });
+
   await step('image: the thumbnail opens the full-size viewer', async () => {
     await attach(maya, { name: 'wide.png', mimeType: 'image/png', buffer: await png(maya, 640, 360, '#0e5f77') });
     await composer(maya).press('Enter');

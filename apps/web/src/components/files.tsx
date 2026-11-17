@@ -1,8 +1,9 @@
 import type { FileObject } from '@app/shared';
-import { Download, ExternalLink, FileText, File as FileIcon, FileCode, FileArchive, FileSpreadsheet } from 'lucide-react';
+import { Download, ExternalLink, FileText, File as FileIcon, FileCode, FileArchive, FileSpreadsheet, Globe, Link2 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { openModal } from '../lib/actions';
-import { asset } from '../lib/api';
+import { openModal, toast } from '../lib/actions';
+import { asset, call } from '../lib/api';
+import { useStore } from '../lib/store';
 import { fileSize } from '../lib/time';
 import { S } from '../strings';
 
@@ -103,6 +104,7 @@ function FileCardHead({ file, extra }: { file: FileObject; extra?: React.ReactNo
         </span>
       </span>
       {extra}
+      <PublicLink file={file} />
       <a className="icon-btn" href={asset(file.url_private)} target="_blank" rel="noopener noreferrer" title={S.files.open} aria-label={S.files.open}>
         <ExternalLink size={16} />
       </a>
@@ -110,6 +112,52 @@ function FileCardHead({ file, extra }: { file: FileObject; extra?: React.ReactNo
         <Download size={16} />
       </a>
     </div>
+  );
+}
+
+/**
+ * The uploader can hand out a link that works without signing in, and turn it
+ * off again. The link is copied as soon as it exists.
+ */
+function PublicLink({ file }: { file: FileObject }) {
+  const selfId = useStore((state) => state.self?.id);
+  const [link, setLink] = useState<string | null>(file.permalink_public ?? null);
+  const [busy, setBusy] = useState(false);
+  if (file.user !== selfId) return null;
+  const copy = async (url: string): Promise<void> => {
+    await navigator.clipboard?.writeText(url).catch(() => undefined);
+    toast(S.files.copied);
+  };
+  const run = async (method: string): Promise<void> => {
+    setBusy(true);
+    try {
+      const result = await call(method, { file: file.id });
+      const next = (result.file?.permalink_public as string | undefined) ?? null;
+      setLink(next);
+      if (next) await copy(next);
+      else toast(S.files.revoked);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!link) {
+    return (
+      <button type="button" className="icon-btn" disabled={busy} title={S.files.makePublic} aria-label={S.files.makePublic} onClick={() => void run('files.sharedPublicURL')}>
+        <Link2 size={16} />
+      </button>
+    );
+  }
+  return (
+    <span className="public-link">
+      <button type="button" className="icon-btn is-active" title={S.files.publicLink} aria-label={S.files.publicLink} onClick={() => void copy(link)}>
+        <Globe size={16} />
+      </button>
+      <button type="button" className="link-btn" disabled={busy} onClick={() => void run('files.revokePublicURL')}>
+        {S.files.revoke}
+      </button>
+    </span>
   );
 }
 

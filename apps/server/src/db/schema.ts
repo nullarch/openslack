@@ -482,4 +482,9 @@ export const MIGRATIONS: string[] = [
   /* 7: image thumbnails made by the uploading client — { w, h } of the stored thumbnail */ `
   ALTER TABLE files ADD COLUMN thumb TEXT;
   `,
+
+  /* 8: public file links — the secret in a file's public URL, while it is shared */ `
+  ALTER TABLE files ADD COLUMN public_secret TEXT;
+  CREATE UNIQUE INDEX files_public_secret ON files(public_secret) WHERE public_secret IS NOT NULL;
+  `,
 ];
