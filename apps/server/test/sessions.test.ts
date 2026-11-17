@@ -56,7 +56,9 @@ describe('session management', () => {
     assert.equal((await admin.call('auth.test')).error, 'invalid_auth');
     assert.equal((await owner.call('auth.test')).ok, true);
 
+    assert.equal((await owner.ok('client.admin.sessionSettings')).session_duration_days, 30);
     await owner.ok('client.admin.setSessionDuration', { days: 7 });
+    assert.equal((await owner.ok('client.admin.sessionSettings')).session_duration_days, 7);
     const fresh = await signIn('owner@acme.test', 'correct horse battery', 'test');
     const row = (await fresh.ok('client.sessions.list')).sessions.find((entry: Json) => entry.current);
     assert.equal(row.expires - row.created, 7 * 86_400);

@@ -1,5 +1,5 @@
 import type { Kernel } from '../app.ts';
-import { readSessionToken } from '../core/auth.ts';
+import { readSessionToken, sessionTtl } from '../core/auth.ts';
 import { fail } from '../core/errors.ts';
 import { sha256 } from '../core/ids.ts';
 import { getUser } from '../core/users.ts';
@@ -98,6 +98,8 @@ export function installSessions(kernel: Kernel): void {
     }
     return { revoked };
   });
+
+  kernel.registry.add('client.admin.sessionSettings', { auth: 'admin' }, () => ({ session_duration_days: Math.round(sessionTtl(ctx) / 86_400) }));
 
   /** How long a sign-in lasts, 1–365 days; shortening it also shortens sessions already open. */
   kernel.registry.add('client.admin.setSessionDuration', { auth: 'admin' }, ({ args }) => {
