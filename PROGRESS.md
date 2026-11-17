@@ -20,7 +20,7 @@ Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (
 | Workflows | Builder with six triggers (shortcut, link, schedule, reaction, channel join, webhook), steps (message, form, add to channel, list item, webhook, branch, app-provided steps), run history, custom responses |
 | Accounts | Email and password, mailed sign-in codes, password reset, Google and GitHub sign-in, OpenID Connect and SAML 2.0 single sign-on with accounts created on first use, two-factor (TOTP) that a workspace can require, guests (multi- and single-channel, expiry), user groups, invite requests, allowed email domains, profile fields |
 | Administration | Members, roles, deactivation; workspace settings and permissions; custom emoji; apps; analytics; audit log (also at `/audit/v1/logs`); message reports and hiding a person; retention; legal hold and eDiscovery export; sensitive-information rules; information barriers; IP allowlist; sign-in length and session management; export of the whole workspace; SCIM 2.0 users and groups; Slack's `admin.*` API |
-| Slack-compatible app platform | 164 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Events API over HTTP and Socket Mode, RTM, interactivity, modals, App Home, shortcuts, slash commands, unfurls, streaming, assistant threads, incoming webhooks, OAuth v2 installs, token rotation, app manifests (`apps.manifest.*`), "Sign in with this workspace" (OpenID Connect, Slack's claim names) |
+| Slack-compatible app platform | 177 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Events API over HTTP and Socket Mode, RTM, interactivity, modals, App Home, shortcuts, slash commands, unfurls, streaming, assistant threads, incoming webhooks, OAuth v2 installs, token rotation, app manifests (`apps.manifest.*`), "Sign in with this workspace" (OpenID Connect, Slack's claim names) |
 | MCP | `/mcp` endpoint on the official SDK v2 (protocol 2026-07-28 and 2025 clients), tools that respect each token's permissions |
 | Import | Slack export (zip or folder), Mattermost bulk export, Discord (DiscordChatExporter JSON). Re-runnable |
 | Clients | Web client in English and Korean (light and dark, sidebar themes, 12/24-hour clock, phone layout, installable PWA), public read-only channel pages, desktop app (Electron: badge, several servers, deep links, automatic updates; installers built for macOS, Windows and Linux in CI) |
@@ -33,8 +33,8 @@ Run these to reproduce.
 | Check | Command | Result on 2026-11-17 |
 |---|---|---|
 | Types, brand rule | `pnpm typecheck`, `pnpm check:brand` | clean |
-| Unit and integration tests | `pnpm test` | server 344, compat 62, shared 19, web 14, all passing |
-| Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases, lists and remote files, `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
+| Unit and integration tests | `pnpm test` | server 352, compat 64, shared 19, web 14, all passing |
+| Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases, lists, remote files and the smaller methods (reactions.list, stars, team preferences, event authorizations, apps.uninstall), `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
 | Browser tests | `pnpm --filter @app/web e2e` | fifteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, accessibility (axe on 108 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
 | Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
@@ -64,6 +64,7 @@ Run these to reproduce.
 
 ## Traps found
 
+- A test that computes "N days ago" from `Date.now()` in two places fails when a second ticks over between them; take the time once per file.
 - Chrome has both `SpeechRecognition` and `webkitSpeechRecognition`; a stand-in for tests must replace both.
 - The Anthropic SDK retries a 429 by itself: a test that wants a model failure must use a status it does not retry (401).
 - Hook lists in core (`messageGuards`, `contentChecks`, `beforeMessageChange`, `keepFileBytes`, `uploadChecks`) are shared by every server in the process. A hook must use the context it is called with, never one captured at install time: a restarted test server once ran a hook against the closed database of the first.

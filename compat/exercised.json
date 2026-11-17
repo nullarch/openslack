@@ -250,6 +250,19 @@
       null
     ]
   },
+  "web-api-extras": {
+    "sdk": "@slack/web-api 8.4.0",
+    "methods": [
+      "apps.event.authorizations.list",
+      "apps.uninstall",
+      "auth.teams.list",
+      "chat.postMessage",
+      "reactions.add",
+      "reactions.list",
+      "team.preferences.list"
+    ],
+    "events": []
+  },
   "web-api-manifest": {
     "sdk": "@slack/web-api 8.4.0, @slack/bolt 5.1.0",
     "methods": [

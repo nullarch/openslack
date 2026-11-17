@@ -32,7 +32,10 @@ export const USER_SCOPES = new Set([
   'mpim:write', 'pins:read', 'pins:write', 'reactions:read', 'reactions:write', 'reminders:read', 'reminders:write',
   'search:read', 'stars:read', 'team:read', 'users.profile:read', 'users.profile:write', 'users:read', 'users:read.email',
   'users:write', 'dnd:read', 'dnd:write', 'bookmarks:read', 'bookmarks:write', 'identify', 'calls:read', 'calls:write',
-  'remote_files:read', 'remote_files:share',
+  'remote_files:read', 'remote_files:share', 'stars:write', 'identity.basic', 'identity.email', 'identity.avatar', 'identity.team',
+  'team.preferences:read', 'tokens.basic',
+  // Workspace administration through a user token (team.billableInfo, team.accessLogs, team.integrationLogs).
+  'admin',
   // Admin API scopes: only an admin can approve them, for their own token.
   'admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write', 'admin.barriers:read', 'admin.barriers:write',
 ]);
@@ -154,7 +157,7 @@ export function installOauth(kernel: Kernel): void {
     const canApproveBot = isAdmin(actor);
     const team = ctx.requireTeam();
     const list = (scopes: string[]): string => scopes.map((scope) => `<li><code>${escapeHtml(scope)}</code></li>`).join('');
-    const adminScopes = details.userScopes.some((scope) => scope.startsWith('admin.'));
+    const adminScopes = details.userScopes.some((scope) => scope === 'admin' || scope.startsWith('admin.'));
     const blocked = (details.botScopes.length > 0 || adminScopes) && !canApproveBot;
     page(
       res,
@@ -207,7 +210,7 @@ export function installOauth(kernel: Kernel): void {
     const back = (params: Record<string, string>): void =>
       redirectTo(res, `${details.redirectUri}${details.redirectUri.includes('?') ? '&' : '?'}${new URLSearchParams(params)}`);
     if (form.decision !== 'allow') return back({ error: 'access_denied', state: details.state });
-    if ((details.botScopes.length || details.userScopes.some((scope) => scope.startsWith('admin.'))) && !isAdmin(actorForUser(who.user, 'session', null))) {
+    if ((details.botScopes.length || details.userScopes.some((scope) => scope === 'admin' || scope.startsWith('admin.'))) && !isAdmin(actorForUser(who.user, 'session', null))) {
       return errorPage(res, 'Only workspace admins can approve an app with a bot or admin access.');
     }
     const code = `${Date.now()}.${newSecret(24)}`;

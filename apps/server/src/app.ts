@@ -21,6 +21,7 @@ import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installClips } from './clips/index.ts';
+import { installCompatExtras } from './platform/compat-extras.ts';
 import { installRemoteFiles } from './platform/remote-files.ts';
 import { installMeilisearch } from './search/meilisearch.ts';
 import { installHuddleCaptions } from './huddles/captions.ts';
@@ -130,6 +131,7 @@ export function createApp(config: Config): App {
   installHuddleCaptions(kernel);
   installClips(kernel);
   installRemoteFiles(kernel);
+  installCompatExtras(kernel);
   installMeilisearch(kernel);
   installSessions(kernel);
   installInboundEmail(kernel);

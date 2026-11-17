@@ -1,3 +1,4 @@
+import { APP_TOKEN_SCOPES } from '../platform/apps.ts';
 import { addressAllowed } from '../core/network.ts';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -167,7 +168,8 @@ export function workspaceTokenLimit(ctx: Ctx): number | undefined {
 export function authorize(def: MethodDef, actor: Actor): void {
   if (def.auth === 'session' && actor.kind !== 'session') throw new ApiError('not_allowed_token_type');
   if (def.auth === 'admin' && !isAdmin(actor)) throw new ApiError('not_allowed');
-  if (actor.kind === 'app' && !def.scopes.includes('connections:write')) {
+  // App-level tokens reach only the methods that take them (Socket Mode, event authorizations).
+  if (actor.kind === 'app' && !def.scopes.some((scope) => APP_TOKEN_SCOPES.includes(scope))) {
     throw new ApiError('not_allowed_token_type');
   }
   if (actor.scopes && def.scopes.length > 0 && !def.scopes.some((scope) => actor.scopes!.has(scope))) {

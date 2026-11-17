@@ -18,6 +18,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
+| `web-api-extras` | @slack/web-api 8.4.0 | 7 | 0 |
 | `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
 | `web-api-remote-files` | @slack/web-api 8.4.0 | 6 | 0 |
 
@@ -97,7 +98,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **177 supported**, 120 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -130,15 +131,18 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 | `admin.users.setRegular` |  | ✓ |  |
 | `api.test` |  |  |  |
 | `apps.connections.open` | ✓ | ✓ | A bot token gets `missing_scope` rather than `not_allowed_token_type`. |
+| `apps.event.authorizations.list` | ✓ | ✓ |  |
 | `apps.manifest.create` | ✓ | ✓ |  |
 | `apps.manifest.delete` | ✓ | ✓ |  |
 | `apps.manifest.export` | ✓ | ✓ |  |
 | `apps.manifest.update` |  | ✓ |  |
 | `apps.manifest.validate` | ✓ | ✓ |  |
+| `apps.uninstall` | ✓ | ✓ |  |
 | `assistant.threads.setStatus` | ✓ | ✓ | Shown to connected clients; cleared by the app’s next message in the thread or after two minutes. |
 | `assistant.threads.setSuggestedPrompts` |  | ✓ | Delivered to connected clients; not stored. |
 | `assistant.threads.setTitle` |  | ✓ | Delivered to connected clients; not stored. |
 | `auth.revoke` |  |  |  |
+| `auth.teams.list` | ✓ | ✓ | Always the one workspace. |
 | `auth.test` | ✓ | ✓ |  |
 | `bookmarks.add` |  | ✓ |  |
 | `bookmarks.edit` |  | ✓ |  |
@@ -201,7 +205,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
-| `files.remote.add` | ✓ | ✓ |  |
+| `files.remote.add` | ✓ | ✓ | Only web addresses are accepted as `external_url`. |
 | `files.remote.info` | ✓ | ✓ |  |
 | `files.remote.list` | ✓ | ✓ |  |
 | `files.remote.remove` | ✓ | ✓ |  |
@@ -211,6 +215,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 | `files.sharedPublicURL` |  | ✓ |  |
 | `functions.completeError` | ✓ | ✓ | Fails the workflow run with the app's message. |
 | `functions.completeSuccess` | ✓ | ✓ | Finishes a workflow step the app implements; outputs it did not declare are dropped. Only the app that received the `function_executed` event may finish it. |
+| `migration.exchange` |  | ✓ | Always `not_enterprise_team`: there is no Enterprise organisation. |
 | `oauth.v2.access` | ✓ |  |  |
 | `openid.connect.token` | ✓ |  |  |
 | `openid.connect.userInfo` | ✓ |  |  |
@@ -219,6 +224,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 | `pins.remove` | ✓ |  |  |
 | `reactions.add` | ✓ | ✓ |  |
 | `reactions.get` | ✓ | ✓ |  |
+| `reactions.list` | ✓ | ✓ | One item per message, not one per reaction. Messages only (file reactions do not exist here). |
 | `reactions.remove` | ✓ | ✓ |  |
 | `reminders.add` |  | ✓ |  |
 | `reminders.complete` |  | ✓ |  |
@@ -241,7 +247,14 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 | `slackLists.items.list` | ✓ | ✓ |  |
 | `slackLists.items.update` | ✓ | ✓ |  |
 | `slackLists.update` |  | ✓ |  |
+| `stars.add` |  | ✓ | Stars are kept: a starred message is saved for Later, a starred conversation goes in Starred. |
+| `stars.list` |  | ✓ | Lists saved messages and starred conversations. Files cannot be starred. |
+| `stars.remove` |  | ✓ | Removes from Later or Starred. |
+| `team.accessLogs` |  | ✓ | From sign-in sessions; `isp`, `country` and `region` are empty. |
+| `team.billableInfo` |  | ✓ |  |
 | `team.info` | ✓ | ✓ |  |
+| `team.integrationLogs` |  | ✓ | From the audit log: apps added, removed, updated and granted tokens. |
+| `team.preferences.list` | ✓ | ✓ |  |
 | `team.profile.get` |  | ✓ |  |
 | `tooling.tokens.rotate` | ✓ |  |  |
 | `usergroups.create` |  | ✓ |  |
@@ -254,6 +267,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 | `users.conversations` | ✓ |  |  |
 | `users.deletePhoto` |  |  |  |
 | `users.getPresence` |  | ✓ |  |
+| `users.identity` |  | ✓ |  |
 | `users.info` | ✓ | ✓ |  |
 | `users.list` | ✓ | ✓ |  |
 | `users.lookupByEmail` | ✓ | ✓ |  |
@@ -274,20 +288,16 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 
 |---|---|---|
 | `admin` | 76 | `admin.analytics.getFile`, `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.conversations.bulkArchive`, `admin.conversations.bulkDelete`, `admin.conversations.bulkMove`, `admin.conversations.convertToPublic`, `admin.conversations.create`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.getConversationPrefs`, `admin.conversations.getCustomRetention`, `admin.conversations.invite`, `admin.conversations.lookup`, `admin.conversations.removeCustomRetention`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.setCustomRetention`, `admin.conversations.setTeams`, `admin.emoji.list`, `admin.emoji.rename`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.inviteRequests.approved.list`, `admin.inviteRequests.denied.list`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.admins.list`, `admin.teams.create`, `admin.teams.list`, `admin.teams.owners.list`, `admin.teams.settings.info`, `admin.teams.settings.setDescription`, `admin.teams.settings.setDiscoverability`, `admin.teams.settings.setIcon`, `admin.usergroups.addChannels`, `admin.usergroups.addTeams`, `admin.usergroups.listChannels`, `admin.usergroups.removeChannels`, `admin.users.assign`, `admin.users.getExpiration`, `admin.users.session.clearSettings`, `admin.users.session.getSettings`, `admin.users.session.invalidate`, `admin.users.session.list`, `admin.users.session.resetBulk`, `admin.users.session.setSettings`, `admin.users.setExpiration`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup`, `admin.workflows.search`, `admin.workflows.unpublish` |
 | `agents` | 11 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView`, `agents.sessions.rename`, `agents.sessions.setStatus` |
-| `apps` | 5 | `apps.event.authorizations.list`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
-| `auth` | 1 | `auth.teams.list` |
+| `apps` | 3 | `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `blocks` | 1 | `blocks.validate` |
 | `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 1 | `files.comments.delete` |
-| `migration` | 1 | `migration.exchange` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
-| `reactions` | 1 | `reactions.list` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
-| `stars` | 3 | `stars.add`, `stars.list`, `stars.remove` |
-| `team` | 7 | `team.accessLogs`, `team.billableInfo`, `team.billing.info`, `team.externalTeams.disconnect`, `team.externalTeams.list`, `team.integrationLogs`, `team.preferences.list` |
-| `users` | 2 | `users.discoverableContacts.lookup`, `users.identity` |
+| `team` | 3 | `team.billing.info`, `team.externalTeams.disconnect`, `team.externalTeams.list` |
+| `users` | 1 | `users.discoverableContacts.lookup` |
 | `workflows` | 4 | `workflows.featured.add`, `workflows.featured.list`, `workflows.featured.remove`, `workflows.featured.set` |
 
 ## Known differences in behaviour

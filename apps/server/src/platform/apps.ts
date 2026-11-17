@@ -244,7 +244,9 @@ export const DEFAULT_BOT_SCOPES = [
   'remote_files:share',
   'remote_files:write',
   'search:read',
+  'team.preferences:read',
   'team:read',
+  'tokens.basic',
   'users.profile:read',
   'users:read',
   'users:read.email',
@@ -252,7 +254,7 @@ export const DEFAULT_BOT_SCOPES = [
 ];
 
 /** The only thing an app-level token may do is open Socket Mode connections. */
-export const APP_TOKEN_SCOPES = ['connections:write'];
+export const APP_TOKEN_SCOPES = ['authorizations:read', 'connections:write'];
 
 export function getApp(ctx: Ctx, id: string): AppRow | undefined {
   return ctx.db.get<AppRow>('SELECT * FROM apps WHERE id = ?', id);

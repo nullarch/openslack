@@ -5,7 +5,9 @@ import { postMessage } from '../src/core/messages.ts';
 import { addMember, setupWorkspace, startApp, type Json, type Session, type TestApp } from './helpers.ts';
 
 const DAY = 86_400;
-const tsDaysAgo = (days: number, n = 0): string => `${String(Math.floor(Date.now() / 1000) - days * DAY).padStart(10, '0')}.${String(n).padStart(6, '0')}`;
+// One reference time for the whole file: computed per call, a second ticking over between posting and looking up gave a different ts.
+const NOW = Math.floor(Date.now() / 1000);
+const tsDaysAgo = (days: number, n = 0): string => `${String(NOW - days * DAY).padStart(10, '0')}.${String(n).padStart(6, '0')}`;
 
 describe('retention', () => {
   let t: TestApp;
