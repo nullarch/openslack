@@ -203,6 +203,8 @@ function Title({ doc, editable }: { doc: DocSummary; editable: boolean }) {
       onChange={(event) => setValue(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
+        // Enter and Esc also confirm or cancel an input method's conversion; leave those to it.
+        if (event.nativeEvent.isComposing) return;
         if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
         if (event.key === 'Escape') {
           setValue(doc.title);

@@ -6,79 +6,10 @@
 //
 //   pnpm --filter @app/web build && node apps/web/e2e/i18n.mjs
 import assert from 'node:assert/strict';
-import { openChannel, row, run, shot, signIn, startServer, step, watch, wide } from './lib.mjs';
+import { ALLOWED_LATIN as ALLOWED, leftovers, noSidewaysScroll, openChannel, openTeamMenu as openMenu, row, run, shot, signIn, startServer, step, watch, wide, workspaceWords } from './lib.mjs';
 
 const korean = { ...wide, locale: 'ko-KR', colorScheme: 'light' };
 const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'ko-KR' };
-
-/** Words that may stay in Latin letters: names from the workspace, product and protocol names, file types. */
-const ALLOWED = new Set(
-  'CSV SCIM URL API AI JSON PDF PDFs PNG JPEG GIF WebP Claude OpenAI Okta Entra ID Slack Bolt Enter Esc Shift English Aa OAuth HTTP http https vLLM Ollama LM Studio LiteLLM MB KB GB TOTP Authy Google GitHub Authenticator Password party parrot plan launch deploy name example com localhost callback SDK'.split(
-    ' ',
-  ),
-);
-
-async function workspaceWords(page) {
-  return page.evaluate(async () => {
-    const boot = await (await fetch('/api/client.boot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
-    const words = new Set();
-    const add = (text) => String(text ?? '').split(/[^A-Za-z0-9]+/).filter(Boolean).forEach((word) => words.add(word));
-    for (const user of boot.users) {
-      add(user.real_name);
-      add(user.name);
-      add(user.profile?.display_name);
-      add(user.profile?.title);
-    }
-    for (const channel of boot.channels) add(channel.name);
-    add(boot.team?.name);
-    add(document.title);
-    return [...words];
-  });
-}
-
-/** Interface text in a part of the page (labels, buttons, headings, hints, placeholders), minus content people wrote. */
-async function leftovers(page, scope, allowed) {
-  const found = await page.evaluate((selector) => {
-    const out = [];
-    for (const root of document.querySelectorAll(selector)) {
-      const elements = root.querySelectorAll(
-        'button, [role="tab"], [role="radio"], legend, label, h1, h2, h3, h4, th, .field-hint, .dialog-lead, .dialog-sub, .menu-item, .side-section-head, .notice, option, input, textarea, .stat-label, .viz-title, .empty-state, p',
-      );
-      for (const element of [root, ...elements]) {
-        if (element.closest('.msg-body, .msg-author, .side-name, .admin-name, .report-excerpt, .mrkdwn, code, pre, .code-block, .avatar, .emoji')) continue;
-        for (const attribute of ['placeholder', 'aria-label', 'title']) {
-          const value = element.getAttribute?.(attribute);
-          if (value) out.push(value);
-        }
-        // Only the element's own text, so a container does not repeat its children.
-        const own = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join(' ').trim();
-        if (own && element.checkVisibility?.() !== false) out.push(own);
-      }
-    }
-    return out;
-  }, scope);
-  const bad = [];
-  for (const text of found) {
-    // Code stays code: dotted or underscored identifiers (apps.manifest.*, display_information) and JSON samples.
-    if (text.trim().startsWith('{')) continue;
-    // …and slash commands (/remind) and the English time phrases the reminder parser understands.
-    const prose = text.replace(/[A-Za-z0-9_*/-]+(\.[A-Za-z0-9_*/-]+)+|[A-Za-z0-9]+_[A-Za-z0-9_]+|`[^`]*`|\/[a-z]+|“[^”]*”|\b[a-z]+:[^\s,]*/g, ' ');
-    const words = prose.match(/[A-Za-z]{2,}/g) ?? [];
-    const strange = words.filter((word) => !allowed.has(word));
-    if (strange.length) bad.push(text);
-  }
-  return [...new Set(bad)];
-}
-
-async function noSidewaysScroll(page, label) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  assert.ok(overflow <= 1, `${label}: ${overflow}px sideways scroll`);
-}
-
-async function openMenu(page, item) {
-  await page.locator('.team-btn').click();
-  await page.locator('.menu-item', { hasText: item }).click();
-}
 
 async function main(browser) {
   const server = await startServer({ seed: true });

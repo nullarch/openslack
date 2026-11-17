@@ -1,6 +1,6 @@
 import { BRAND } from '@app/shared';
-import type { Strings } from '../strings';
-import { INTL_LOCALE } from '../lib/locale';
+import type { Strings } from '../strings.ts';
+import { INTL_LOCALE } from '../lib/locale.ts';
 
 /** Korean, part one: sign-in, accounts, the shell, messages, dialogs and administration. */
 export const koCore = {

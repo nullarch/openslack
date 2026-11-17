@@ -8,11 +8,11 @@
  * screens. Nothing here imports the strings, so the strings can import it.
  */
 
-export type Locale = 'en' | 'ko';
+export type Locale = 'en' | 'ko' | 'ja';
 export type LanguagePref = 'auto' | Locale;
 export type TimeFormatPref = 'auto' | '12h' | '24h';
 
-export const LOCALES: Locale[] = ['en', 'ko'];
+export const LOCALES: Locale[] = ['en', 'ko', 'ja'];
 
 const LANGUAGE_KEY = 'language';
 const TIME_KEY = 'time_format';
@@ -35,7 +35,7 @@ function write(key: string, value: string): void {
 }
 
 export function languagePref(value: unknown): LanguagePref {
-  return value === 'en' || value === 'ko' ? value : 'auto';
+  return typeof value === 'string' && (LOCALES as string[]).includes(value) ? (value as Locale) : 'auto';
 }
 
 export function timeFormatPref(value: unknown): TimeFormatPref {
@@ -62,13 +62,13 @@ export const TIME_FORMAT: TimeFormatPref = timeFormatPref(read(TIME_KEY));
 
 /**
  * The tag dates and numbers are formatted with. When the browser already asks
- * for this language (say en-GB or ko-KR), its regional variant is kept;
+ * for this language (say en-GB, ko-KR or ja-JP), its regional variant is kept;
  * otherwise the plain language tag is used, so an English screen in a Korean
  * browser does not show Korean dates.
  */
 export const INTL_LOCALE: string = browserLanguages().find((tag) => tag.split('-')[0] === LOCALE) ?? LOCALE;
 
-/** `hour12` for Intl: undefined lets the locale decide (12-hour in en-US, 오전/오후 in ko). */
+/** `hour12` for Intl: undefined lets the locale decide (12-hour in en-US, 오전/오후 in ko, 24-hour in ja). */
 export const HOUR12: boolean | undefined = TIME_FORMAT === 'auto' ? undefined : TIME_FORMAT === '12h';
 
 if (typeof document !== 'undefined') document.documentElement.lang = LOCALE;

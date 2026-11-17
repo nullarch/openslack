@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { attempt, toast } from '../../lib/actions';
 import { call } from '../../lib/api';
+import { INTL_LOCALE } from '../../lib/locale';
 import { displayName, useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { confirmDialog } from '../dialogs/confirm';
@@ -127,7 +128,7 @@ interface Hold {
   conversations: string[];
 }
 
-const day = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+const day = new Intl.DateTimeFormat(INTL_LOCALE, { year: 'numeric', month: 'short', day: 'numeric' });
 
 export function LegalHolds() {
   const self = useStore((state) => state.self);

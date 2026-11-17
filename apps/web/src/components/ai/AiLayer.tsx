@@ -357,7 +357,7 @@ export function AiLayer() {
     if (!modal) return;
     // Close our dialog first, before the app's own Escape handling sees the key.
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.isComposing) return;
       event.preventDefault();
       closeAiModal();
     };

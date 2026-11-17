@@ -176,7 +176,8 @@ function useShortcuts(): void {
         if (scope) go({ name: 'search', query: `${scope} ` });
         return;
       }
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      // Esc while an input method is converting (Japanese, Chinese, Korean) cancels the conversion, nothing else.
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
       if (state.modal) closeModal();
       else if (state.drawer) set({ drawer: false });
       else if (state.editing) set({ editing: null });

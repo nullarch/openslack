@@ -165,6 +165,7 @@ export function PreferencesDialog() {
             { id: 'auto', label: S.prefs.languageAuto },
             { id: 'en', label: 'English' },
             { id: 'ko', label: '한국어' },
+            { id: 'ja', label: '日本語' },
           ]}
           onChange={(id) => void setPrefs({ language: id })}
         />
@@ -222,8 +223,9 @@ function sampleTime(hour12: boolean): string {
 function KeywordsPref() {
   const saved = useStore((state) => (typeof state.prefs.highlight_words === 'string' ? state.prefs.highlight_words : ''));
   const [value, setValue] = useState(saved);
+  // Japanese and Chinese keyboards type 、 and ， for a comma; the server splits on ASCII commas only.
   const normalized = value
-    .split(',')
+    .split(/[,，、]/)
     .map((word) => word.trim())
     .filter(Boolean)
     .join(', ');

@@ -239,3 +239,100 @@ export async function attach(page, file) {
   await page.locator('.conversation .composer-foot input[type="file"]').setInputFiles(file);
   await page.locator('.upload-chip', { hasText: file.name }).locator('.upload-sub', { hasText: /B$/ }).waitFor();
 }
+
+// ── Interface languages ─────────────────────────────────────────────────────
+
+/** Words that may stay in Latin letters in a translated interface: names from the workspace, product and protocol names, file types. */
+export const ALLOWED_LATIN = new Set(
+  'CSV SCIM URL API AI JSON PDF PDFs PNG JPEG GIF WebP Claude OpenAI Okta Entra ID Slack Bolt Enter Esc Shift English Aa OAuth HTTP http https vLLM Ollama LM Studio LiteLLM MB KB GB TOTP Authy Google GitHub Authenticator Password party parrot plan launch deploy name example com localhost callback SDK'.split(
+    ' ',
+  ),
+);
+
+/** Words from the workspace itself (people, channels, the team), which stay as they were written. */
+export async function workspaceWords(page) {
+  return page.evaluate(async () => {
+    const boot = await (await fetch('/api/client.boot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
+    const words = new Set();
+    const add = (text) => String(text ?? '').split(/[^A-Za-z0-9]+/).filter(Boolean).forEach((word) => words.add(word));
+    for (const user of boot.users) {
+      add(user.real_name);
+      add(user.name);
+      add(user.profile?.display_name);
+      add(user.profile?.title);
+    }
+    for (const channel of boot.channels) add(channel.name);
+    add(boot.team?.name);
+    add(document.title);
+    return [...words];
+  });
+}
+
+/** Interface text in a part of the page (labels, buttons, headings, hints, placeholders) still in English, minus content people wrote. */
+export async function leftovers(page, scope, allowed) {
+  const found = await page.evaluate((selector) => {
+    const out = [];
+    for (const root of document.querySelectorAll(selector)) {
+      const elements = root.querySelectorAll(
+        'button, [role="tab"], [role="radio"], legend, label, h1, h2, h3, h4, th, .field-hint, .dialog-lead, .dialog-sub, .menu-item, .side-section-head, .notice, option, input, textarea, .stat-label, .viz-title, .empty-state, p',
+      );
+      for (const element of [root, ...elements]) {
+        if (element.closest('.msg-body, .msg-author, .side-name, .admin-name, .report-excerpt, .mrkdwn, code, pre, .code-block, .avatar, .emoji')) continue;
+        for (const attribute of ['placeholder', 'aria-label', 'title']) {
+          const value = element.getAttribute?.(attribute);
+          if (value) out.push(value);
+        }
+        // Only the element's own text, so a container does not repeat its children.
+        const own = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join(' ').trim();
+        if (own && element.checkVisibility?.() !== false) out.push(own);
+      }
+    }
+    return out;
+  }, scope);
+  const bad = [];
+  for (const text of found) {
+    // Code stays code: dotted or underscored identifiers (apps.manifest.*, display_information), JSON and
+    // regular-expression samples.
+    if (/^[{\\]/.test(text.trim())) continue;
+    // …and slash commands (/remind), IP ranges (2001:db8::/32), the English time phrases the reminder parser
+    // understands, and what people typed, quoted as “…” or, in Japanese, 「…」.
+    const prose = text.replace(
+      /[A-Za-z0-9_*/-]+(\.[A-Za-z0-9_*/-]+)+|[A-Za-z0-9]+_[A-Za-z0-9_]+|`[^`]*`|\/[a-z]+|[0-9a-f]+:[0-9a-f:]+(\/\d+)?|“[^”]*”|「[^」]*」|\b[a-z]+:[^\s,]*/g,
+      ' ',
+    );
+    const words = prose.match(/[A-Za-z]{2,}/g) ?? [];
+    const strange = words.filter((word) => !allowed.has(word));
+    if (strange.length) bad.push(text);
+  }
+  return [...new Set(bad)];
+}
+
+export async function noSidewaysScroll(page, label) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(overflow <= 1, `${label}: ${overflow}px sideways scroll`);
+}
+
+/**
+ * Labels whose text runs out of their box (wider than the element and not cut
+ * off on purpose with an ellipsis): what a longer translation breaks first.
+ */
+export async function spilled(page, scope) {
+  return page.evaluate((selector) => {
+    const out = [];
+    for (const root of document.querySelectorAll(selector)) {
+      for (const element of root.querySelectorAll('button, [role="tab"], [role="radio"], .menu-item, .side-item, legend, label, th, h1, h2, h3, .tag')) {
+        if (element.checkVisibility?.() === false || element.clientWidth === 0) continue;
+        const style = getComputedStyle(element);
+        if (style.textOverflow === 'ellipsis' || style.overflowX === 'auto' || style.overflowX === 'scroll') continue;
+        if (element.scrollWidth > element.clientWidth + 1) out.push(`${element.textContent.trim().slice(0, 40)} (${element.scrollWidth} > ${element.clientWidth})`);
+      }
+    }
+    return [...new Set(out)];
+  }, scope);
+}
+
+/** Open an item of the workspace menu (the team name at the top of the sidebar). */
+export async function openTeamMenu(page, item) {
+  await page.locator('.team-btn').click();
+  await page.locator('.menu-item', { hasText: item }).click();
+}
