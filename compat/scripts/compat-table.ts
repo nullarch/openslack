@@ -61,6 +61,8 @@ function serverTestSource(): string {
 
 /** Where a supported method knowingly differs from Slack. */
 const NOTES: Record<string, string> = {
+  'functions.completeSuccess': 'Finishes a workflow step the app implements; outputs it did not declare are dropped. Only the app that received the `function_executed` event may finish it.',
+  'functions.completeError': 'Fails the workflow run with the app\'s message.',
   'files.upload': 'The one-request upload Slack has retired; kept so existing scripts (`curl -F file=@…`) keep working. Multipart or `content`.',
   'rtm.start': 'Returns the URL plus people and the caller\'s conversations in a reduced form.',
   'admin.emoji.add': 'Takes `file_id` of an uploaded image instead of `url`. Browser session only.',

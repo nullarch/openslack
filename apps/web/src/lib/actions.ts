@@ -79,7 +79,7 @@ export async function start(): Promise<void> {
         set({ phase: 'join' });
         return;
       }
-      if (route.name === 'conversation') sessionStorage.setItem('after-signin', window.location.pathname + window.location.search);
+      if (route.name === 'conversation' || route.name === 'workflowLink') sessionStorage.setItem('after-signin', window.location.pathname + window.location.search);
       go({ name: 'signin' }, true);
       set({ phase: 'signin' });
       return;
@@ -125,7 +125,9 @@ export async function boot(): Promise<void> {
     route = parseRoute(url);
     window.history.replaceState(null, '', saved);
   }
-  if (route.name === 'conversation' || route.name === 'search' || route.name === 'view' || route.name === 'agents') await applyRoute(route);
+  if (route.name === 'conversation' || route.name === 'search' || route.name === 'view' || route.name === 'agents' || route.name === 'workflows' || route.name === 'workflowLink') {
+    await applyRoute(route);
+  }
   else goHome(true);
 }
 

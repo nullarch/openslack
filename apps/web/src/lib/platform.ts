@@ -148,7 +148,7 @@ export async function loadShortcuts(): Promise<void> {
   }
 }
 
-export async function runShortcut(shortcut: AppShortcut, where?: { channel: string; message_ts: string }): Promise<void> {
+export async function runShortcut(shortcut: AppShortcut, where?: { channel: string; message_ts: string } | { context_channel: string }): Promise<void> {
   try {
     await call('client.shortcuts.run', { app: shortcut.app_id, callback_id: shortcut.callback_id, ...where });
   } catch (error) {

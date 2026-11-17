@@ -493,4 +493,59 @@ export const MIGRATIONS: string[] = [
   CREATE TABLE import_discord_channels (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL);
   CREATE TABLE import_discord_messages (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, ts TEXT NOT NULL);
   `,
+
+  /* 10: automation — workflows, their runs, custom responses */ `
+  CREATE TABLE workflows (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL REFERENCES users(id),
+    -- {type, ...}: shortcut, link, schedule, reaction, member_joined, webhook
+    trigger TEXT NOT NULL,
+    -- ordered steps; a branch step nests its own two lists
+    steps TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'disabled')),
+    link_token TEXT UNIQUE,
+    webhook_secret TEXT,
+    -- for schedule triggers: when it next fires (seconds)
+    next_run INTEGER,
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE INDEX workflows_due ON workflows(next_run) WHERE status = 'published' AND next_run IS NOT NULL;
+  CREATE INDEX workflows_owner ON workflows(created_by);
+
+  CREATE TABLE workflow_runs (
+    id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+    -- the person who set it off; NULL for schedules and webhooks
+    runner TEXT,
+    status TEXT NOT NULL CHECK (status IN ('running', 'waiting', 'completed', 'failed', 'cancelled')),
+    -- the steps as they were when the run started, compiled
+    program TEXT NOT NULL,
+    pc INTEGER NOT NULL DEFAULT 0,
+    vars TEXT NOT NULL DEFAULT '{}',
+    log TEXT NOT NULL DEFAULT '[]',
+    -- what a waiting run waits for: {kind: 'form', view_id} or {kind: 'function', execution_id, expires}
+    waiting TEXT,
+    error TEXT,
+    started INTEGER NOT NULL,
+    updated INTEGER NOT NULL,
+    finished INTEGER
+  );
+  CREATE INDEX workflow_runs_recent ON workflow_runs(workflow_id, started);
+  CREATE INDEX workflow_runs_waiting ON workflow_runs(status) WHERE status = 'waiting';
+
+  CREATE TABLE custom_responses (
+    id TEXT PRIMARY KEY,
+    match_type TEXT NOT NULL CHECK (match_type IN ('exact', 'contains', 'regex')),
+    pattern TEXT NOT NULL,
+    reply TEXT NOT NULL,
+    -- conversation ids; empty means every public channel
+    channels TEXT NOT NULL DEFAULT '[]',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+  `,
 ];

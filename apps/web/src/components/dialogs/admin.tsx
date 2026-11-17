@@ -9,6 +9,8 @@ import { displayName, useStore, type AdminTab } from '../../lib/store';
 import { S } from '../../strings';
 import { Avatar, Button, CopyField, Field, IconButton, Modal, Spinner } from '../ui';
 import { confirmDialog } from './confirm';
+import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
+import { AppStepsSetting } from '../workflows/AppSteps';
 
 // ── Members ─────────────────────────────────────────────────────────────────
 
@@ -459,6 +461,7 @@ function AppDetail({ app, secrets, onBack, onChanged, onRotated }: AppDetailProp
       </div>
 
       <AppPlatformSettings app={app} onChanged={onChanged} />
+      <AppStepsSetting app={app} onChanged={onChanged} />
 
       <div className="danger-zone">
         <Button variant="danger" onClick={() => void remove()}>
@@ -678,6 +681,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
           <>
             <WorkspaceAdmin />
             <MessagePolicyAdminGuard />
+            <ResponsesAdmin />
           </>
         ) : null}
       </div>
