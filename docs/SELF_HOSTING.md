@@ -196,6 +196,10 @@ export default {
 
 SendGrid Inbound Parse works with "POST the raw, full MIME message" on and `https://chat.example.com/inbound/email?key=…`; Mailgun with a route forwarding to `https://chat.example.com/inbound/email?key=…&format=mime`. Members make or replace a channel's address in its details. The built-in Email bot posts each message with its sender, subject, text and attachments (subject to virus scanning when that is on). Mail to an unknown or replaced address is accepted and dropped.
 
+## Encryption at rest
+
+Set `STORAGE_ENCRYPTION_KEYS` to one or more 32-byte keys (`openssl rand -base64 32`, comma-separated) and uploaded files, thumbnails and link-preview images are stored encrypted (AES-256-GCM in 64 KiB chunks, so video seeking and image previews still read only what they need) on disk or in the bucket. The first key encrypts; every key listed decrypts, so to change keys put the new one first, then run `openslack encrypt-files`, which also encrypts files stored before encryption was turned on. Keep the keys somewhere other than the data folder: without them the files cannot be read. The database itself is not encrypted by this; put the data folder on an encrypted volume for that.
+
 ## Virus scanning
 
 Set `CLAMAV_URL=tcp://clamav:3310` to have every upload checked by a ClamAV daemon (for example the `clamav/clamav-debian` container, which also runs on ARM) before anyone can see it. An infected file is deleted and the upload fails with `file_infected`. If the daemon cannot be reached the upload is refused (`scan_unavailable`); `CLAMAV_FAIL_OPEN=1` accepts it unscanned instead. Files larger than `CLAMAV_MAX_MB` (25, clamd's default stream limit) are not scanned; raise both together if you need to.

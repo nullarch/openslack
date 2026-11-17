@@ -1,3 +1,4 @@
+import { storedKeys, type EncryptedStorage } from './core/encrypted-storage.ts';
 import { BRAND } from '@app/shared';
 import { createApp } from './app.ts';
 import { configFromEnv } from './config.ts';
@@ -17,6 +18,7 @@ Usage:
       --token <token>                      Bearer token for those downloads, if needed
   ${BRAND.slug} import-mattermost <export>   Import a Mattermost bulk export (mmctl export create: .zip or .jsonl)
   ${BRAND.slug} import-discord <export>      Import DiscordChatExporter JSON (a folder, a .json file or a .zip)
+  ${BRAND.slug} encrypt-files                Encrypt stored files with the first STORAGE_ENCRYPTION_KEYS key
       --download-files                     Also fetch attachments that are still Discord links
   ${BRAND.slug} backup <directory>          Copy the data directory while the server runs
   ${BRAND.slug} help
@@ -152,12 +154,35 @@ async function importFromDiscord(args: string[]): Promise<void> {
   }
 }
 
+/** Encrypt files stored before STORAGE_ENCRYPTION_KEYS was set, and re-encrypt ones under an older key. */
+async function encryptFiles(): Promise<void> {
+  const config = configFromEnv();
+  if (!config.storageKeys?.length) {
+    console.error('Set STORAGE_ENCRYPTION_KEYS first (openssl rand -base64 32), then run this again.');
+    process.exit(2);
+  }
+  const app = createApp({ ...config, quiet: true });
+  try {
+    const storage = app.ctx.storage as EncryptedStorage;
+    const keys = storedKeys(app.ctx.db);
+    let changed = 0;
+    for (const [index, key] of keys.entries()) {
+      if (await storage.rewrite(key)) changed += 1;
+      if ((index + 1) % 200 === 0) console.log(`  ${index + 1} of ${keys.length}`);
+    }
+    console.log(`${changed} of ${keys.length} stored objects encrypted with the current key.`);
+  } finally {
+    await app.close();
+  }
+}
+
 const [command = 'serve', ...rest] = process.argv.slice(2);
 try {
   if (command === 'serve') await serve();
   else if (command === 'import-slack') await importSlack(rest);
   else if (command === 'import-mattermost') await importFromMattermost(rest);
   else if (command === 'import-discord') await importFromDiscord(rest);
+  else if (command === 'encrypt-files') await encryptFiles();
   else if (command === 'backup') {
     if (!rest[0]) {
       console.error(USAGE);

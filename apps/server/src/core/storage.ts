@@ -1,3 +1,4 @@
+import { EncryptedStorage, type StorageKey } from './encrypted-storage.ts';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, rm, stat } from 'node:fs/promises';
@@ -270,7 +271,7 @@ export class S3Storage implements Storage {
 }
 
 /** The configured backend: a bucket when `s3` is given, otherwise `<dataDir>/files`. */
-export function createStorage(dataDir: string, s3?: S3Config | null): Storage {
-  if (s3) return new S3Storage(s3, join(dataDir, 'tmp'));
-  return new LocalStorage(join(dataDir, 'files'));
+export function createStorage(dataDir: string, s3?: S3Config | null, keys: StorageKey[] = []): Storage {
+  const inner = s3 ? new S3Storage(s3, join(dataDir, 'tmp')) : new LocalStorage(join(dataDir, 'files'));
+  return keys.length ? new EncryptedStorage(inner, keys) : inner;
 }

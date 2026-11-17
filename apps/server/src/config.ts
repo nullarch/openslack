@@ -1,3 +1,4 @@
+import { storageKeysFromEnv } from './core/encrypted-storage.ts';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -72,6 +73,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     inboundEmailSecret: env.INBOUND_EMAIL_SECRET?.trim() || null,
     trustProxy: Number(env.TRUST_PROXY ?? 0) || 0,
     ipAllowlistDisabled: env.IP_ALLOWLIST_DISABLED === '1',
+    storageKeys: storageKeysFromEnv(env.STORAGE_ENCRYPTION_KEYS),
     mailFrom: env.MAIL_FROM?.trim() || undefined,
     identityProviders: identityProvidersFromEnv(env),
     metricsToken: env.METRICS_TOKEN?.trim() || null,

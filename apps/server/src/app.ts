@@ -74,7 +74,7 @@ export function createApp(config: Config): App {
     db,
     bus: new Bus(),
     clock: new Clock(db),
-    storage: createStorage(config.dataDir, config.s3),
+    storage: createStorage(config.dataDir, config.s3, config.storageKeys ?? []),
     presence: gateway,
     team() {
       if (!teamLoaded) {

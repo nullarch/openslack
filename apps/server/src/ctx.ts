@@ -1,3 +1,4 @@
+import type { StorageKey } from './core/encrypted-storage.ts';
 import type { ScannerConfig } from './core/scanner.ts';
 import type { Role } from '@app/shared';
 import type { Bus } from './core/bus.ts';
@@ -35,6 +36,8 @@ export interface Config {
   inboundEmailSecret?: string | null;
   /** How many reverse proxies add an X-Forwarded-For entry in front of the server (0: none, use the socket address). */
   trustProxy?: number;
+  /** Keys that encrypt uploaded files at rest (the first writes, all read). */
+  storageKeys?: StorageKey[];
   /** Ignore the workspace's IP allowlist (recovery after locking yourself out). */
   ipAllowlistDisabled?: boolean;
   /** Sender address for outgoing mail. */
