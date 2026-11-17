@@ -4,6 +4,7 @@ export type Route =
   | { name: 'home' }
   | { name: 'conversation'; id: string; ts?: string; thread?: string }
   | { name: 'search'; query: string }
+  | { name: 'agents' }
   | { name: 'setup' }
   | { name: 'signin' }
   | { name: 'join'; code: string }
@@ -30,6 +31,7 @@ export function parseRoute(location: { pathname: string; search: string }): Rout
   if (parts[0] === 'reset' && parts[1]) return { name: 'reset', token: decodeURIComponent(parts[1]) };
   if (parts[0] === 'search') return { name: 'search', query: query.get('q') ?? '' };
   if (parts[0] && (VIEW_NAMES as string[]).includes(parts[0])) return { name: 'view', view: parts[0] as ViewName };
+  if (parts[0] === 'agents') return { name: 'agents' };
   if (parts[0] === 'c' && parts[1]) {
     const route: Route = { name: 'conversation', id: parts[1] };
     const ts = query.get('ts');
@@ -59,6 +61,8 @@ export function routePath(route: Route): string {
       return `/reset/${encodeURIComponent(route.token)}`;
     case 'search':
       return `/search?q=${encodeURIComponent(route.query)}`;
+    case 'agents':
+      return '/agents';
     case 'conversation':
       return `/c/${route.id}`;
     case 'view':

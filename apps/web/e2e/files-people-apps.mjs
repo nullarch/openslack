@@ -348,6 +348,22 @@ async function main(browser) {
     await full.waitFor({ state: 'detached' });
   });
 
+  await step('image: a large photo is shown through a smaller copy the browser made, and opens at full size', async () => {
+    await attach(maya, { name: 'large.png', mimeType: 'image/png', buffer: await png(maya, 2400, 1600, '#7a3e9d') });
+    await composer(maya).fill('Large photo');
+    await composer(maya).press('Enter');
+    const preview = row(daniel, 'Large photo').locator('.file-image img');
+    await preview.waitFor();
+    assert.match(await preview.getAttribute('src'), /^\/files-tmb\//);
+    assert.equal(await preview.evaluate((image) => image.decode().then(() => image.naturalWidth)), 720);
+    await row(daniel, 'Large photo').locator('.file-image').click();
+    const full = daniel.locator('.image-viewer img');
+    await full.waitFor();
+    assert.equal(await full.evaluate((image) => image.decode().then(() => image.naturalWidth)), 2400);
+    await daniel.keyboard.press('Escape');
+    await full.waitFor({ state: 'detached' });
+  });
+
   if (browserName === 'firefox') {
     skip('paste: an image on the clipboard becomes an attachment', "Firefox drops files from a synthetic paste event and Playwright's Firefox has no clipboard access");
   } else await step('paste: an image on the clipboard becomes an attachment', async () => {

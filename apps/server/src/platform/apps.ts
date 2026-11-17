@@ -57,6 +57,8 @@ export interface Shortcut {
 export interface AppConfig {
   shortcuts: Shortcut[];
   unfurl_domains: string[];
+  /** Where the OAuth install flow may send people back to (exact match). */
+  redirect_urls: string[];
 }
 
 export function appConfig(app: AppRow): AppConfig {
@@ -69,7 +71,8 @@ export function appConfig(app: AppRow): AppConfig {
   }
   const shortcuts = Array.isArray(raw.shortcuts) ? (raw.shortcuts as Shortcut[]) : [];
   const domains = Array.isArray(raw.unfurl_domains) ? raw.unfurl_domains.filter((entry): entry is string => typeof entry === 'string') : [];
-  return { shortcuts, unfurl_domains: domains };
+  const redirects = Array.isArray(raw.redirect_urls) ? raw.redirect_urls.filter((entry): entry is string => typeof entry === 'string') : [];
+  return { shortcuts, unfurl_domains: domains, redirect_urls: redirects };
 }
 
 /** Check shortcuts sent by an admin: a known type, a name, a unique callback id. */
@@ -88,6 +91,22 @@ export function readShortcuts(value: unknown): Shortcut[] {
 }
 
 /** Unfurl domains: host names without scheme or path, at most five. */
+/** Check OAuth redirect URLs sent by an admin: absolute http(s) URLs, at most ten. */
+export function readRedirectUrls(values: string[]): string[] {
+  if (values.length > 10) fail('invalid_redirect_urls');
+  return [...new Set(values)].map((value) => {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      fail('invalid_redirect_urls', { detail: value });
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') fail('invalid_redirect_urls', { detail: value });
+    if (url.hash) fail('invalid_redirect_urls', { detail: value });
+    return url.href;
+  });
+}
+
 export function readDomains(values: string[]): string[] {
   if (values.length > 5) fail('invalid_unfurl_domains');
   return [

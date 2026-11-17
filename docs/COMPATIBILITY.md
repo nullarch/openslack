@@ -11,6 +11,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | Run | SDK | Web API methods called | Payload types received |
 |---|---|---|---|
 | `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 39 | 14 |
+| `bolt-js-oauth` | @slack/bolt 5.1.0 | 3 | 0 |
 | `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
 | `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
@@ -37,7 +38,7 @@ App(client=WebClient(token=bot_token, base_url="http://localhost:3000/api/"))
 | Interactivity and slash commands over HTTP (signed, form-encoded) | Supported | SDK, server tests |
 | `response_url` (five uses within thirty minutes) | Supported | SDK, server tests |
 | Incoming webhooks (`/services/<team>/<bot>/<secret>`) | Supported | Server tests |
-| OAuth installation flow (`oauth.v2.access`) | Not supported | Apps are created by a workspace admin, who receives the tokens directly |
+| OAuth v2 installation flow (`/oauth/v2/authorize`, `oauth.v2.access`; bot and user scopes) | Supported; installs with a bot need an admin's approval. No token rotation | `bolt-js-oauth`, server tests |
 | RTM (`rtm.connect`, `rtm.start`; `message`, `typing`, `ping`, `presence_sub` over the socket) | Supported, for older bots | `rtm-node`, server tests |
 | Outgoing webhooks | Not supported | Use the Events API |
 
@@ -84,7 +85,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **86 supported**, 211 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **88 supported**, 209 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -96,6 +97,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **86 supported**, 211 n
 | `assistant.threads.setStatus` | ✓ | ✓ | Shown to connected clients; cleared by the app’s next message in the thread or after two minutes. |
 | `assistant.threads.setSuggestedPrompts` |  | ✓ | Delivered to connected clients; not stored. |
 | `assistant.threads.setTitle` |  | ✓ | Delivered to connected clients; not stored. |
+| `auth.revoke` |  |  |  |
 | `auth.test` | ✓ | ✓ |  |
 | `bookmarks.add` |  | ✓ |  |
 | `bookmarks.edit` |  | ✓ |  |
@@ -144,6 +146,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **86 supported**, 211 n
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
+| `oauth.v2.access` |  |  |  |
 | `pins.add` | ✓ | ✓ |  |
 | `pins.list` | ✓ | ✓ |  |
 | `pins.remove` | ✓ |  |  |
@@ -184,7 +187,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **86 supported**, 211 n
 | `admin` | 100 | `admin.analytics.getFile`, `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.barriers.create`, `admin.barriers.delete`, `admin.barriers.list`, `admin.barriers.update`, `admin.conversations.archive`, `admin.conversations.bulkArchive`, `admin.conversations.bulkDelete`, `admin.conversations.bulkMove`, `admin.conversations.convertToPrivate`, `admin.conversations.convertToPublic`, `admin.conversations.create`, `admin.conversations.delete`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.getConversationPrefs`, `admin.conversations.getCustomRetention`, `admin.conversations.getTeams`, `admin.conversations.invite`, `admin.conversations.lookup`, `admin.conversations.removeCustomRetention`, `admin.conversations.rename`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.search`, `admin.conversations.setConversationPrefs`, `admin.conversations.setCustomRetention`, `admin.conversations.setTeams`, `admin.conversations.unarchive`, `admin.emoji.list`, `admin.emoji.rename`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.inviteRequests.approve`, `admin.inviteRequests.approved.list`, `admin.inviteRequests.denied.list`, `admin.inviteRequests.deny`, `admin.inviteRequests.list`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.admins.list`, `admin.teams.create`, `admin.teams.list`, `admin.teams.owners.list`, `admin.teams.settings.info`, `admin.teams.settings.setDefaultChannels`, `admin.teams.settings.setDescription`, `admin.teams.settings.setDiscoverability`, `admin.teams.settings.setIcon`, `admin.teams.settings.setName`, `admin.usergroups.addChannels`, `admin.usergroups.addTeams`, `admin.usergroups.listChannels`, `admin.usergroups.removeChannels`, `admin.users.assign`, `admin.users.getExpiration`, `admin.users.invite`, `admin.users.list`, `admin.users.remove`, `admin.users.session.clearSettings`, `admin.users.session.getSettings`, `admin.users.session.invalidate`, `admin.users.session.list`, `admin.users.session.reset`, `admin.users.session.resetBulk`, `admin.users.session.setSettings`, `admin.users.setAdmin`, `admin.users.setExpiration`, `admin.users.setOwner`, `admin.users.setRegular`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup`, `admin.workflows.search`, `admin.workflows.unpublish` |
 | `agents` | 11 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView`, `agents.sessions.rename`, `agents.sessions.setStatus` |
 | `apps` | 10 | `apps.event.authorizations.list`, `apps.manifest.create`, `apps.manifest.delete`, `apps.manifest.export`, `apps.manifest.update`, `apps.manifest.validate`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
-| `auth` | 2 | `auth.revoke`, `auth.teams.list` |
+| `auth` | 1 | `auth.teams.list` |
 | `blocks` | 1 | `blocks.validate` |
 | `calls` | 6 | `calls.add`, `calls.end`, `calls.info`, `calls.participants.add`, `calls.participants.remove`, `calls.update` |
 | `canvases` | 7 | `canvases.access.delete`, `canvases.access.set`, `canvases.create`, `canvases.delete`, `canvases.edit`, `canvases.getContent`, `canvases.sections.lookup` |
@@ -194,7 +197,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **86 supported**, 211 n
 | `files` | 9 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update`, `files.revokePublicURL`, `files.sharedPublicURL` |
 | `functions` | 2 | `functions.completeError`, `functions.completeSuccess` |
 | `migration` | 1 | `migration.exchange` |
-| `oauth` | 3 | `oauth.access`, `oauth.v2.access`, `oauth.v2.exchange` |
+| `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
 | `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
 | `reactions` | 1 | `reactions.list` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |

@@ -36,7 +36,7 @@ function ImageFile({ file }: { file: FileObject }) {
       onClick={() => openModal({ kind: 'image', file })}
       title={file.title || file.name}
     >
-      <img src={asset(file.thumb_360 ?? file.url_private)} alt={file.alt_txt ?? file.title ?? file.name} loading="lazy" />
+      <img src={asset(file.thumb_720 ?? file.thumb_360 ?? file.url_private)} alt={file.alt_txt ?? file.title ?? file.name} loading="lazy" />
     </button>
   );
 }

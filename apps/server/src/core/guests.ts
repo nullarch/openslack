@@ -86,19 +86,23 @@ export function expireGuests(ctx: Ctx): string[] {
   return rows.map((row) => row.id);
 }
 
-/** Whether a guest's tab may receive a workspace-wide event: only about their conversations and the people they see. */
+/**
+ * Whether a guest's tab may receive a workspace-wide event: only events about
+ * conversations they belong to (any event naming a channel, huddles included)
+ * and about people they can see.
+ */
 export function eventVisibleToGuest(ctx: Ctx, guestId: string, event: { type: string; [key: string]: unknown }): boolean {
   if (event.type.startsWith('subteam_')) return false;
-  if (event.type.startsWith('channel_')) {
-    const channel = event.channel;
-    const id = typeof channel === 'string' ? channel : (channel as { id?: unknown } | undefined)?.id;
-    if (typeof id !== 'string') return true;
+  const channel = event.channel;
+  const item = event.item as { channel?: unknown } | undefined;
+  const id = typeof channel === 'string' ? channel : (channel as { id?: unknown } | undefined)?.id ?? event.channel_id ?? item?.channel;
+  if (typeof id === 'string' && /^[CDG][A-Z0-9]+$/.test(id)) {
     return ctx.db.get('SELECT 1 FROM members WHERE conversation_id = ? AND user_id = ?', id, guestId) !== undefined;
   }
   if (event.type === 'user_change' || event.type === 'team_join' || event.type === 'presence_change') {
     const user = event.user;
-    const id = typeof user === 'string' ? user : (user as { id?: unknown } | undefined)?.id;
-    return typeof id !== 'string' || canSeeUser(ctx, guestId, id);
+    const userId = typeof user === 'string' ? user : (user as { id?: unknown } | undefined)?.id;
+    return typeof userId !== 'string' || canSeeUser(ctx, guestId, userId);
   }
   return true;
 }

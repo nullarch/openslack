@@ -2,6 +2,7 @@ import type { Role } from '@app/shared';
 import type { Bus } from './core/bus.ts';
 import type { Clock } from './core/clock.ts';
 import type { S3Config, Storage } from './core/storage.ts';
+import type { LiveKitConfig } from './huddles/livekit.ts';
 import type { Db } from './db/db.ts';
 
 export interface Config {
@@ -16,6 +17,8 @@ export interface Config {
   maxUploadBytes: number;
   /** Keep uploaded files in an S3-compatible bucket instead of `dataDir/files`. */
   s3?: S3Config | null;
+  /** Media server for huddles; huddles are off without it. */
+  livekit?: LiveKitConfig | null;
   cookieSecure: boolean;
   version: string;
   quiet: boolean;

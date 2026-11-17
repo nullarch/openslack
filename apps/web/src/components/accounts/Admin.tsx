@@ -191,12 +191,16 @@ export function WorkspaceSettings() {
 
   const update = async (patch: Record<string, unknown>): Promise<boolean> => {
     setError(null);
+    const before = settings;
+    // Controls follow the change at once; the server's answer (or a refusal) settles it.
+    if (!('signup_domains' in patch)) setSettings({ ...settings, ...patch } as Settings);
     try {
       const result = await call('client.admin.updateSettings', patch);
       setSettings(result.settings as Settings);
       setDomains((result.settings.signup_domains as string[]).join(', '));
       return true;
     } catch (failure) {
+      setSettings(before);
       setError(errorText(failure));
       return false;
     }
@@ -367,8 +371,16 @@ export function ChannelWebSettings({ channel }: { channel: string }) {
     await attempt(() => call('admin.conversations.convertToPrivate', { channel_id: channel }));
   };
   const apply = async (webPublic: boolean, webFiles: boolean): Promise<void> => {
+    // The boxes follow the click at once; a refusal puts them back.
+    const before = { web, files };
+    useAccounts.setState((state) => ({ web: { ...state.web, [channel]: webPublic } }));
+    setFiles(webFiles);
     const result: Json = await attempt(() => call('client.admin.setChannelWeb', { channel, web_public: webPublic, web_files: webFiles }));
-    if (!result) return;
+    if (!result) {
+      useAccounts.setState((state) => ({ web: { ...state.web, [channel]: before.web } }));
+      setFiles(before.files);
+      return;
+    }
     setFiles(Boolean(result.web_files));
     setUrl(result.url ? new URL(result.url).pathname : null);
     useAccounts.setState((state) => ({ web: { ...state.web, [channel]: Boolean(result.web_public) } }));

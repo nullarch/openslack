@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
     "@app/shared": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
     "busboy": "^1.6.0",
@@ -24,6 +25,7 @@
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^8.0.2",
     "@types/ws": "^8.5.13",
+    "livekit-server-sdk": "2.20.0",
     "typescript": "^5.9.0"
   }
 }

@@ -6,12 +6,15 @@ import { closeModal, go, openModal, setPanel } from '../lib/actions';
 import { enableNotifications } from '../lib/notify';
 import { conversation, conversationName, currentId, get, set, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AiLayer } from './ai/AiLayer';
+import { AgentsView } from './ai/AgentsView';
 import { AppModalHost } from './AppViews';
 import { ConversationView } from './Conversation';
 import { AdminDialog } from './dialogs/admin';
 import { AddPeopleDialog, BrowseChannelsDialog, CreateChannelDialog, InviteDialog, NewDmDialog } from './dialogs/channels';
 import { EditProfileDialog, PreferencesDialog } from './dialogs/settings';
 import { ImageViewer } from './files';
+import { HuddleDock } from './Huddle';
 import { DetailsPanel, ProfilePanel, ThreadPanel } from './panels';
 import { QuickSwitcher, SearchView } from './Search';
 import { Sidebar } from './Sidebar';
@@ -199,6 +202,8 @@ export function Shell() {
               <ConversationView channel={route.id} />
             ) : route.name === 'view' ? (
               <WorkspaceView view={route.view} />
+            ) : route.name === 'agents' ? (
+              <AgentsView />
             ) : (
               <section className="conversation" />
             )}
@@ -208,8 +213,10 @@ export function Shell() {
           </div>
         </main>
       </div>
+      <HuddleDock />
       <ModalHost />
       <AppModalHost />
+      <AiLayer />
       <AccountsModalHost />
     </div>
   );

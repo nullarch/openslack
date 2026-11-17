@@ -22,6 +22,7 @@ import { localTime } from '../lib/time';
 import { ChannelWebSettings } from './accounts/Admin';
 import { ProfileFieldFacts } from './accounts/Profile';
 import { S } from '../strings';
+import { AiThreadSummary } from './ai/AiControls';
 import { Composer } from './Composer';
 import { editTopic } from './Conversation';
 import { confirmDialog, promptDialog } from './dialogs/confirm';
@@ -125,6 +126,7 @@ export function ThreadPanel({ channel, ts }: { channel: string; ts: string }) {
             {thread.replies.length > 0 ? (
               <div className="divider-replies" role="separator">
                 <span>{S.thread.replies(thread.replies.length)}</span>
+                <AiThreadSummary channel={channel} ts={ts} />
               </div>
             ) : null}
             {thread.replies.map((reply, index) => (

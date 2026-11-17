@@ -34,6 +34,7 @@ TypeScript run directly by Node (type stripping), so: no `enum`, no parameter pr
 | `src/realtime` | The client WebSocket gateway and presence |
 | `src/platform` | Apps, bot tokens, Events API delivery, Socket Mode, webhooks, interactivity, slash commands, streaming |
 | `src/importer` | Slack export import |
+| `src/ai` | AI features (summaries, recaps, search answers, translation, writing help, Agents view); off until an admin connects a model |
 | `src/mcp` | Model Context Protocol endpoint (`/mcp`) built on the official SDK |
 | `src/accounts` | Sign-in (password, mailed code, reset, identity providers, two-factor), invitations and invite requests, workspace settings and permissions, profile fields, user groups, guest rules |
 | `src/export` | Slack-format export archive and the zip writer |

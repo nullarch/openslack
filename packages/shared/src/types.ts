@@ -1,3 +1,4 @@
+import type { HuddleRoom } from './huddles.ts';
 /**
  * Wire types shared by the server, the web client and tests.
  * Shapes follow Slack's published objects; fields this project adds are marked "ext".
@@ -148,6 +149,9 @@ export interface FileObject {
   thumb_360?: string;
   thumb_360_w?: number;
   thumb_360_h?: number;
+  thumb_720?: string;
+  thumb_720_w?: number;
+  thumb_720_h?: number;
   alt_txt?: string;
   channels: string[];
   groups: string[];
@@ -201,6 +205,8 @@ export interface Message {
   pinned_to?: string[];
   /** ext: the message is still being streamed by an app. */
   streaming?: boolean;
+  /** ext: the huddle a `huddle_thread` message stands for. */
+  room?: HuddleRoom;
   /** Present only on ephemeral messages. */
   is_ephemeral?: boolean;
   /** Present in events, not in history. */

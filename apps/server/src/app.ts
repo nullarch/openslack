@@ -19,6 +19,8 @@ import { fail } from './core/errors.ts';
 import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
+import { installHuddles } from './huddles/index.ts';
+import { installAi } from './ai/index.ts';
 import { installAccounts } from './accounts/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
@@ -90,6 +92,8 @@ export function createApp(config: Config): App {
   installPlatform(kernel);
   installAttention(kernel);
   installMcp(kernel);
+  installHuddles(kernel);
+  installAi(kernel);
   installAccounts(kernel);
   gateway.start(ctx);
 

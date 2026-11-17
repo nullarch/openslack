@@ -44,6 +44,8 @@ import { resumeNotifications, selfDndUntil, setNotifyLevel, snooze, userInDnd, w
 import type { ViewName } from '../lib/router';
 import { conversationName, currentId, get, useStore } from '../lib/store';
 import { S } from '../strings';
+import { SidebarHuddleBadge } from './Huddle';
+import { AiMenuItems } from './ai/AiControls';
 import { confirmDialog, promptDialog } from './dialogs/confirm';
 import { Emoji } from './text';
 import { Avatar, IconButton, MenuDivider, MenuItem, Popover } from './ui';
@@ -197,6 +199,7 @@ const SidebarItem = memo(function SidebarItem({ id }: { id: string }) {
         ) : null}
         {paused ? <Moon size={13} className="side-dnd" aria-label={S.att.dnd.label} /> : null}
         {conv.is_muted ? <BellOff size={13} className="side-muted" /> : null}
+        <SidebarHuddleBadge channel={id} />
         {mentions > 0 ? <span className="badge">{mentions > 99 ? '99+' : mentions}</span> : null}
         <button type="button" className="side-more" aria-label={S.att.sections.itemOptions} title={S.att.sections.itemOptions} onClick={openMenu}>
           <MoreHorizontal size={15} />
@@ -358,6 +361,7 @@ function TeamMenu() {
             />
           ) : null}
           <MenuItem icon={<Settings size={16} />} label={S.sidebar.preferences} onSelect={pick(() => openModal({ kind: 'preferences' }))} />
+          <AiMenuItems pick={pick} />
           <MenuDivider />
           <MenuItem icon={<LogOut size={16} />} label={S.sidebar.signOut} onSelect={pick(() => void signOut())} />
         </Popover>

@@ -6,6 +6,7 @@ import { installDispatch, type Delivery } from './dispatch.ts';
 import { HttpDelivery } from './events-http.ts';
 import { installInteractivity } from './interactivity.ts';
 import { platformOptions } from './options.ts';
+import { installOauth } from './oauth.ts';
 import { RtmHub } from './rtm.ts';
 import { EphemeralStore, ResponseHooks } from './responses.ts';
 import { installShortcuts } from './shortcuts.ts';
@@ -54,4 +55,5 @@ export function installPlatform(kernel: Kernel): void {
   new AssistantThreads(ctx, options).install(kernel);
   installAdmin(kernel, sockets, http);
   new RtmHub(ctx).install(kernel);
+  installOauth(kernel);
 }

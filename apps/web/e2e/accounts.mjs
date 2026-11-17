@@ -275,7 +275,8 @@ async function main(browser) {
     await openAdmin(maya, 'Workspace');
     await maya.locator('.check-row', { hasText: 'Require two-factor sign-in' }).locator('input').check();
     await closeDialogs(maya);
-    await send(daniel, 'this needs the second factor now');
+    // The open client may already have switched on its next call; a reload makes it certain.
+    await daniel.reload();
     await daniel.locator('.auth-card h1', { hasText: 'Set up two-factor sign-in' }).waitFor({ timeout: 15_000 });
     await completeTwoFactorSetup(daniel);
     await waitForApp(daniel);

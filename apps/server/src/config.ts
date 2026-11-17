@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { BRAND } from '@app/shared';
 import type { S3Config } from './core/storage.ts';
 import type { Config, IdentityProviderConfig } from './ctx.ts';
+import { liveKitFromEnv } from './huddles/livekit.ts';
 
 // Both are replaced with constants when the release bundle is built.
 export const VERSION = process.env.APP_VERSION ?? '0.1.0-dev';
@@ -59,6 +60,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     webDir: env.WEB_DIR ? resolve(env.WEB_DIR) : defaultWebDir(),
     maxUploadBytes: Number(env.MAX_UPLOAD_MB ?? 100) * 1024 * 1024,
     s3: s3FromEnv(env),
+    livekit: liveKitFromEnv(env),
     cookieSecure: publicUrl.startsWith('https://'),
     version: VERSION,
     quiet: env.QUIET === '1',

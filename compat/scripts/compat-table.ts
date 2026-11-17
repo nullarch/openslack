@@ -157,7 +157,7 @@ async function main(): Promise<void> {
     '| Interactivity and slash commands over HTTP (signed, form-encoded) | Supported | SDK, server tests |',
     '| `response_url` (five uses within thirty minutes) | Supported | SDK, server tests |',
     '| Incoming webhooks (`/services/<team>/<bot>/<secret>`) | Supported | Server tests |',
-    '| OAuth installation flow (`oauth.v2.access`) | Not supported | Apps are created by a workspace admin, who receives the tokens directly |',
+    `| OAuth v2 installation flow (\`/oauth/v2/authorize\`, \`oauth.v2.access\`; bot and user scopes) | Supported; installs with a bot need an admin's approval. No token rotation | ${runKeys.filter((key) => key.includes('oauth')).map((key) => `\`${key}\``).join(', ')}, server tests |`,
     `| RTM (\`rtm.connect\`, \`rtm.start\`; \`message\`, \`typing\`, \`ping\`, \`presence_sub\` over the socket) | Supported, for older bots | ${runKeys.filter((key) => key.startsWith('rtm')).map((key) => `\`${key}\``).join(', ')}, server tests |`,
     '| Outgoing webhooks | Not supported | Use the Events API |',
     '',

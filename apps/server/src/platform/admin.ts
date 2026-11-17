@@ -2,18 +2,7 @@ import { DEFAULT_API_RATE_LIMIT, TOKEN_LIMIT_RANGE, workspaceTokenLimit } from '
 import type { Kernel } from '../app.ts';
 import { fail } from '../core/errors.ts';
 import { nowSeconds } from '../core/ids.ts';
-import {
-  announceBotUser,
-  appConfig,
-  appToApi,
-  createAppRecord,
-  deleteAppRecord,
-  issueToken,
-  listApps,
-  readDomains,
-  readShortcuts,
-  requireApp,
-} from './apps.ts';
+import { announceBotUser, appConfig, appToApi, createAppRecord, deleteAppRecord, issueToken, listApps, readDomains, readShortcuts, requireApp, readRedirectUrls } from './apps.ts';
 import { SUBSCRIBABLE_EVENTS } from './dispatch.ts';
 import type { HttpDelivery } from './events-http.ts';
 import { isHttpUrl } from './net.ts';
@@ -52,7 +41,14 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
   /** One app with its signing secret, which the admin needs again when configuring HTTP delivery. */
   kernel.registry.add('client.apps.info', { auth: 'admin' }, ({ args }) => {
     const app = requireApp(ctx, args.str('app'));
-    return { app: info(app.id), signing_secret: app.signing_secret, subscribable_events: SUBSCRIBABLE_EVENTS };
+    return {
+      app: info(app.id),
+      signing_secret: app.signing_secret,
+      client_id: app.client_id,
+      client_secret: app.client_secret,
+      redirect_urls: appConfig(app).redirect_urls,
+      subscribable_events: SUBSCRIBABLE_EVENTS,
+    };
   });
 
   kernel.registry.add('client.apps.create', { auth: 'admin' }, ({ actor, args }) => {
@@ -88,6 +84,7 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
     const config = appConfig(app);
     if (args.has('shortcuts')) config.shortcuts = readShortcuts(args.json('shortcuts'));
     if (args.has('unfurl_domains') || args.str('unfurl_domains') === '') config.unfurl_domains = readDomains(args.list('unfurl_domains'));
+    if (args.has('redirect_urls') || args.str('redirect_urls') === '') config.redirect_urls = readRedirectUrls(args.list('redirect_urls'));
     // A new request URL must prove it belongs to the app before it receives anything.
     if (eventsUrl && eventsUrl !== app.events_url) await http.verifyUrl(app, eventsUrl);
 
