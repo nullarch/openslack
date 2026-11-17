@@ -2,6 +2,7 @@ import {
   blocksToPlainText,
   extractBlockMentions,
   extractMentions,
+  richTextRepeatsText,
   type Attachment,
   type Block,
   type BotProfile,
@@ -201,7 +202,10 @@ export interface NewMessage {
 
 function plainText(text: string, blocks: unknown, attachments: unknown): string {
   const parts = [text];
-  if (blocks) parts.push(blocksToPlainText(blocks));
+  // A person's message carries its words twice, as `text` and as a `rich_text` block
+  // built from the same document; that block is left out so they are kept once.
+  const extra = Array.isArray(blocks) ? blocks.filter((block) => !richTextRepeatsText(text, block)) : blocks;
+  if (extra && (!Array.isArray(extra) || extra.length > 0)) parts.push(blocksToPlainText(extra));
   if (attachments) parts.push(blocksToPlainText(attachments));
   return parts.filter(Boolean).join(' ');
 }

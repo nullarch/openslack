@@ -1,4 +1,4 @@
-import { extractBlockMentions, extractMentions, type BootData, type Conversation, type Message, type User } from '@app/shared';
+import { extractBlockMentions, extractMentions, type Block, type BootData, type Conversation, type Message, type User } from '@app/shared';
 import { S } from '../strings';
 import { ApiError, call, isUnsupported, onAuthLost, onTwoFactorRequired, type Json } from './api';
 import { applyAccountsBoot, applyAccountsStatus, mentionsMyGroup } from './accounts';
@@ -552,6 +552,8 @@ export function mentionsViewer(conv: Conversation | undefined, message: Message)
 export interface Outgoing {
   channel: string;
   text: string;
+  /** The composer's `rich_text` block, sent with the text as Slack's client does. */
+  blocks?: Block[];
   threadTs?: string;
   broadcast?: boolean;
 }
@@ -600,12 +602,14 @@ export async function sendMessage(out: Outgoing, retryOf?: LocalMessage): Promis
     pending: true,
     local_id: localId,
   };
+  if (out.blocks?.length) pending.blocks = out.blocks;
   if (out.threadTs) pending.thread_ts = out.threadTs;
   placeMessage(out.channel, pending);
   try {
     const result = await call('chat.postMessage', {
       channel: out.channel,
       text: out.text,
+      blocks: out.blocks?.length ? out.blocks : undefined,
       thread_ts: out.threadTs,
       reply_broadcast: out.broadcast ? true : undefined,
       client_msg_id: localId,
@@ -631,7 +635,7 @@ function isPlaced(channel: string, ts: string): boolean {
 }
 
 export function retryMessage(channel: string, message: LocalMessage): void {
-  void sendMessage({ channel, text: message.text, threadTs: message.thread_ts }, message);
+  void sendMessage({ channel, text: message.text, blocks: message.blocks, threadTs: message.thread_ts }, message);
 }
 
 export function discardFailed(channel: string, message: LocalMessage): void {
@@ -655,9 +659,10 @@ export async function sendFiles(out: Outgoing, fileIds: string[]): Promise<boole
   }
 }
 
-export async function editMessage(channel: string, ts: string, text: string): Promise<boolean> {
+/** Change a message's text; `blocks` replaces its blocks too (an empty list removes them). */
+export async function editMessage(channel: string, ts: string, text: string, blocks?: Block[]): Promise<boolean> {
   try {
-    const result = await call('chat.update', { channel, ts, text });
+    const result = await call('chat.update', { channel, ts, text, ...(blocks ? { blocks } : {}) });
     patchMessage(channel, ts, () => result.message as Message);
     return true;
   } catch (error) {

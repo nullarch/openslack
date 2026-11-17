@@ -1,4 +1,4 @@
-import type { Conversation, FileObject, Message, Team, User } from '@app/shared';
+import type { Block, Conversation, FileObject, Message, Team, User } from '@app/shared';
 import { create } from 'zustand';
 import { parseRoute, type Route } from './router';
 
@@ -64,7 +64,7 @@ export type Modal =
   | { kind: 'addPeople'; channel: string }
   | { kind: 'forward'; channel: string; ts: string }
   | { kind: 'shareFile'; file: FileObject }
-  | { kind: 'schedule'; channel: string; threadTs?: string; text: string; broadcast?: boolean }
+  | { kind: 'schedule'; channel: string; threadTs?: string; text: string; blocks?: Block[]; draft?: string; broadcast?: boolean }
   | { kind: 'dndSchedule' }
   | { kind: 'snippet'; channel: string; threadTs?: string }
   | { kind: 'bookmark'; channel: string; bookmark?: Bookmark }

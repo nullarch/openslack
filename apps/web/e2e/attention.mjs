@@ -10,7 +10,7 @@ import { createServer } from 'node:http';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { attach, composer, errors, openChannel, PNG, row, run, send, shot, sideItem, signIn, sleep, startServer, step, watch, wide } from './lib.mjs';
+import { attach, composer, composerText, errors, openChannel, PNG, row, run, send, shot, sideItem, signIn, sleep, startServer, step, watch, wide } from './lib.mjs';
 
 /** Record the desktop notifications a tab would raise. */
 const fakeNotifications = () => {
@@ -255,7 +255,7 @@ async function main(browser) {
     await maya.locator('.conversation .send-more').click();
     await menu(maya, 'Tomorrow at 9:00 AM');
     await toast(maya, 'Message scheduled for tomorrow at 9:00 AM.');
-    assert.equal(await composer(maya).inputValue(), '');
+    assert.equal(await composerText(composer(maya)), '');
     await nav(maya, 'drafts').locator('.badge').waitFor();
     await nav(maya, 'drafts').click();
     await maya.locator('.tabs button', { hasText: 'Scheduled' }).click();
@@ -286,7 +286,7 @@ async function main(browser) {
     await draft.waitFor();
     await draft.click();
     await other.waitForSelector('.conv-name:text-is("support")');
-    assert.equal(await composer(other).inputValue(), 'half-written idea about onboarding');
+    assert.equal(await composerText(composer(other)), 'half-written idea about onboarding');
     await composer(maya).fill('');
     await other.waitForFunction(() => !document.querySelector('.side-nav[data-view="drafts"] .badge'), null, { timeout: 5000 });
     await other.context().close();

@@ -2,7 +2,7 @@ import type { Message, Reaction } from '@app/shared';
 import { AlarmClock, BellOff, BellRing, Bookmark, Copy, EyeOff, Flag, Forward, Link2, MessageSquareText, MoreHorizontal, Pencil, Pin, PinOff, Share2, SmilePlus, Trash2 } from 'lucide-react';
 import { canDeleteOwn, canEditMessage, remindAbout, setThreadFollow, toggleSaved } from '../lib/attention';
 import { RemindMenu } from './views/Later';
-import { lazy, memo, Suspense, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   attempt,
   deleteMessage,
@@ -19,15 +19,16 @@ import {
 } from '../lib/actions';
 import { call } from '../lib/api';
 import { useShallow } from 'zustand/react/shallow';
-import { composeGroups } from '../lib/accounts';
-import { decodeMessage, encodeMessage } from '../lib/compose';
+import { decodeMessage } from '../lib/compose';
+import { markupComposer, richLookup, useRichInput, type RichHandle } from '../lib/richInput';
+import { composeMarkup, composeRich, mrkdwnToDoc, onlyRichText, richTextToDoc, type DocNode } from '../lib/richtext';
 import { nativeEmoji } from '../lib/emoji';
 import { conversation, displayName, get, set, useStore, type LocalMessage } from '../lib/store';
 import { clock, fullDateTime, relative } from '../lib/time';
 import { S } from '../strings';
 import { HuddleCard } from './Huddle';
 import { AiMessageItems, AiTranslation } from './ai/AiControls';
-import { Attachments, Blocks } from './blocks';
+import { Attachments, Blocks, RichTextBody } from './blocks';
 import { confirmDialog, promptDialog } from './dialogs/confirm';
 import { Files } from './files';
 import { DocCards } from './docs';
@@ -80,19 +81,6 @@ export function systemText(message: Message): string {
 
 export function isSystem(message: Message): boolean {
   return message.subtype !== undefined && SYSTEM_SUBTYPES.has(message.subtype);
-}
-
-export function composeLookup() {
-  const state = get();
-  return {
-    users: Object.values(state.users)
-      .filter((user) => !user.deleted)
-      .map((user) => ({ id: user.id, names: [user.profile.display_name, user.real_name, user.name].filter(Boolean) })),
-    channels: [...Object.values(state.channels), ...Object.values(state.others)]
-      .filter((channel) => channel.is_channel && channel.name)
-      .map((channel) => ({ id: channel.id, name: channel.name! })),
-    groups: composeGroups(),
-  };
 }
 
 export function permalink(channel: string, message: Message): string {
@@ -182,6 +170,7 @@ function ThreadSummary({ channel, message }: { channel: string; message: Message
 // ── Inline editor ───────────────────────────────────────────────────────────
 
 function EditBox({ channel, message }: { channel: string; message: Message }) {
+  // The message in the typed form, for the markup composer.
   const [text, setText] = useState(() =>
     decodeMessage(message.text, {
       userName: (id) => {
@@ -193,13 +182,25 @@ function EditBox({ channel, message }: { channel: string; message: Message }) {
   );
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const editor = useRef<RichHandle>(null);
+  const wantsMarkup = useStore((state) => markupComposer(state.prefs));
+  const { Input: RichInput, failed } = useRichInput(!wantsMarkup);
+  const rich = !wantsMarkup && !failed;
+  // A person's own `rich_text` is rewritten with the edit; other blocks (an app's layout) are kept.
+  const replacesBlocks = !message.blocks?.length || onlyRichText(message.blocks);
+  const initialDoc = useMemo<DocNode>(
+    () => (onlyRichText(message.blocks) ? richTextToDoc(message.blocks, richLookup()) : mrkdwnToDoc(message.text, richLookup(), { lists: true })),
+    // The message as it was when editing started.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
     node.focus();
     node.setSelectionRange(node.value.length, node.value.length);
-  }, []);
+  }, [rich]);
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return;
@@ -209,20 +210,21 @@ function EditBox({ channel, message }: { channel: string; message: Message }) {
 
   const cancel = (): void => set({ editing: null });
   const save = async (): Promise<void> => {
-    const next = encodeMessage(text.trim(), composeLookup());
-    if (!next) {
+    const lookup = richLookup();
+    const out = rich && editor.current ? composeRich(editor.current.json(), lookup) : composeMarkup(text.trim(), lookup);
+    if (!out.text) {
       if (await confirmDialog(S.messages.confirmDelete, S.messages.deleteConfirm)) {
         await deleteMessage(channel, message.ts);
         cancel();
       }
       return;
     }
-    if (next === message.text) {
+    if (out.text === message.text && (!message.blocks?.length || !replacesBlocks || JSON.stringify(out.blocks) === JSON.stringify(message.blocks))) {
       cancel();
       return;
     }
     setSaving(true);
-    const ok = await editMessage(channel, message.ts, next);
+    const ok = await editMessage(channel, message.ts, out.text, replacesBlocks ? out.blocks : undefined);
     setSaving(false);
     if (ok) cancel();
   };
@@ -235,10 +237,28 @@ function EditBox({ channel, message }: { channel: string; message: Message }) {
       void save();
     }
   };
+  const onRichKey = (event: globalThis.KeyboardEvent): boolean => {
+    if (event.isComposing || event.keyCode === 229) return false;
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      cancel();
+      return true;
+    }
+    if (event.key !== 'Enter') return false;
+    if (event.shiftKey) editor.current?.newline();
+    else void save();
+    return true;
+  };
 
   return (
     <div className="edit-box">
-      <textarea ref={ref} value={text} rows={1} onChange={(event) => setText(event.target.value)} onKeyDown={onKey} aria-label={S.messages.actions.edit} />
+      {!rich ? (
+        <textarea ref={ref} className="edit-input" value={text} rows={1} onChange={(event) => setText(event.target.value)} onKeyDown={onKey} aria-label={S.messages.actions.edit} />
+      ) : RichInput ? (
+        <RichInput ref={editor} className="edit-input" label={S.messages.actions.edit} placeholder="" initial={initialDoc} autoFocus selfId={get().self?.id} onKeyDown={onRichKey} />
+      ) : (
+        <Spinner />
+      )}
       <div className="edit-actions">
         <span className="edit-hint">{S.messages.editHint}</span>
         <button type="button" className="btn btn-default btn-sm" onClick={cancel}>
@@ -426,7 +446,7 @@ function Body({ channel, message, id }: { channel: string; message: LocalMessage
   let content: ReactNode = null;
   if (message.subtype === 'tombstone') content = <span className="msg-deleted">{S.messages.deleted}</span>;
   else if (message.subtype === 'huddle_thread') content = <HuddleCard channel={channel} message={message} />;
-  else if (message.blocks?.length) content = <Blocks blocks={message.blocks} fallbackText={message.text} channel={channel} message={message} />;
+  else if (message.blocks?.length) content = onlyRichText(message.blocks) ? <RichTextBody blocks={message.blocks} /> : <Blocks blocks={message.blocks} fallbackText={message.text} channel={channel} message={message} />;
   else if (message.text) content = <Mrkdwn text={message.text} />;
   return (
     <div id={id} className={`msg-body ${message.streaming ? 'is-streaming' : ''} ${message.subtype === 'me_message' ? 'is-me-message' : ''}`}>

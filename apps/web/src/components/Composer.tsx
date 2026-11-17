@@ -1,8 +1,8 @@
 import { ClipButton } from './ClipRecorder';
 import type { User } from '@app/shared';
-import { AtSign, Bold, CalendarClock, ChevronDown, Clock, Code, FileCode2, Hash, Italic, Link2, Moon, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, Users, X, FileText } from 'lucide-react';
+import { AtSign, Bold, CalendarClock, ChevronDown, Clock, Code, FileCode2, Hash, Italic, Link2, List, ListOrdered, Moon, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, Users, X, FileText } from 'lucide-react';
 import { ShortcutsButton } from './AppViews';
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { errorText, loadCommands, openModal, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { canPostIn, draftEvents, draftKey as serverDraftKey, notifyAnyway, saveDraft, scheduleMessage, serverDraft, userInDnd } from '../lib/attention';
@@ -11,13 +11,15 @@ import { asset, call, uploadFile } from '../lib/api';
 import { accounts } from '../lib/accounts';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
 import { searchEmoji } from '../lib/emoji';
+import { composeLookup, markupComposer, richLookup, useRichInput, type FormatKind, type RichHandle } from '../lib/richInput';
+import { composeMarkup, composeRich, docToMarkup, EMPTY_DOC, markupToDoc, type DocNode, type Outgoing } from '../lib/richtext';
 import { sendTyping } from '../lib/realtime';
 import { displayName, get, set, threadKey, useStore } from '../lib/store';
 import { fileSize } from '../lib/time';
 import { S } from '../strings';
 import { AiWriteButton } from './ai/AiControls';
 import { promptDialog } from './dialogs/confirm';
-import { composeLookup, PickerPopover } from './Message';
+import { PickerPopover } from './Message';
 import { Avatar, IconButton, MenuItem, Popover } from './ui';
 
 interface Upload {
@@ -31,7 +33,10 @@ interface Upload {
 
 interface Suggestion {
   key: string;
+  /** What the markup composer types. */
   insert: string;
+  /** What the rich composer puts in instead: a chip, an emoji, or text. */
+  node: DocNode;
   icon: ReactNode;
   label: string;
   sub?: string;
@@ -65,6 +70,8 @@ function matchesUser(user: User, query: string): number {
   return 0;
 }
 
+const mention = (kind: string, id: string, label: string): DocNode => ({ type: 'mention', attrs: { kind, id, label } });
+
 function suggest(trigger: Trigger, channel: string): { heading: string; items: Suggestion[] } {
   const state = get();
   const query = trigger.query;
@@ -78,6 +85,7 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
       .map(({ user }) => ({
         key: user.id,
         insert: `@${displayName(user)} `,
+        node: mention('user', user.id, displayName(user)),
         icon: <Avatar user={user} size={22} presence />,
         label: displayName(user),
         sub: user.is_bot ? S.sidebar.app : user.real_name !== displayName(user) ? user.real_name : user.profile.title,
@@ -90,12 +98,12 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
             { name: 'channel', sub: S.composer.notifyEveryone },
           ]
             .filter((entry) => query !== '' && entry.name.startsWith(query))
-            .map((entry) => ({ key: entry.name, insert: `@${entry.name} `, icon: <AtSign size={18} />, label: `@${entry.name}`, sub: entry.sub }))
+            .map((entry) => ({ key: entry.name, insert: `@${entry.name} `, node: mention('broadcast', entry.name, entry.name), icon: <AtSign size={18} />, label: `@${entry.name}`, sub: entry.sub }))
         : [];
     const groups = Object.values(accounts().usergroups)
       .filter((group) => group.handle.startsWith(query) || group.name.toLowerCase().includes(query))
       .slice(0, 5)
-      .map((group) => ({ key: group.id, insert: `@${group.handle} `, icon: <Users size={18} />, label: `@${group.handle}`, sub: group.name }));
+      .map((group) => ({ key: group.id, insert: `@${group.handle} `, node: mention('usergroup', group.id, group.handle), icon: <Users size={18} />, label: `@${group.handle}`, sub: group.name }));
     return { heading: S.composer.people, items: [...people, ...groups, ...broadcasts] };
   }
   if (trigger.kind === 'channel') {
@@ -103,13 +111,14 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
       .filter((conv) => conv.is_channel && conv.name && conv.name.includes(query))
       .sort((a, b) => Number(b.name!.startsWith(query)) - Number(a.name!.startsWith(query)) || a.name!.localeCompare(b.name!))
       .slice(0, 8)
-      .map((conv) => ({ key: conv.id, insert: `#${conv.name} `, icon: <Hash size={18} />, label: conv.name!, sub: conv.purpose?.value }));
+      .map((conv) => ({ key: conv.id, insert: `#${conv.name} `, node: mention('channel', conv.id, conv.name!), icon: <Hash size={18} />, label: conv.name!, sub: conv.purpose?.value }));
     return { heading: S.composer.channelsHeading, items };
   }
   if (trigger.kind === 'emoji') {
     const items = searchEmoji(query, state.emoji).map((match) => ({
       key: match.name,
       insert: `:${match.name}: `,
+      node: { type: 'emoji', attrs: { name: match.name } },
       icon: match.url ? <img className="emoji emoji-custom" src={asset(match.url)} alt="" /> : <span className="emoji">{match.native}</span>,
       label: `:${match.name}:`,
     }));
@@ -119,6 +128,7 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
   const builtIns = BUILT_INS.filter((command) => command.command.slice(1).startsWith(query)).map((command) => ({
     key: command.command,
     insert: `${command.command} `,
+    node: { type: 'text', text: command.command },
     icon: <SquareSlash size={18} />,
     label: `${command.command}${command.usage ? ` ${command.usage}` : ''}`,
     sub: command.description,
@@ -128,6 +138,7 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
     .map((command) => ({
       key: command.command,
       insert: `${command.command} `,
+      node: { type: 'text', text: command.command },
       icon: <SquareSlash size={18} />,
       label: `${command.command}${command.usage_hint ? ` ${command.usage_hint}` : ''}`,
       sub: command.description || command.app_name,
@@ -135,9 +146,24 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
   return { heading: S.composer.commandsHeading, items: [...items, ...builtIns].slice(0, 10) };
 }
 
+/** Where an autocomplete trigger is in the rich editor: the text before the caret in its line. */
+function richTrigger(handle: RichHandle | null): (Trigger & { from: number; to: number }) | null {
+  const context = handle?.context();
+  if (!context) return null;
+  const found = findTrigger(context.text, context.text.length);
+  // A slash command is the whole message, so only its first line can start one.
+  if (!found || (found.kind === 'command' && !context.first)) return null;
+  return { ...found, from: context.start + found.start, to: context.start + context.text.length };
+}
+
+const NO_FORMAT: Record<FormatKind, boolean> = { bold: false, italic: false, strike: false, code: false, block: false, quote: false, bullet: false, ordered: false, link: false };
+
 export function Composer({ channel, threadTs, placeholder, autoFocus = false, broadcastLabel }: ComposerProps) {
   const storageKey = draftKey(channel, threadTs);
+  // `text` is always the typed (markup) form: what drafts keep and what commands read.
   const [text, setTextState] = useState(() => localStorage.getItem(storageKey) ?? serverDraft(channel, threadTs) ?? '');
+  const textRef = useRef(text);
+  textRef.current = text;
   const [uploads, setUploads] = useState<Upload[]>([]);
   const clipTranscripts = useRef(new Map<File, { vtt: string; locale: string }>());
   const [broadcast, setBroadcast] = useState(false);
@@ -145,14 +171,25 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   const [index, setIndex] = useState(0);
   const [picking, setPicking] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [formats, setFormats] = useState(NO_FORMAT);
   const scheduleButton = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const editor = useRef<RichHandle>(null);
   const root = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const emojiButton = useRef<HTMLButtonElement>(null);
   const pendingSelection = useRef<[number, number] | null>(null);
+  const dismissed = useRef(false);
   const uploadsRef = useRef(uploads);
   uploadsRef.current = uploads;
+
+  // The rich editor unless this person chose markup, or its chunk could not load.
+  const wantsMarkup = useStore((state) => markupComposer(state.prefs));
+  const { Input: RichInput, failed } = useRichInput(!wantsMarkup);
+  const rich = !wantsMarkup && !failed;
+  const selfId = useStore((state) => state.self?.id ?? '');
+  // What the rich editor starts with: the draft, when it first appears (and again after a switch of composer).
+  const initialDoc = useMemo<DocNode>(() => (rich ? markupToDoc(textRef.current, richLookup()) : EMPTY_DOC), [rich]);
 
   const maxBytes = useStore((state) => state.maxUploadBytes);
   const typingKey = threadTs ? threadKey(channel, threadTs) : channel;
@@ -169,12 +206,25 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   const suggestId = useId();
   const open = suggestions !== null && suggestions.items.length > 0;
 
-  const setText = (value: string): void => {
+  /** Keep what is typed: in this tab, in this browser, and as the draft other devices see. */
+  const saveText = (value: string): void => {
     setTextState(value);
+    textRef.current = value;
     if (value) localStorage.setItem(storageKey, value);
     else localStorage.removeItem(storageKey);
     // Slash commands are not drafts worth carrying to other devices.
     if (!value.startsWith('/')) saveDraft(channel, threadTs, value);
+  };
+
+  /** Replace what is in the composer (cleared after sending, restored, rewritten, arrived from elsewhere). */
+  const replaceText = (value: string): void => {
+    saveText(value);
+    if (rich) editor.current?.setContent(value ? markupToDoc(value, richLookup()) : EMPTY_DOC);
+  };
+
+  const focusInput = (): void => {
+    if (rich) editor.current?.focus();
+    else input.current?.focus();
   };
 
   // A draft written on another device appears here unless something is already being typed.
@@ -182,15 +232,17 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     const onDraft = (event: Event): void => {
       const detail = (event as CustomEvent<{ key: string; text: string }>).detail;
       if (detail.key !== serverDraftKey(channel, threadTs)) return;
-      const node = input.current;
-      if (node && document.activeElement === node && node.value.trim() !== '') return;
+      const node = rich ? editor.current?.element() : input.current;
+      if (node && document.activeElement === node && textRef.current.trim() !== '') return;
       setTextState(detail.text);
+      textRef.current = detail.text;
+      if (rich) editor.current?.setContent(detail.text ? markupToDoc(detail.text, richLookup()) : EMPTY_DOC);
       if (detail.text) localStorage.setItem(storageKey, detail.text);
       else localStorage.removeItem(storageKey);
     };
     draftEvents.addEventListener('draft', onDraft);
     return () => draftEvents.removeEventListener('draft', onDraft);
-  }, [channel, threadTs, storageKey]);
+  }, [channel, threadTs, storageKey, rich]);
 
   const conv = useStore((state) => state.channels[channel]);
   const permissions = useStore(useShallow((state) => {
@@ -205,8 +257,8 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   });
 
   useEffect(() => {
-    if (autoFocus) input.current?.focus();
-  }, [autoFocus, channel]);
+    if (autoFocus && !rich) input.current?.focus();
+  }, [autoFocus, channel, rich]);
 
   useLayoutEffect(() => {
     const node = input.current;
@@ -219,6 +271,16 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
       pendingSelection.current = null;
     }
   }, [text]);
+
+  // The rich editor is the textbox that owns the suggestion list.
+  useEffect(() => {
+    const node = rich ? editor.current?.element() : null;
+    if (!node) return;
+    if (open) node.setAttribute('aria-controls', suggestId);
+    else node.removeAttribute('aria-controls');
+    if (open && suggestions?.items[index]) node.setAttribute('aria-activedescendant', `${suggestId}-${index}`);
+    else node.removeAttribute('aria-activedescendant');
+  });
 
   useEffect(
     () => () => {
@@ -256,7 +318,7 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           toast(`${S.composer.uploadFailed(file.name)} ${errorText(error)}`, 'error');
         });
     }
-    input.current?.focus();
+    focusInput();
   };
 
   const removeUpload = (key: string): void => {
@@ -323,13 +385,45 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     setIndex(0);
   };
 
+  const refreshRich = (): void => {
+    setTrigger(dismissed.current ? null : richTrigger(editor.current));
+    setIndex(0);
+    setFormats(editor.current?.active() ?? NO_FORMAT);
+  };
+
+  const onRichChange = (): void => {
+    const handle = editor.current;
+    if (!handle) return;
+    // Escape closes the list until something more is typed, as in the markup composer.
+    dismissed.current = false;
+    saveText(docToMarkup(handle.json(), richLookup(false)));
+    refreshRich();
+    if (!handle.isEmpty()) sendTyping(channel, threadTs);
+  };
+
   const applyEdit = (edit: Edit): void => {
     pendingSelection.current = [edit.selectionStart, edit.selectionEnd];
-    setText(edit.text);
+    saveText(edit.text);
     setTrigger(null);
   };
 
-  const format = (kind: 'bold' | 'italic' | 'strike' | 'code' | 'block' | 'quote' | 'link'): void => {
+  const askLink = (): void => {
+    const handle = editor.current;
+    const linked = handle?.active().link ?? false;
+    void promptDialog({ title: S.composer.link, label: S.composer.linkPrompt, placeholder: 'https://', confirmLabel: S.done }).then((url) => {
+      if (url === null || url === undefined) return;
+      if (!url.trim() && !linked) return;
+      const address = !url.trim() ? '' : /^[a-z][a-z0-9+.-]*:/i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
+      handle?.setLink(address);
+    });
+  };
+
+  const format = (kind: FormatKind): void => {
+    if (rich) {
+      if (kind === 'link') askLink();
+      else editor.current?.format(kind);
+      return;
+    }
     const node = input.current;
     if (!node) return;
     const { selectionStart: start, selectionEnd: end } = node;
@@ -339,7 +433,7 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     else if (kind === 'code') applyEdit(wrapSelection(text, start, end, '`'));
     else if (kind === 'block') applyEdit(wrapSelection(text, start, end, '```\n', '\n```'));
     else if (kind === 'quote') applyEdit(prefixLines(text, start, end, '> '));
-    else {
+    else if (kind === 'link') {
       void promptDialog({ title: S.composer.link, label: S.composer.linkPrompt, placeholder: 'https://', confirmLabel: S.done }).then((url) => {
         if (!url?.trim()) return;
         const address = /^[a-z][a-z0-9+.-]*:/i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
@@ -352,16 +446,26 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   };
 
   const insertAtCaret = (value: string): void => {
+    if (rich) {
+      editor.current?.insertText(value);
+      return;
+    }
     const node = input.current;
     const start = node?.selectionStart ?? text.length;
     const end = node?.selectionEnd ?? text.length;
     const next = text.slice(0, start) + value + text.slice(end);
     pendingSelection.current = [start + value.length, start + value.length];
-    setText(next);
-    return;
+    saveText(next);
   };
 
   const choose = (item: Suggestion): void => {
+    if (rich) {
+      const at = richTrigger(editor.current);
+      if (!at) return;
+      editor.current?.insertNodes([item.node], { from: at.from, to: at.to });
+      setTrigger(null);
+      return;
+    }
     if (!trigger) return;
     const caret = input.current?.selectionStart ?? text.length;
     const next = text.slice(0, trigger.start) + item.insert + text.slice(caret);
@@ -375,25 +479,33 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
   const ready = uploads.filter((upload) => upload.fileId);
   const canSend = !uploading && (text.trim().length > 0 || ready.length > 0);
 
+  /** The message as sent: mrkdwn and its `rich_text` block, from either composer. */
+  const outgoing = (body: string): Outgoing => {
+    const lookup = richLookup();
+    const handle = editor.current;
+    return rich && handle ? composeRich(handle.json(), lookup) : composeMarkup(body, lookup);
+  };
+
   const submit = async (): Promise<void> => {
     if (!canSend) return;
     const body = text.trim();
-    const encoded = encodeMessage(body, composeLookup());
+    const out = outgoing(body);
     const fileIds = ready.map((upload) => upload.fileId!);
     for (const upload of uploads) if (upload.preview) URL.revokeObjectURL(upload.preview);
-    setText('');
+    replaceText('');
     setUploads([]);
     setTrigger(null);
     if (fileIds.length > 0) {
-      await sendFiles({ channel, text: encoded, threadTs }, fileIds);
+      await sendFiles({ channel, text: out.text, threadTs }, fileIds);
       return;
     }
     const command = /^(\/[a-z0-9_-]+)(?:\s+([\s\S]*))?$/i.exec(body);
     const builtIn = command ? findBuiltIn(command[1]!) : undefined;
     if (builtIn) {
+      const encoded = encodeMessage(body, composeLookup());
       const args = /^\/[a-z0-9_-]+\s*([\s\S]*)$/i.exec(encoded)?.[1] ?? '';
       const ok = await builtIn.run({ channel, threadTs, args });
-      if (!ok) setText(body);
+      if (!ok) replaceText(body);
       return;
     }
     if (command) {
@@ -403,11 +515,11 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
       if (!known()) await loadCommands();
       if (known()) {
         const ok = await runCommand(channel, name, command[2] ?? '', threadTs);
-        if (!ok) setText(body);
+        if (!ok) replaceText(body);
         return;
       }
     }
-    void sendMessage({ channel, text: encoded, threadTs, broadcast: broadcast && Boolean(threadTs) });
+    void sendMessage({ channel, text: out.text, blocks: out.blocks, threadTs, broadcast: broadcast && Boolean(threadTs) });
     setBroadcast(false);
   };
 
@@ -416,15 +528,15 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     setScheduling(false);
     const body = text.trim();
     if (!body || uploads.length > 0) return;
-    const encoded = encodeMessage(body, composeLookup());
+    const out = outgoing(body);
     if (postAt === 'custom') {
-      openModal({ kind: 'schedule', channel, threadTs, text: encoded, broadcast: broadcast && Boolean(threadTs) });
-      setText('');
+      openModal({ kind: 'schedule', channel, threadTs, text: out.text, blocks: out.blocks, draft: body, broadcast: broadcast && Boolean(threadTs) });
+      replaceText('');
       return;
     }
-    setText('');
-    const ok = await scheduleMessage(channel, encoded, postAt, threadTs, broadcast && Boolean(threadTs));
-    if (!ok) setText(body);
+    replaceText('');
+    const ok = await scheduleMessage(channel, out.text, postAt, threadTs, broadcast && Boolean(threadTs), out.blocks);
+    if (!ok) replaceText(body);
   };
 
   const notifyLatest = (): void => {
@@ -444,51 +556,81 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     return true;
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.nativeEvent.isComposing) return;
-    if (open && suggestions) {
+  /** Keys both composers share; true when handled. */
+  const sharedKey = (event: { key: string; shiftKey: boolean; metaKey: boolean; ctrlKey: boolean; altKey: boolean; stopPropagation: () => void }, list: { items: Suggestion[] } | null): boolean => {
+    if (list && list.items.length > 0) {
+      const count = list.items.length;
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        const count = suggestions.items.length;
         setIndex((current) => (current + (event.key === 'ArrowDown' ? 1 : count - 1)) % count);
-        return;
+        return true;
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
-        event.preventDefault();
-        choose(suggestions.items[index] ?? suggestions.items[0]!);
-        return;
+        choose(list.items[Math.min(index, count - 1)] ?? list.items[0]!);
+        return true;
       }
       if (event.key === 'Escape') {
-        event.preventDefault();
         event.stopPropagation();
+        dismissed.current = true;
         setTrigger(null);
-        return;
+        return true;
       }
     }
+    // Enter sends, as before; Shift+Enter is a new line.
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
       void submit();
+      return true;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'u') {
+      format('link');
+      return true;
+    }
+    return false;
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.nativeEvent.isComposing) return;
+    if (sharedKey(event, open ? suggestions : null)) {
+      event.preventDefault();
       return;
     }
     if (event.key === 'ArrowUp' && text === '' && editLast()) {
       event.preventDefault();
       return;
     }
-    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey) {
+    if ((event.metaKey || event.ctrlKey) && !event.altKey) {
       const key = event.key.toLowerCase();
-      if (key === 'b') {
+      const kind: FormatKind | null = !event.shiftKey ? (key === 'b' ? 'bold' : key === 'i' ? 'italic' : null) : key === 'x' ? 'strike' : key === 'c' ? 'code' : null;
+      if (kind) {
         event.preventDefault();
-        format('bold');
-      } else if (key === 'i') {
-        event.preventDefault();
-        format('italic');
+        format(kind);
       }
     }
+  };
+
+  const onRichKey = (event: globalThis.KeyboardEvent): boolean => {
+    if (event.isComposing || event.keyCode === 229) return false;
+    // Read the trigger from the editor now: the list on screen may be a keystroke behind.
+    const at = dismissed.current ? null : richTrigger(editor.current);
+    if (sharedKey(event, at ? suggest(at, channel) : null)) return true;
+    if (event.key === 'Enter') {
+      editor.current?.newline();
+      return true;
+    }
+    if (event.key === 'ArrowUp' && editor.current?.isEmpty() && editLast()) return true;
+    return false;
   };
 
   if (threadTs ? !permissions.thread : !permissions.top) {
     return <div className="notice-bar">{S.att.posting.readOnly}</div>;
   }
+
+  // Toolbar buttons leave the caret and selection where they are.
+  const keepFocus = (event: MouseEvent): void => event.preventDefault();
+  const tool = (kind: FormatKind, label: string, icon: ReactNode): ReactNode => (
+    <IconButton label={label} onMouseDown={keepFocus} onClick={() => format(kind)} {...(rich ? { active: formats[kind], 'aria-pressed': formats[kind] } : {})}>
+      {icon}
+    </IconButton>
+  );
 
   return (
     <div className="composer-wrap" ref={root}>
@@ -530,58 +672,69 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
         </div>
       ) : null}
       <div className="composer">
-        <div className="composer-tools" role="toolbar">
-          <IconButton label={S.composer.bold} onClick={() => format('bold')}>
-            <Bold size={16} />
-          </IconButton>
-          <IconButton label={S.composer.italic} onClick={() => format('italic')}>
-            <Italic size={16} />
-          </IconButton>
-          <IconButton label={S.composer.strike} onClick={() => format('strike')}>
-            <Strikethrough size={16} />
-          </IconButton>
+        <div className="composer-tools" role="toolbar" aria-label={S.composer.formatting}>
+          {tool('bold', S.composer.bold, <Bold size={16} />)}
+          {tool('italic', S.composer.italic, <Italic size={16} />)}
+          {tool('strike', S.composer.strike, <Strikethrough size={16} />)}
           <span className="tool-sep" />
-          <IconButton label={S.composer.link} onClick={() => format('link')}>
-            <Link2 size={16} />
-          </IconButton>
-          <IconButton label={S.composer.quote} onClick={() => format('quote')}>
-            <Quote size={16} />
-          </IconButton>
+          {tool('link', S.composer.link, <Link2 size={16} />)}
+          {rich ? tool('ordered', S.composer.orderedList, <ListOrdered size={16} />) : null}
+          {rich ? tool('bullet', S.composer.bulletList, <List size={16} />) : null}
+          {tool('quote', S.composer.quote, <Quote size={16} />)}
           <span className="tool-sep" />
-          <IconButton label={S.composer.code} onClick={() => format('code')}>
-            <Code size={16} />
-          </IconButton>
-          <IconButton label={S.composer.codeBlock} onClick={() => format('block')}>
-            <SquareCode size={16} />
-          </IconButton>
+          {tool('code', S.composer.code, <Code size={16} />)}
+          {tool('block', S.composer.codeBlock, <SquareCode size={16} />)}
           <AiWriteButton
             text={text}
             onReplace={(value) => {
-              setText(value);
-              input.current?.focus();
+              replaceText(value);
+              focusInput();
             }}
           />
         </div>
-        <textarea
-          ref={input}
-          className="composer-input"
-          rows={1}
-          value={text}
-          placeholder={placeholder}
-          aria-label={placeholder}
-          aria-autocomplete="list"
-          aria-controls={open ? suggestId : undefined}
-          aria-activedescendant={open && suggestions?.items[index] ? `${suggestId}-${index}` : undefined}
-          onChange={(event) => {
-            setText(event.target.value);
-            refreshTrigger(event.target.value, event.target.selectionStart);
-            if (event.target.value) sendTyping(channel, threadTs);
-          }}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-          onClick={(event) => refreshTrigger(event.currentTarget.value, event.currentTarget.selectionStart)}
-          onBlur={() => window.setTimeout(() => setTrigger(null), 120)}
-        />
+        {!rich ? (
+          <textarea
+            ref={input}
+            className="composer-input"
+            rows={1}
+            value={text}
+            placeholder={placeholder}
+            aria-label={placeholder}
+            aria-autocomplete="list"
+            aria-controls={open ? suggestId : undefined}
+            aria-activedescendant={open && suggestions?.items[index] ? `${suggestId}-${index}` : undefined}
+            onChange={(event) => {
+              saveText(event.target.value);
+              refreshTrigger(event.target.value, event.target.selectionStart);
+              if (event.target.value) sendTyping(channel, threadTs);
+            }}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+            onClick={(event) => refreshTrigger(event.currentTarget.value, event.currentTarget.selectionStart)}
+            onBlur={() => window.setTimeout(() => setTrigger(null), 120)}
+          />
+        ) : RichInput ? (
+          <RichInput
+            ref={editor}
+            className="composer-input"
+            label={placeholder}
+            placeholder={placeholder}
+            initial={initialDoc}
+            autoFocus={autoFocus}
+            autocomplete
+            selfId={selfId}
+            onChange={onRichChange}
+            onSelect={refreshRich}
+            onKeyDown={onRichKey}
+            onFiles={addFiles}
+            onBlur={() => window.setTimeout(() => setTrigger(null), 120)}
+          />
+        ) : (
+          // The editor's chunk is still on its way (it starts loading with the app).
+          <div className="composer-input-waiting" aria-hidden="true">
+            {text || placeholder}
+          </div>
+        )}
         {uploads.length > 0 ? (
           <div className="composer-uploads">
             {uploads.map((upload) => (
@@ -624,7 +777,13 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           </IconButton>
           <IconButton
             label={S.composer.mention}
+            onMouseDown={keepFocus}
             onClick={() => {
+              if (rich) {
+                const before = editor.current?.context()?.text ?? '';
+                editor.current?.insertText(before && !/\s$/.test(before) ? ' @' : '@');
+                return;
+              }
               const node = input.current;
               const caret = node?.selectionStart ?? text.length;
               const lead = caret > 0 && !/\s/.test(text[caret - 1] ?? ' ') ? ' @' : '@';
@@ -682,7 +841,10 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           anchor={emojiButton.current}
           side="top"
           onClose={() => setPicking(false)}
-          onPick={(name) => insertAtCaret(`:${name}: `)}
+          onPick={(name) => {
+            if (rich) editor.current?.insertNodes([{ type: 'emoji', attrs: { name } }]);
+            else insertAtCaret(`:${name}: `);
+          }}
         />
       ) : null}
     </div>

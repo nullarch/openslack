@@ -10,7 +10,7 @@ Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (
 
 | Area | What works |
 |---|---|
-| Messaging | Channels (public, private, archived, converted either way, created from templates, with their own email address), DMs and group DMs (a group DM can become a private channel), threads, reactions, pins, edits, scheduled send, reminders, drafts, bookmarks, saved items, sidebar sections, link previews, Block Kit and Markdown, `@here`/`@channel` and user-group mentions, posting permissions |
+| Messaging | Channels (public, private, archived, converted either way, created from templates, with their own email address), DMs and group DMs (a group DM can become a private channel), threads, reactions, pins, edits, scheduled send, reminders, drafts, bookmarks, saved items, sidebar sections, link previews, Block Kit and Markdown, a composer that edits what you see (lists, quotes, code, links, mention chips; sent as mrkdwn plus a `rich_text` block, as Slack's client does) or markup by preference, `@here`/`@channel` and user-group mentions, posting permissions |
 | Attention | Activity, Threads, All unreads, Later views; mention counts; DND and notification schedules; desktop notifications; email digests of missed mentions and DMs; Web Push from the PWA (server side verified, browser delivery not) |
 | Files | Uploads with thumbnails the browser makes, audio/video/PDF in place, clips (audio, video, screen) recorded in the composer with captions, public links, S3-compatible storage, encryption at rest with keys you hold, ClamAV scanning, sensitive-information checks, search inside files (text, code, Word, Excel, PowerPoint, PDF), Office documents previewed as text, documents apps keep elsewhere (`files.remote.*`) shown as cards |
 | Search | Messages and files with Slack's modifiers, FTS5 trigram (Korean, Japanese, Chinese included), optionally Meilisearch for relevance and typo tolerance, search tabs, AI answers when a model is connected |
@@ -33,9 +33,9 @@ Run these to reproduce.
 | Check | Command | Result on 2026-11-17 |
 |---|---|---|
 | Types, brand rule | `pnpm typecheck`, `pnpm check:brand` | clean |
-| Unit and integration tests | `pnpm test` | server 352, compat 64, shared 19, web 14, all passing |
+| Unit and integration tests | `pnpm test` | server 356, compat 64, shared 22, web 25, all passing |
 | Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases, lists, remote files and the smaller methods (reactions.list, stars, team preferences, event authorizations, apps.uninstall), `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
-| Browser tests | `pnpm --filter @app/web e2e` | fifteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, accessibility (axe on 108 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
+| Browser tests | `pnpm --filter @app/web e2e` | sixteen files in system Chrome: smoke, the composer (formatting as you type, shortcuts, chips, paste, links, editing, drafts, the markup preference, phone width), files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, accessibility (axe on 108 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
 | Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
@@ -79,6 +79,7 @@ Run these to reproduce.
 - pnpm lockfile conflicts on every branch merge: take either side and run `pnpm install`.
 - The timestamp clock once went backwards; `Clock.now()` is the only source and strictly increases.
 - Driving every screen in a real browser keeps finding bugs that API tests miss. Treat a path no test drives as broken.
+- TipTap's `autofocus` focuses on a timer after mount, and the browser runs queued keys first: a fast burst of typing then select-all had its selection collapsed by that timer. The composer focuses in a layout effect instead. ProseMirror learns of a selection made outside it from `selectionchange`, which can arrive after the next key (Playwright's `fill('')` selects through the DOM, then presses Delete); `RichInput` reads the browser's selection before handling a key. ProseMirror also swallows Escape (its default is prevented), so a thread panel would not close from the composer; `RichInput` lets Escape through unless it closes the suggestions or an edit.
 
 ## Next
 

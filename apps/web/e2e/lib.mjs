@@ -222,6 +222,11 @@ export function composer(page) {
   return page.locator('.conversation .composer-input');
 }
 
+/** What a composer (or the in-place editor) holds: the markup textarea's value, or the rich editor's lines. */
+export function composerText(locator) {
+  return locator.evaluate((node) => (node instanceof HTMLTextAreaElement ? node.value : [...node.children].map((line) => line.textContent).join('\n')));
+}
+
 export async function send(page, text) {
   await composer(page).fill(text);
   await composer(page).press('Enter');

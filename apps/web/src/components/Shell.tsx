@@ -86,7 +86,7 @@ function ModalHost() {
     case 'shareFile':
       return <ShareFileDialog file={modal.file} />;
     case 'schedule':
-      return <ScheduleDialog channel={modal.channel} threadTs={modal.threadTs} text={modal.text} broadcast={modal.broadcast} />;
+      return <ScheduleDialog channel={modal.channel} threadTs={modal.threadTs} text={modal.text} blocks={modal.blocks} draft={modal.draft} broadcast={modal.broadcast} />;
     case 'dndSchedule':
       return <DndScheduleDialog />;
     case 'snippet':

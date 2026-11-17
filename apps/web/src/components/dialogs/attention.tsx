@@ -1,4 +1,4 @@
-import type { FileObject } from '@app/shared';
+import type { Block, FileObject } from '@app/shared';
 import { Hash, Lock, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { closeModal, errorText, toast } from '../../lib/actions';
@@ -176,7 +176,7 @@ function localInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function ScheduleDialog({ channel, threadTs, text, broadcast }: { channel: string; threadTs?: string; text: string; broadcast?: boolean }) {
+export function ScheduleDialog({ channel, threadTs, text, blocks, draft, broadcast }: { channel: string; threadTs?: string; text: string; blocks?: Block[]; draft?: string; broadcast?: boolean }) {
   const [value, setValue] = useState(() => {
     const date = new Date(Date.now() + 3600_000);
     date.setMinutes(0, 0, 0);
@@ -187,11 +187,12 @@ export function ScheduleDialog({ channel, threadTs, text, broadcast }: { channel
   const past = !Number.isFinite(postAt) || postAt * 1000 <= Date.now();
   const restore = (): void => {
     const key = `draft:${channel}${threadTs ? `:${threadTs}` : ''}`;
-    if (!localStorage.getItem(key)) localStorage.setItem(key, text);
+    // Back as the draft it was, in the typed form the composer reads.
+    if (!localStorage.getItem(key)) localStorage.setItem(key, draft ?? text);
   };
   const confirm = async (): Promise<void> => {
     setBusy(true);
-    const ok = await scheduleMessage(channel, text, postAt, threadTs, broadcast);
+    const ok = await scheduleMessage(channel, text, postAt, threadTs, broadcast, blocks);
     setBusy(false);
     if (ok) closeModal();
   };

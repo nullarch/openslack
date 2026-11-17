@@ -7,7 +7,7 @@
 //   pnpm --filter @app/web build && node e2e/ai.mjs
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { composer, openChannel, row, run, send, shot, signIn, sideItem, startServer, step, watch, wide } from './lib.mjs';
+import { composer, composerText, openChannel, row, run, send, shot, signIn, sideItem, startServer, step, watch, wide } from './lib.mjs';
 
 /** The stand-in: answers by what the request is for, streaming like the real API. */
 async function fakeClaude() {
@@ -166,11 +166,11 @@ async function main(browser) {
       const before = await maya.locator('.message-scroll .msg').count();
       await maya.locator('.conversation .composer-tools .ai-btn').click();
       await maya.locator('.menu-item', { hasText: 'Make more formal' }).click();
-      await maya.waitForFunction(() => document.querySelector('.conversation .composer-input')?.value === 'Could you please review the release notes by Friday?');
+      await maya.waitForFunction(() => document.querySelector('.conversation .composer-input')?.textContent === 'Could you please review the release notes by Friday?');
       assert.equal(await maya.locator('.message-scroll .msg').count(), before);
       await maya.locator('.conversation .composer-tools .ai-btn').click();
       await maya.locator('.menu-item', { hasText: 'Undo AI edit' }).click();
-      assert.equal(await composer(maya).inputValue(), draft);
+      assert.equal(await composerText(composer(maya)), draft);
       await composer(maya).fill('');
     });
 
