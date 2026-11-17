@@ -61,6 +61,8 @@ function serverTestSource(): string {
 
 /** Where a supported method knowingly differs from Slack. */
 const NOTES: Record<string, string> = {
+  'files.upload': 'The one-request upload Slack has retired; kept so existing scripts (`curl -F file=@…`) keep working. Multipart or `content`.',
+  'rtm.start': 'Returns the URL plus people and the caller\'s conversations in a reduced form.',
   'admin.emoji.add': 'Takes `file_id` of an uploaded image instead of `url`. Browser session only.',
   'admin.emoji.addAlias': 'Browser session only.',
   'admin.emoji.remove': 'Browser session only.',
@@ -156,7 +158,8 @@ async function main(): Promise<void> {
     '| `response_url` (five uses within thirty minutes) | Supported | SDK, server tests |',
     '| Incoming webhooks (`/services/<team>/<bot>/<secret>`) | Supported | Server tests |',
     '| OAuth installation flow (`oauth.v2.access`) | Not supported | Apps are created by a workspace admin, who receives the tokens directly |',
-    '| RTM | Not supported | |',
+    `| RTM (\`rtm.connect\`, \`rtm.start\`; \`message\`, \`typing\`, \`ping\`, \`presence_sub\` over the socket) | Supported, for older bots | ${runKeys.filter((key) => key.startsWith('rtm')).map((key) => `\`${key}\``).join(', ')}, server tests |`,
+    '| Outgoing webhooks | Not supported | Use the Events API |',
     '',
     '## Events',
     '',
