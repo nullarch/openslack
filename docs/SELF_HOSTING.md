@@ -24,6 +24,21 @@ Open the address it prints and create your workspace. The first person to do so 
 
 Set `PUBLIC_URL` whenever the server is reached at anything other than `localhost`: links, file URLs handed to bots and invite links are built from it. When it starts with `https://`, the session cookie is marked `Secure`.
 
+## Files in a bucket
+
+Uploaded files go to `DATA_DIR/files` unless an S3-compatible bucket is configured; then they go to the bucket and the data directory holds only the database.
+
+| Variable | Meaning |
+|---|---|
+| `S3_BUCKET` | Bucket name. Setting it switches storage to the bucket |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` also work) |
+| `S3_REGION` | Default `us-east-1` |
+| `S3_ENDPOINT` | Service address for anything other than AWS, e.g. `https://<account>.r2.cloudflarestorage.com` or `http://minio:9000` |
+| `S3_PATH_STYLE` | `1` to address the bucket as `endpoint/bucket`; on by default when `S3_ENDPOINT` is set |
+| `S3_PREFIX` | Prefix for every object key, e.g. `chat/` |
+
+Requests are signed with AWS Signature Version 4; the signing is tested against botocore's output. It has not yet been run against a real AWS, R2 or MinIO bucket. Moving existing files from the directory to a bucket is not automated: copy `files/<xx>/<key>` to `<prefix><key>` in the bucket.
+
 ## Behind a reverse proxy
 
 Terminate HTTPS at the proxy and forward everything, including WebSocket upgrades, to the server.
@@ -55,7 +70,7 @@ Keep the `Host` header intact: the server compares it with the browser's `Origin
 
 ## Backup and restore
 
-The data directory is the whole backup: `app.db` (SQLite, with `app.db-wal` and `app.db-shm` beside it while the server runs) and `files/`.
+The data directory is the whole backup: `app.db` (SQLite, with `app.db-wal` and `app.db-shm` beside it while the server runs) and `files/`. With a bucket configured, back up the bucket as well.
 
 - Simplest: stop the server, copy the directory, start the server.
 - Without stopping: `sqlite3 "$DATA_DIR/app.db" ".backup '/backups/app.db'"`, then copy `files/`.

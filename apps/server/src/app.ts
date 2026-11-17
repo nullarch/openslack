@@ -14,7 +14,7 @@ import { Registry } from './api/registry.ts';
 import { Bus } from './core/bus.ts';
 import { Clock } from './core/clock.ts';
 import { fail } from './core/errors.ts';
-import { Storage } from './core/storage.ts';
+import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installMcp } from './mcp/index.ts';
@@ -50,7 +50,7 @@ export function createApp(config: Config): App {
     db,
     bus: new Bus(),
     clock: new Clock(db),
-    storage: new Storage(join(config.dataDir, 'files')),
+    storage: createStorage(config.dataDir, config.s3),
     presence: gateway,
     team() {
       if (!teamLoaded) {
