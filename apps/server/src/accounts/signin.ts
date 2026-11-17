@@ -76,7 +76,7 @@ export function finishSignIn(ctx: Ctx, user: UserRow, req: IncomingMessage, res:
     res.setHeader('set-cookie', cookie(ctx, CHALLENGE_COOKIE, token, CHALLENGE_TTL));
     return { two_factor_required: true };
   }
-  const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));
+  const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''), req.socket.remoteAddress ?? null);
   res.setHeader('set-cookie', [sessionCookie(ctx, token), cookie(ctx, CHALLENGE_COOKIE, null, 0)]);
   return { user_id: user.id };
 }
@@ -201,7 +201,7 @@ export function registerSignIn(registry: Registry): void {
       fail('invalid_code');
     }
     ctx.db.run('DELETE FROM login_challenges WHERE token_hash = ?', challenge.token_hash);
-    const session = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));
+    const session = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''), req.socket.remoteAddress ?? null);
     res.setHeader('set-cookie', [sessionCookie(ctx, session), cookie(ctx, CHALLENGE_COOKIE, null, 0)]);
     return { user_id: user.id };
   });

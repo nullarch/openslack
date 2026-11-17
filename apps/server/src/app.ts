@@ -32,6 +32,7 @@ import { installAudit } from './audit/index.ts';
 import { installFileText } from './core/file-text.ts';
 import { installEmailNotifications } from './attention/email.ts';
 import { installCalls } from './calls/index.ts';
+import { installSessions } from './sessions/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installDocs } from './docs/index.ts';
 import { installMcp } from './mcp/index.ts';
@@ -116,6 +117,7 @@ export function createApp(config: Config): App {
   installFileText(kernel);
   installEmailNotifications(kernel);
   installCalls(kernel);
+  installSessions(kernel);
   installAccounts(kernel);
   // Keep last: the audit log wraps the methods every module above registered.
   installAudit(kernel);

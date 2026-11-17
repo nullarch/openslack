@@ -162,7 +162,7 @@ export function registerClient(registry: Registry): void {
     );
     ctx.invalidateTeam();
 
-    const token = createSession(ctx, owner.id, String(req.headers['user-agent'] ?? ''));
+    const token = createSession(ctx, owner.id, String(req.headers['user-agent'] ?? ''), req.socket.remoteAddress ?? null);
     res.setHeader('set-cookie', sessionCookie(ctx, token));
     return { user_id: owner.id, team_id: ctx.requireTeam().id };
   });

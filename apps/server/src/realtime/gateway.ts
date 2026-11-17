@@ -3,7 +3,8 @@ import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import { isSameOrigin } from '../api/http.ts';
 import type { Ctx, Presence } from '../ctx.ts';
-import { authenticate } from '../core/auth.ts';
+import { authenticate, readSessionToken } from '../core/auth.ts';
+import { sha256 } from '../core/ids.ts';
 import { twoFactorPending } from '../accounts/signin.ts';
 import type { BusEvent } from '../core/bus.ts';
 import { eventVisibleToGuest, guestExpired, guestIds } from '../core/guests.ts';
@@ -14,6 +15,8 @@ interface Client {
   socket: WebSocket;
   userId: string;
   alive: boolean;
+  /** Hash of the session cookie the connection was opened with, so a revoked session can be closed. */
+  session: string | null;
 }
 
 const HEARTBEAT_MS = 30_000;
@@ -75,12 +78,13 @@ export class Gateway implements Presence {
       socket.destroy();
       return true;
     }
-    this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, actor.userId));
+    const cookie = readSessionToken(req);
+    this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, actor.userId, cookie ? sha256(cookie) : null));
     return true;
   };
 
-  private accept(socket: WebSocket, userId: string): void {
-    const client: Client = { socket, userId, alive: true };
+  private accept(socket: WebSocket, userId: string, session: string | null): void {
+    const client: Client = { socket, userId, alive: true, session };
     const wasOnline = this.isOnline(userId);
     let clients = this.byUser.get(userId);
     if (!clients) {
@@ -169,6 +173,13 @@ export class Gateway implements Presence {
       for (const client of clients) this.sendRaw(client, payload);
     }
 
+    // Signed out elsewhere: the browsers holding those sessions lose their connections.
+    if (busEvent.event.type === 'sessions_revoked' && Array.isArray(busEvent.event.sessions)) {
+      const revoked = new Set(busEvent.event.sessions as string[]);
+      for (const client of this.byUser.get(String(busEvent.event.user ?? '')) ?? []) {
+        if (client.session && revoked.has(client.session)) client.socket.close(4401, 'signed_out');
+      }
+    }
     // A deactivated account loses its open connections, right after hearing why.
     if (busEvent.event.type === 'user_change') {
       const user = busEvent.event.user as { id?: string; deleted?: boolean } | undefined;

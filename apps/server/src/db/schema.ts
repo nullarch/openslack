@@ -903,4 +903,10 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (call_id, conversation_id)
   ) WITHOUT ROWID;
   `,
+
+  /* 20: session management — where and when each signed-in browser was last seen */ `
+  ALTER TABLE sessions ADD COLUMN last_seen INTEGER;
+  ALTER TABLE sessions ADD COLUMN ip TEXT;
+  CREATE INDEX sessions_user ON sessions(user_id);
+  `,
 ];

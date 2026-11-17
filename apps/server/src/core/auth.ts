@@ -46,16 +46,28 @@ export function actorForUser(row: UserRow, kind: Actor['kind'], scopes: Set<stri
 
 // ── Browser sessions ────────────────────────────────────────────────────────
 
-export function createSession(ctx: Ctx, userId: string, userAgent: string): string {
+/** How long a sign-in lasts: the workspace's setting (`session_duration_days`), 30 days by default. */
+export function sessionTtl(ctx: Ctx): number {
+  try {
+    const days = (JSON.parse(ctx.team()?.prefs ?? '{}') as { session_duration_days?: unknown }).session_duration_days;
+    return typeof days === 'number' && days >= 1 && days <= 365 ? Math.round(days * 86_400) : SESSION_TTL;
+  } catch {
+    return SESSION_TTL;
+  }
+}
+
+export function createSession(ctx: Ctx, userId: string, userAgent: string, ip: string | null = null): string {
   const token = newSecret(32);
   const now = nowSeconds();
   ctx.db.run(
-    'INSERT INTO sessions (token_hash, user_id, user_agent, created, expires) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO sessions (token_hash, user_id, user_agent, created, expires, last_seen, ip) VALUES (?, ?, ?, ?, ?, ?, ?)',
     sha256(token),
     userId,
     userAgent.slice(0, 200),
     now,
-    now + SESSION_TTL,
+    now + sessionTtl(ctx),
+    now,
+    ip,
   );
   return token;
 }
@@ -67,7 +79,7 @@ export function destroySession(ctx: Ctx, token: string): void {
 export function sessionCookie(ctx: Ctx, token: string | null): string {
   const flags = `Path=/; HttpOnly; SameSite=Lax${ctx.config.cookieSecure ? '; Secure' : ''}`;
   if (token === null) return `${SESSION_COOKIE}=; ${flags}; Max-Age=0`;
-  return `${SESSION_COOKIE}=${token}; ${flags}; Max-Age=${SESSION_TTL}`;
+  return `${SESSION_COOKIE}=${token}; ${flags}; Max-Age=${sessionTtl(ctx)}`;
 }
 
 export function readSessionToken(req: IncomingMessage): string | null {
@@ -81,11 +93,15 @@ export function readSessionToken(req: IncomingMessage): string | null {
 }
 
 function sessionActor(ctx: Ctx, token: string): Actor | null {
-  const row = ctx.db.get<{ user_id: string; expires: number }>(
-    'SELECT user_id, expires FROM sessions WHERE token_hash = ?',
-    sha256(token),
+  const hash = sha256(token);
+  const row = ctx.db.get<{ user_id: string; expires: number; last_seen: number | null }>(
+    'SELECT user_id, expires, last_seen FROM sessions WHERE token_hash = ?',
+    hash,
   );
-  if (!row || row.expires < nowSeconds()) return null;
+  const now = nowSeconds();
+  if (!row || row.expires < now) return null;
+  // "Last active" for the sessions list; written at most every five minutes.
+  if (row.last_seen === null || now - row.last_seen > 300) ctx.db.run('UPDATE sessions SET last_seen = ? WHERE token_hash = ?', now, hash);
   const user = getUser(ctx, row.user_id);
   if (!user || user.deleted === 1) return null;
   return actorForUser(user, 'session', null);
