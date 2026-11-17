@@ -143,6 +143,38 @@ Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "
 
 The Agents view (workspace menu → Agents) needs no model. It lists apps acting as agents — connected over Socket Mode, or using assistant status, titles or streamed replies — with their recent threads and current status, limited to threads the viewer can read.
 
+## Sign in with this workspace
+
+Other tools can let people sign in with their account here (OpenID Connect, the same flow as Slack's Sign in with Slack). Create an app under **Administration → Apps**, add the tool's callback address as a redirect URL, and give the tool:
+
+| Setting | Value |
+|---|---|
+| Issuer / discovery | `https://chat.example.com` (`/.well-known/openid-configuration`) |
+| Client ID and secret | the app's, from its page under Administration → Apps |
+| Scopes | `openid profile email` |
+
+Tools that support Sign in with Slack can instead be pointed at `https://chat.example.com/openid/connect/authorize` and `https://chat.example.com/api/`. The signing key is created on first use as `oidc-signing-key.pem` in the data directory; keep it with your backups, or tools will have to fetch the new key after a restore.
+
+## Provisioning accounts from an identity provider (SCIM)
+
+Okta, Microsoft Entra ID, OneLogin and other identity providers can create, update and deactivate accounts here with SCIM 2.0. An admin makes a token with the `client.admin.scimToken` API method (it acts with that admin's authority, can do nothing but provisioning, and a new one replaces the old), then in the identity provider's generic SCIM app:
+
+| Setting | Value |
+|---|---|
+| SCIM base URL | `https://chat.example.com/scim/v2` |
+| Authentication | Bearer token (the one above) |
+| Unique identifier | `userName` (an email address works) |
+
+Supported: listing and filtering users (`userName`, `externalId`, `emails`), create, replace, patch (including the forms Okta and Entra send) and delete, which deactivates the account and keeps its history. Groups are not provisioned yet.
+
+## Virus scanning
+
+Set `CLAMAV_URL=tcp://clamav:3310` to have every upload checked by a ClamAV daemon (for example the `clamav/clamav-debian` container, which also runs on ARM) before anyone can see it. An infected file is deleted and the upload fails with `file_infected`. If the daemon cannot be reached the upload is refused (`scan_unavailable`); `CLAMAV_FAIL_OPEN=1` accepts it unscanned instead. Files larger than `CLAMAV_MAX_MB` (25, clamd's default stream limit) are not scanned; raise both together if you need to.
+
+## Retention
+
+By default everything is kept. Workspace owners can set how many days messages in channels, direct messages and files are kept with the `client.admin.setRetention` API method (`{"retention": {"messages_days": 365, "dm_days": 90, "files_days": 365}}`; `0` keeps forever, `dm_days: null` follows channels). `client.admin.retention` shows the policy and, with `preview`, how much a policy would delete. Deletion starts when the policy is saved and then runs hourly; it cannot be undone. A thread whose first message is past the limit but has newer replies keeps a "deleted" placeholder so the replies stay reachable.
+
 ## Kubernetes
 
 A Helm chart is in `deploy/helm/chat`. It runs one replica (the server owns its database file and the realtime connections) with its data on a persistent volume:

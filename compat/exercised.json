@@ -1,4 +1,16 @@
 {
+  "bolt-js-function": {
+    "sdk": "@slack/bolt 5.1.0",
+    "methods": [
+      "apps.connections.open",
+      "auth.test",
+      "functions.completeError",
+      "functions.completeSuccess"
+    ],
+    "events": [
+      "function_executed"
+    ]
+  },
   "bolt-js-http": {
     "sdk": "@slack/bolt 5.1.0, @slack/web-api 8.4.0",
     "methods": [
@@ -182,6 +194,14 @@
       "view_submission"
     ]
   },
+  "openid-connect": {
+    "sdk": "openid-client 6.8.9, @slack/web-api",
+    "methods": [
+      "openid.connect.token",
+      "openid.connect.userInfo"
+    ],
+    "events": []
+  },
   "rtm-node": {
     "sdk": "@slack/rtm-api 7.0.4, @slack/web-api 8.4.0",
     "methods": [
@@ -193,5 +213,19 @@
       "message",
       null
     ]
+  },
+  "web-api-manifest": {
+    "sdk": "@slack/web-api 8.4.0, @slack/bolt 5.1.0",
+    "methods": [
+      "apps.manifest.create",
+      "apps.manifest.delete",
+      "apps.manifest.export",
+      "apps.manifest.validate",
+      "auth.test",
+      "chat.postMessage",
+      "oauth.v2.access",
+      "tooling.tokens.rotate"
+    ],
+    "events": []
   }
 }

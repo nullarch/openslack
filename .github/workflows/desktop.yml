@@ -1,0 +1,54 @@
+# Builds the desktop installers on macOS, Windows and Linux. On a version tag
+# they go to a draft GitHub release together with the update feed that
+# installed copies read (electron-updater); otherwise they are kept as
+# workflow artifacts. Builds are unsigned until signing certificates exist.
+name: Desktop
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Build on one runner only (macos-latest, windows-latest or ubuntu-latest); empty builds all'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.only && format('["{0}"]', inputs.only) || '["macos-latest", "windows-latest", "ubuntu-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @app/desktop...
+      - run: pnpm --filter @app/desktop typecheck
+      # The installers carry the tag's version (v1.2.3 → 1.2.3).
+      - if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm pkg set version="${GITHUB_REF_NAME#v}"
+        working-directory: apps/desktop
+      - run: pnpm --filter @app/desktop package
+        env:
+          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/latest*.yml
+          if-no-files-found: error

@@ -45,6 +45,7 @@ export const SUBSCRIBABLE_EVENTS = [
   'team_rename',
   'app_home_opened',
   'link_shared',
+  'function_executed',
   'subteam_created',
   'subteam_updated',
   'subteam_members_changed',

@@ -11,16 +11,18 @@
     "e2e": "node build.mjs && node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
     "typecheck": "tsc -p tsconfig.json",
     "package": "node build.mjs && node package-app.mjs",
-    "package:dir": "node build.mjs && node package-app.mjs --dir"
+    "package:dir": "node build.mjs && node package-app.mjs --dir",
+    "icon": "node scripts/make-icon.mjs"
   },
   "dependencies": {},
   "devDependencies": {
     "@app/shared": "workspace:*",
     "@types/node": "^24.0.0",
     "electron": "45.3.3",
+    "electron-builder": "^26.0.0",
+    "electron-updater": "6.8.11",
     "esbuild": "^0.25.0",
     "playwright-core": "^1.49.0",
-    "typescript": "^5.9.0",
-    "electron-builder": "^26.0.0"
+    "typescript": "^5.9.0"
   }
 }

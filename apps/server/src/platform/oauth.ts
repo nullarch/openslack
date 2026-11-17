@@ -9,6 +9,7 @@ import { newSecret, sha256 } from '../core/ids.ts';
 import { getUser, isAdmin, type UserRow } from '../core/users.ts';
 import type { Actor, Ctx } from '../ctx.ts';
 import { appConfig, DEFAULT_BOT_SCOPES, issueToken, type AppRow } from './apps.ts';
+import { issueRotating, redeemRefreshToken } from './rotation.ts';
 
 /**
  * The OAuth v2 install flow ("Add to Slack"), so apps distributed to many
@@ -25,14 +26,14 @@ import { appConfig, DEFAULT_BOT_SCOPES, issueToken, type AppRow } from './apps.t
  */
 
 /** Scopes a user token may hold: reading and acting as that person. */
-const USER_SCOPES = new Set([
+export const USER_SCOPES = new Set([
   'channels:history', 'channels:read', 'channels:write', 'chat:write', 'emoji:read', 'files:read', 'files:write',
   'groups:history', 'groups:read', 'groups:write', 'im:history', 'im:read', 'im:write', 'mpim:history', 'mpim:read',
   'mpim:write', 'pins:read', 'pins:write', 'reactions:read', 'reactions:write', 'reminders:read', 'reminders:write',
   'search:read', 'stars:read', 'team:read', 'users.profile:read', 'users.profile:write', 'users:read', 'users:read.email',
   'users:write', 'dnd:read', 'dnd:write', 'bookmarks:read', 'bookmarks:write', 'identify',
 ]);
-const BOT_SCOPES = new Set([...DEFAULT_BOT_SCOPES, 'usergroups:read', 'bookmarks:read', 'bookmarks:write', 'reminders:write', 'dnd:read']);
+export const BOT_SCOPES = new Set([...DEFAULT_BOT_SCOPES, 'usergroups:read', 'bookmarks:read', 'bookmarks:write', 'reminders:write', 'dnd:read']);
 
 const CODE_TTL_MS = 10 * 60_000;
 
@@ -49,11 +50,11 @@ function scopeList(value: string | null | undefined): string[] {
   return [...new Set((value ?? '').split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean))];
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 }
 
-function page(res: ServerResponse, status: number, title: string, body: string): void {
+export function page(res: ServerResponse, status: number, title: string, body: string): void {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} · ${escapeHtml(BRAND.name)}</title>
 <style>
@@ -83,17 +84,17 @@ function errorPage(res: ServerResponse, message: string): void {
 }
 
 /** A token tying the approval form to the browser session that loaded it. */
-function formToken(sessionToken: string): string {
+export function formToken(sessionToken: string): string {
   return createHash('sha256').update(`oauth-form:${sessionToken}`).digest('hex');
 }
 
-function sameToken(a: string, b: string): boolean {
+export function sameToken(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function redirectTo(res: ServerResponse, target: string, extra: Record<string, string> = {}): void {
+export function redirectTo(res: ServerResponse, target: string, extra: Record<string, string> = {}): void {
   res.writeHead(302, { location: target, 'cache-control': 'no-store', ...extra });
   res.end();
 }
@@ -244,6 +245,29 @@ export function installOauth(kernel: Kernel): void {
     const app = clientId ? ctx.db.get<AppRow>('SELECT * FROM apps WHERE client_id = ?', clientId) : undefined;
     if (!app) fail('invalid_client_id');
     if (!clientSecret || !sameToken(clientSecret, app.client_secret)) fail('bad_client_secret');
+    const team = ctx.requireTeam();
+    const rotating = appConfig(app).token_rotation_enabled;
+
+    const grantType = args.str('grant_type');
+    if (grantType === 'refresh_token') {
+      // Trade a refresh token for a new access token and refresh token; the old refresh token is spent.
+      if (!rotating) fail('invalid_refresh_token');
+      const spent = redeemRefreshToken(ctx, args.str('refresh_token'), { appId: app.id });
+      const kind = spent.kind === 'user' ? 'user' : 'bot';
+      const scopes = spent.scopes.split(',').filter(Boolean);
+      const pair = issueRotating(ctx, { kind, appId: app.id, userId: spent.user_id, scopes });
+      return {
+        app_id: app.id,
+        ...pair,
+        token_type: kind,
+        scope: scopes.join(','),
+        ...(kind === 'bot' ? { bot_user_id: app.bot_user_id } : { user_id: spent.user_id }),
+        team: { id: team.id, name: team.name },
+        enterprise: null,
+        is_enterprise_install: false,
+      };
+    }
+    if (grantType && grantType !== 'authorization_code') fail('invalid_grant_type');
 
     const code = args.str('code');
     if (!code) fail('invalid_code');
@@ -254,7 +278,6 @@ export function installOauth(kernel: Kernel): void {
     const redirectUri = args.str('redirect_uri');
     if (redirectUri && redirectUri !== grant.redirectUri) fail('bad_redirect_uri');
 
-    const team = ctx.requireTeam();
     const result: Record<string, unknown> = {
       app_id: app.id,
       authed_user: { id: grant.userId },
@@ -266,7 +289,9 @@ export function installOauth(kernel: Kernel): void {
       ctx.db.run('UPDATE apps SET bot_scopes = ? WHERE id = ?', JSON.stringify(grant.botScopes), app.id);
       const fresh = ctx.db.get<AppRow>('SELECT * FROM apps WHERE id = ?', app.id)!;
       Object.assign(result, {
-        access_token: issueToken(ctx, fresh, 'bot'),
+        ...(rotating
+          ? issueRotating(ctx, { kind: 'bot', appId: app.id, userId: app.bot_user_id, scopes: grant.botScopes })
+          : { access_token: issueToken(ctx, fresh, 'bot') }),
         token_type: 'bot',
         scope: grant.botScopes.join(','),
         bot_user_id: app.bot_user_id,
@@ -277,7 +302,9 @@ export function installOauth(kernel: Kernel): void {
       result.authed_user = {
         id: grant.userId,
         scope: grant.userScopes.join(','),
-        access_token: createToken(ctx, { kind: 'user', userId: grant.userId, appId: app.id, scopes: grant.userScopes }),
+        ...(rotating
+          ? issueRotating(ctx, { kind: 'user', appId: app.id, userId: grant.userId, scopes: grant.userScopes })
+          : { access_token: createToken(ctx, { kind: 'user', userId: grant.userId, appId: app.id, scopes: grant.userScopes }) }),
         token_type: 'user',
       };
     }

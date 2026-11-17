@@ -9,6 +9,9 @@ import { displayName, useStore, type AdminTab } from '../../lib/store';
 import { S } from '../../strings';
 import { Avatar, Button, CopyField, Field, IconButton, Modal, Spinner } from '../ui';
 import { confirmDialog } from './confirm';
+import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
+import { AppStepsSetting } from '../workflows/AppSteps';
+import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
 import { GuestControls, InviteRequests, WorkspaceSettings } from '../accounts/Admin';
 
 // ── Members ─────────────────────────────────────────────────────────────────
@@ -476,6 +479,8 @@ function AppDetail({ app, secrets, onBack, onChanged, onRotated }: AppDetailProp
       </div>
 
       <AppPlatformSettings app={app} onChanged={onChanged} />
+      <AppStepsSetting app={app} onChanged={onChanged} />
+      <ManifestEditor appId={app.id} onChanged={onChanged} />
 
       <div className="danger-zone">
         <Button variant="danger" onClick={() => void remove()}>
@@ -600,6 +605,16 @@ function AppsAdmin() {
           </Button>
         </form>
       ) : null}
+      {!unsupported && isAdmin ? (
+        <ManifestCreate
+          onCreated={(appId, made) => {
+            setSecrets((current) => ({ ...current, [appId]: made }));
+            load();
+            setSelected(appId);
+          }}
+        />
+      ) : null}
+      {!unsupported && isAdmin ? <ConfigTokenSetting /> : null}
     </div>
   );
 }
@@ -665,6 +680,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
           <>
             <WorkspaceSettings />
             <MessagePolicyAdminGuard />
+            <ResponsesAdmin />
           </>
         ) : null}
       </div>

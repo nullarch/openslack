@@ -8,6 +8,7 @@ import { conversation, conversationName, currentId, get, set, useStore } from '.
 import { S } from '../strings';
 import { AiLayer } from './ai/AiLayer';
 import { AgentsView } from './ai/AgentsView';
+import { WorkflowLinkView, WorkflowsView } from './workflows/WorkflowsView';
 import { AppModalHost } from './AppViews';
 import { ConversationView } from './Conversation';
 import { AdminDialog } from './dialogs/admin';
@@ -204,6 +205,10 @@ export function Shell() {
               <WorkspaceView view={route.view} />
             ) : route.name === 'agents' ? (
               <AgentsView />
+            ) : route.name === 'workflows' ? (
+              <WorkflowsView key={route.id ?? ''} id={route.id} />
+            ) : route.name === 'workflowLink' ? (
+              <WorkflowLinkView token={route.token} />
             ) : (
               <section className="conversation" />
             )}

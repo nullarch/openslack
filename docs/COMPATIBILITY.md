@@ -10,12 +10,15 @@ The harness in `compat/` starts a server and runs apps built with the official S
 
 | Run | SDK | Web API methods called | Payload types received |
 |---|---|---|---|
+| `bolt-js-function` | @slack/bolt 5.1.0 | 4 | 1 |
 | `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 39 | 14 |
 | `bolt-js-oauth` | @slack/bolt 5.1.0 | 3 | 0 |
 | `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
 | `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
+| `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
+| `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
 
 "SDK" in the tables below means at least one of these runs called the method, or received the payload, through an official SDK. "Server tests" means the server’s own tests exercise it over HTTP. A supported method with neither mark is implemented but not yet covered here.
 
@@ -38,7 +41,10 @@ App(client=WebClient(token=bot_token, base_url="http://localhost:3000/api/"))
 | Interactivity and slash commands over HTTP (signed, form-encoded) | Supported | SDK, server tests |
 | `response_url` (five uses within thirty minutes) | Supported | SDK, server tests |
 | Incoming webhooks (`/services/<team>/<bot>/<secret>`) | Supported | Server tests |
-| OAuth v2 installation flow (`/oauth/v2/authorize`, `oauth.v2.access`; bot and user scopes) | Supported; installs with a bot need an admin's approval. No token rotation | `bolt-js-oauth`, server tests |
+| OAuth v2 installation flow (`/oauth/v2/authorize`, `oauth.v2.access`; bot and user scopes) | Supported; installs with a bot need an admin's approval | `bolt-js-oauth`, server tests |
+| Token rotation (`settings.token_rotation_enabled`: twelve-hour `xoxe.` tokens, `grant_type=refresh_token`) | Supported; `oauth.v2.exchange` for older long-lived tokens is not | `web-api-manifest`, server tests |
+| App manifests (`apps.manifest.*` with an app configuration token, `tooling.tokens.rotate`) | Supported, including `functions` with `function_runtime: remote`. Slack-hosted parts (`workflows`, `datastores`, `function_runtime: slack`) and scopes this server does not grant are refused with a pointer | `web-api-manifest`, server tests |
+| Sign in with this workspace (OpenID Connect: `/openid/connect/authorize`, `openid.connect.token`, `openid.connect.userInfo`, discovery and keys) | Supported; Slack's claim names, ID tokens signed RS256. `email_verified` is false because addresses are not confirmed by mail | `openid-connect` (openid-client), server tests |
 | RTM (`rtm.connect`, `rtm.start`; `message`, `typing`, `ping`, `presence_sub` over the socket) | Supported, for older bots | `rtm-node`, server tests |
 | Outgoing webhooks | Not supported | Use the Events API |
 
@@ -70,6 +76,7 @@ An app receives events for conversations its bot user belongs to, and workspace-
 | `team_rename` |  |  |
 | `app_home_opened` | ✓ | ✓ |
 | `link_shared` | ✓ | ✓ |
+| `function_executed` | ✓ |  |
 
 Message events carry their subtypes (`message_changed`, `message_deleted`, `file_share`, `thread_broadcast`, `channel_join` and so on).
 
@@ -85,7 +92,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -94,6 +101,11 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `admin.emoji.remove` |  |  | Browser session only. |
 | `api.test` |  |  |  |
 | `apps.connections.open` | ✓ | ✓ | A bot token gets `missing_scope` rather than `not_allowed_token_type`. |
+| `apps.manifest.create` | ✓ | ✓ |  |
+| `apps.manifest.delete` | ✓ | ✓ |  |
+| `apps.manifest.export` | ✓ | ✓ |  |
+| `apps.manifest.update` |  | ✓ |  |
+| `apps.manifest.validate` | ✓ | ✓ |  |
 | `assistant.threads.setStatus` | ✓ | ✓ | Shown to connected clients; cleared by the app’s next message in the thread or after two minutes. |
 | `assistant.threads.setSuggestedPrompts` |  | ✓ | Delivered to connected clients; not stored. |
 | `assistant.threads.setTitle` |  | ✓ | Delivered to connected clients; not stored. |
@@ -125,7 +137,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `conversations.invite` | ✓ | ✓ |  |
 | `conversations.join` |  | ✓ |  |
 | `conversations.kick` |  | ✓ |  |
-| `conversations.leave` |  |  |  |
+| `conversations.leave` |  | ✓ |  |
 | `conversations.list` | ✓ | ✓ |  |
 | `conversations.mark` |  | ✓ |  |
 | `conversations.members` | ✓ |  |  |
@@ -148,7 +160,11 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
 | `files.revokePublicURL` |  | ✓ |  |
 | `files.sharedPublicURL` |  | ✓ |  |
-| `oauth.v2.access` |  |  |  |
+| `functions.completeError` | ✓ | ✓ | Fails the workflow run with the app's message. |
+| `functions.completeSuccess` | ✓ | ✓ | Finishes a workflow step the app implements; outputs it did not declare are dropped. Only the app that received the `function_executed` event may finish it. |
+| `oauth.v2.access` | ✓ |  |  |
+| `openid.connect.token` | ✓ |  |  |
+| `openid.connect.userInfo` | ✓ |  |  |
 | `pins.add` | ✓ | ✓ |  |
 | `pins.list` | ✓ | ✓ |  |
 | `pins.remove` | ✓ |  |  |
@@ -165,6 +181,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `search.files` |  | ✓ | Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations). |
 | `search.messages` | ✓ | ✓ | Bot tokens may search (Slack: user tokens only): public channels plus the bot’s conversations. |
 | `team.info` | ✓ | ✓ |  |
+| `tooling.tokens.rotate` | ✓ |  |  |
 | `users.conversations` | ✓ |  |  |
 | `users.deletePhoto` |  |  |  |
 | `users.getPresence` |  |  |  |
@@ -188,7 +205,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 |---|---|---|
 | `admin` | 100 | `admin.analytics.getFile`, `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.barriers.create`, `admin.barriers.delete`, `admin.barriers.list`, `admin.barriers.update`, `admin.conversations.archive`, `admin.conversations.bulkArchive`, `admin.conversations.bulkDelete`, `admin.conversations.bulkMove`, `admin.conversations.convertToPrivate`, `admin.conversations.convertToPublic`, `admin.conversations.create`, `admin.conversations.delete`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.getConversationPrefs`, `admin.conversations.getCustomRetention`, `admin.conversations.getTeams`, `admin.conversations.invite`, `admin.conversations.lookup`, `admin.conversations.removeCustomRetention`, `admin.conversations.rename`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.search`, `admin.conversations.setConversationPrefs`, `admin.conversations.setCustomRetention`, `admin.conversations.setTeams`, `admin.conversations.unarchive`, `admin.emoji.list`, `admin.emoji.rename`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.inviteRequests.approve`, `admin.inviteRequests.approved.list`, `admin.inviteRequests.denied.list`, `admin.inviteRequests.deny`, `admin.inviteRequests.list`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.admins.list`, `admin.teams.create`, `admin.teams.list`, `admin.teams.owners.list`, `admin.teams.settings.info`, `admin.teams.settings.setDefaultChannels`, `admin.teams.settings.setDescription`, `admin.teams.settings.setDiscoverability`, `admin.teams.settings.setIcon`, `admin.teams.settings.setName`, `admin.usergroups.addChannels`, `admin.usergroups.addTeams`, `admin.usergroups.listChannels`, `admin.usergroups.removeChannels`, `admin.users.assign`, `admin.users.getExpiration`, `admin.users.invite`, `admin.users.list`, `admin.users.remove`, `admin.users.session.clearSettings`, `admin.users.session.getSettings`, `admin.users.session.invalidate`, `admin.users.session.list`, `admin.users.session.reset`, `admin.users.session.resetBulk`, `admin.users.session.setSettings`, `admin.users.setAdmin`, `admin.users.setExpiration`, `admin.users.setOwner`, `admin.users.setRegular`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup`, `admin.workflows.search`, `admin.workflows.unpublish` |
 | `agents` | 11 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView`, `agents.sessions.rename`, `agents.sessions.setStatus` |
-| `apps` | 10 | `apps.event.authorizations.list`, `apps.manifest.create`, `apps.manifest.delete`, `apps.manifest.export`, `apps.manifest.update`, `apps.manifest.validate`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
+| `apps` | 5 | `apps.event.authorizations.list`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `auth` | 1 | `auth.teams.list` |
 | `blocks` | 1 | `blocks.validate` |
 | `calls` | 6 | `calls.add`, `calls.end`, `calls.info`, `calls.participants.add`, `calls.participants.remove`, `calls.update` |
@@ -197,16 +214,13 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 7 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update` |
-| `functions` | 2 | `functions.completeError`, `functions.completeSuccess` |
 | `migration` | 1 | `migration.exchange` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
-| `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
 | `reactions` | 1 | `reactions.list` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
 | `slackLists` | 12 | `slackLists.access.delete`, `slackLists.access.set`, `slackLists.create`, `slackLists.download.get`, `slackLists.download.start`, `slackLists.items.create`, `slackLists.items.delete`, `slackLists.items.deleteMultiple`, `slackLists.items.info`, `slackLists.items.list`, `slackLists.items.update`, `slackLists.update` |
 | `stars` | 3 | `stars.add`, `stars.list`, `stars.remove` |
 | `team` | 8 | `team.accessLogs`, `team.billableInfo`, `team.billing.info`, `team.externalTeams.disconnect`, `team.externalTeams.list`, `team.integrationLogs`, `team.preferences.list`, `team.profile.get` |
-| `tooling` | 1 | `tooling.tokens.rotate` |
 | `usergroups` | 7 | `usergroups.create`, `usergroups.disable`, `usergroups.enable`, `usergroups.list`, `usergroups.update`, `usergroups.users.list`, `usergroups.users.update` |
 | `users` | 2 | `users.discoverableContacts.lookup`, `users.identity` |
 | `workflows` | 4 | `workflows.featured.add`, `workflows.featured.list`, `workflows.featured.remove`, `workflows.featured.set` |
@@ -225,5 +239,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 88 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 102 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

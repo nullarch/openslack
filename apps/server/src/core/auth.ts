@@ -98,31 +98,37 @@ export interface NewToken {
   userId: string;
   appId?: string | null;
   scopes: string[];
+  /** Seconds until the token stops working; rotating tokens (`xoxe.`) only. */
+  expiresIn?: number;
 }
 
 /** Create an API token. The plain value is returned once; only its hash is stored. */
 export function createToken(ctx: Ctx, input: NewToken): string {
-  const token = newToken(input.kind, input.appId);
+  // Tokens that expire carry Slack's `xoxe.` prefix, as rotating tokens do there.
+  const token = input.expiresIn ? `xoxe.${newToken(input.kind, input.appId)}` : newToken(input.kind, input.appId);
+  const now = nowSeconds();
   ctx.db.run(
-    'INSERT INTO tokens (token_hash, kind, app_id, user_id, scopes, hint, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO tokens (token_hash, kind, app_id, user_id, scopes, hint, created, expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     sha256(token),
     input.kind,
     input.appId ?? null,
     input.userId,
     input.scopes.join(','),
     `${token.slice(0, 9)}…${token.slice(-4)}`,
-    nowSeconds(),
+    now,
+    input.expiresIn ? now + input.expiresIn : null,
   );
   return token;
 }
 
-function tokenActor(ctx: Ctx, token: string): Actor | null {
+function tokenActor(ctx: Ctx, token: string): Actor | 'expired' | null {
   const hash = sha256(token);
-  const row = ctx.db.get<{ kind: Actor['kind']; app_id: string | null; user_id: string; scopes: string }>(
-    'SELECT kind, app_id, user_id, scopes FROM tokens WHERE token_hash = ?',
+  const row = ctx.db.get<{ kind: Actor['kind']; app_id: string | null; user_id: string; scopes: string; expires: number | null }>(
+    'SELECT kind, app_id, user_id, scopes, expires FROM tokens WHERE token_hash = ?',
     hash,
   );
   if (!row) return null;
+  if (row.expires !== null && row.expires <= nowSeconds()) return 'expired';
   const user = getUser(ctx, row.user_id);
   if (!user || user.deleted === 1) return null;
   ctx.db.run('UPDATE tokens SET last_used = ? WHERE token_hash = ?', nowSeconds(), hash);
@@ -137,6 +143,8 @@ export interface AuthResult {
   actor: Actor | null;
   /** A credential was presented but is not valid. */
   invalid: boolean;
+  /** The credential was a rotating token past its expiry. */
+  expired?: boolean;
 }
 
 /**
@@ -149,6 +157,7 @@ export function authenticate(ctx: Ctx, req: IncomingMessage, tokenArg: string | 
   const token = bearer || tokenArg;
   if (token) {
     const actor = tokenActor(ctx, token);
+    if (actor === 'expired') return { actor: null, invalid: true, expired: true };
     return { actor, invalid: actor === null };
   }
   const session = readSessionToken(req);

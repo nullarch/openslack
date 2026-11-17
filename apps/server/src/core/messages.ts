@@ -240,7 +240,7 @@ function writeMentions(ctx: Ctx, conversationId: string, ts: string, author: str
 }
 
 /** Recompute a thread parent's reply summary from its replies. */
-function refreshThread(ctx: Ctx, conversationId: string, threadTs: string): void {
+export function refreshThread(ctx: Ctx, conversationId: string, threadTs: string): void {
   const replies = ctx.db.all<{ ts: string; user_id: string | null }>(
     'SELECT ts, user_id FROM messages WHERE conversation_id = ? AND thread_ts = ? AND ts != ? ORDER BY ts',
     conversationId,
@@ -263,7 +263,7 @@ function refreshThread(ctx: Ctx, conversationId: string, threadTs: string): void
   );
 }
 
-function refreshLastTs(ctx: Ctx, conversationId: string): void {
+export function refreshLastTs(ctx: Ctx, conversationId: string): void {
   const row = ctx.db.get<{ ts: string | null }>(
     `SELECT max(ts) AS ts FROM messages
      WHERE conversation_id = ? AND (thread_ts IS NULL OR thread_ts = ts OR is_broadcast = 1)`,

@@ -5,6 +5,8 @@ export type Route =
   | { name: 'conversation'; id: string; ts?: string; thread?: string }
   | { name: 'search'; query: string }
   | { name: 'agents' }
+  | { name: 'workflows'; id?: string }
+  | { name: 'workflowLink'; token: string }
   | { name: 'setup' }
   | { name: 'signin' }
   | { name: 'join'; code: string }
@@ -32,6 +34,8 @@ export function parseRoute(location: { pathname: string; search: string }): Rout
   if (parts[0] === 'search') return { name: 'search', query: query.get('q') ?? '' };
   if (parts[0] && (VIEW_NAMES as string[]).includes(parts[0])) return { name: 'view', view: parts[0] as ViewName };
   if (parts[0] === 'agents') return { name: 'agents' };
+  if (parts[0] === 'workflows') return parts[1] ? { name: 'workflows', id: decodeURIComponent(parts[1]) } : { name: 'workflows' };
+  if (parts[0] === 'workflow' && parts[1]) return { name: 'workflowLink', token: decodeURIComponent(parts[1]) };
   if (parts[0] === 'c' && parts[1]) {
     const route: Route = { name: 'conversation', id: parts[1] };
     const ts = query.get('ts');
@@ -63,6 +67,10 @@ export function routePath(route: Route): string {
       return `/search?q=${encodeURIComponent(route.query)}`;
     case 'agents':
       return '/agents';
+    case 'workflows':
+      return route.id ? `/workflows/${encodeURIComponent(route.id)}` : '/workflows';
+    case 'workflowLink':
+      return `/workflow/${encodeURIComponent(route.token)}`;
     case 'conversation':
       return `/c/${route.id}`;
     case 'view':

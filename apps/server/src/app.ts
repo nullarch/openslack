@@ -22,6 +22,10 @@ import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installHuddles } from './huddles/index.ts';
 import { installAi } from './ai/index.ts';
+import { installWorkflows } from './workflows/index.ts';
+import { installScim } from './scim/index.ts';
+import { installRetention } from './retention/index.ts';
+import { installStats } from './stats/index.ts';
 import { installAccounts } from './accounts/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
@@ -97,6 +101,10 @@ export function createApp(config: Config): App {
   installMcp(kernel);
   installHuddles(kernel);
   installAi(kernel);
+  installWorkflows(kernel);
+  installScim(kernel);
+  installRetention(kernel);
+  installStats(kernel);
   installAccounts(kernel);
   gateway.start(ctx);
 

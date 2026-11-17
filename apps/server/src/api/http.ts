@@ -210,9 +210,9 @@ async function handleApi(
       throw new ApiError('unknown_method', { req_method: name });
     }
 
-    const { actor, invalid } = authenticate(ctx, req, args.str('token'));
+    const { actor, invalid, expired } = authenticate(ctx, req, args.str('token'));
     if (def.auth !== 'none') {
-      if (!actor) throw new ApiError(invalid ? 'invalid_auth' : 'not_authed');
+      if (!actor) throw new ApiError(expired ? 'token_expired' : invalid ? 'invalid_auth' : 'not_authed');
       if (actor.kind === 'session') {
         // Cookie-authenticated calls must be same-origin POSTs.
         if (req.method !== 'POST' || !isSameOrigin(req)) throw new ApiError('invalid_auth');

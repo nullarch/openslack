@@ -19,9 +19,9 @@ pnpm --filter @app/desktop package        # installers: dmg/zip (macOS), nsis (W
 
 `APP_SERVER_URL` (or a URL argument) adds a server on start; `APP_USER_DATA` points the profile elsewhere.
 
+Installers: `pnpm --filter @app/desktop package` on each system, or the **Desktop** workflow in CI, which builds macOS (dmg, zip), Windows (nsis) and Linux (AppImage, deb) and, on a `v*` tag, puts them in a draft GitHub release with the update feed. Installed copies check that feed at start and every six hours (`electron-updater`); `APP_NO_UPDATES=1` turns it off. The icon is `build/icon.png`, made from the web client's favicon with `pnpm --filter @app/desktop icon`.
+
 ## Not done yet
 
-- **Code signing and notarisation.** Unsigned builds trigger Gatekeeper / SmartScreen warnings. Signing needs an Apple Developer ID and a Windows code-signing certificate.
-- **Automatic updates.** `electron-updater` needs published, signed releases to update from.
-- **An icon.** The default Electron icon is used.
-- Only the unpacked macOS (Apple silicon) build has been made and launched; Windows and Linux installers have not been built.
+- **Code signing and notarisation.** Unsigned builds trigger Gatekeeper / SmartScreen warnings, and macOS applies automatic updates only to signed apps. Signing needs an Apple Developer ID and a Windows code-signing certificate.
+- **Updates from a private repository.** The update feed is read from the GitHub releases of the repository in the brand module; while it is private, installed copies cannot read it.
