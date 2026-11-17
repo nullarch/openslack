@@ -114,6 +114,28 @@ Tokens for the media server are issued only to members of the conversation, for 
 
 Checked: the server and the web client against LiveKit 1.13.11 run directly (`livekit-server --config-body …`), with two browsers exchanging audio, camera video, a screen share and reactions, and the webhook and the periodic comparison each removing someone who vanished. Not checked: the compose file above, calls longer than a few minutes, more than two people, and networks with NAT between browser and LiveKit.
 
+## AI features
+
+Summaries, daily recaps, answers above search results, translation, writing help and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.
+
+| Setting | Meaning |
+|---|---|
+| Provider | **Claude API** (through Anthropic's official SDK) or **OpenAI-compatible** (any server that speaks the OpenAI chat API: vLLM, Ollama, LM Studio, LiteLLM, …) |
+| Model | Defaults to `claude-opus-5-5` for the Claude API |
+| Base URL | Optional for the Claude API (a gateway or proxy); required for OpenAI-compatible endpoints, e.g. `http://localhost:11434/v1` |
+| API key | Stored in the database on this server and never sent back to any browser, admins included. For the Claude API without a key here, the SDK falls back to `ANTHROPIC_API_KEY` or an `ant auth login` profile in the server's environment |
+| Features | Each feature can be switched off on its own |
+
+What leaves the server, and only when a person asks:
+
+- **Summaries** (a thread, or a channel's unread messages or today) and **search answers** send the messages being summarised, or the messages that person's own search found. Everything goes through the same visibility checks as the API: someone who cannot read a private channel or DM can never get it into a summary, an answer or a recap. The answer streams to that person only and is not stored.
+- **Translation** sends the one message being translated, plus the viewer's language. **Help me write** sends the draft being edited; the result goes back into the composer and is never sent on its own.
+- **Daily recaps** run on the server at each person's chosen local time and send the new messages from the channels they picked, checked against what they can read at that moment. The recap arrives as a direct message from a built-in "Recaps" bot. The schedule is stored in the database, so a restart only delays a recap until the server is back.
+
+Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "default"`): if the model declines a request, the API retries it on another model within the same call.
+
+The Agents view (workspace menu → Agents) needs no model. It lists apps acting as agents — connected over Socket Mode, or using assistant status, titles or streamed replies — with their recent threads and current status, limited to threads the viewer can read.
+
 ## Behind a reverse proxy
 
 Terminate HTTPS at the proxy and forward everything, including WebSocket upgrades, to the server.

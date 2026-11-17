@@ -22,6 +22,7 @@ import { conversation, displayName, get, set, useStore, type LocalMessage } from
 import { clock, fullDateTime, relative } from '../lib/time';
 import { S } from '../strings';
 import { HuddleCard } from './Huddle';
+import { AiMessageItems, AiTranslation } from './ai/AiControls';
 import { Attachments, Blocks } from './blocks';
 import { confirmDialog } from './dialogs/confirm';
 import { Files } from './files';
@@ -338,6 +339,7 @@ function Toolbar({ channel, message, inThread, onOpenChange }: ToolbarProps) {
             />
           ) : null}
           <MessageShortcutItems channel={channel} ts={message.ts} onDone={() => change(null)} />
+          <AiMessageItems channel={channel} message={message} inThread={inThread} onDone={() => change(null)} />
           {canDelete ? (
             <>
               <MenuDivider />
@@ -382,6 +384,7 @@ function Body({ channel, message }: { channel: string; message: LocalMessage }) 
       {content}
       {message.streaming && !content ? <span className="msg-streaming-empty">{S.messages.streaming}</span> : null}
       {message.edited && !message.bot_id ? <span className="msg-edited">{S.messages.edited}</span> : null}
+      <AiTranslation channel={channel} ts={message.ts} />
     </div>
   );
 }

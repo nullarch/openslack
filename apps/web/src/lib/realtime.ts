@@ -25,6 +25,7 @@ import { handleHuddleEvent, refreshHuddles } from './huddles';
 import { handlePlatformEvent, restoreViews } from './platform';
 import { currentId, get, set, type LocalMessage } from './store';
 import { applyTheme } from './theme';
+import { handleAiEvent } from './ai';
 
 let socket: WebSocket | null = null;
 let attempts = 0;
@@ -329,7 +330,7 @@ function handle(event: Json): void {
       set((state) => ({ appConnections: { ...state.appConnections, [event.app_id]: Boolean(event.connected) } }));
       break;
     default:
-      if (!handleAttentionEvent(event) && !handlePlatformEvent(event)) handleHuddleEvent(event);
+      if (!handleAttentionEvent(event) && !handleAiEvent(event) && !handlePlatformEvent(event)) handleHuddleEvent(event);
       break;
   }
 }

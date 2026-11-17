@@ -288,7 +288,6 @@ export const MIGRATIONS: string[] = [
   CREATE UNIQUE INDEX app_views_external ON app_views(app_id, external_id) WHERE external_id IS NOT NULL;
   CREATE INDEX app_views_user ON app_views(user_id, type);
   `,
-
   /* 4: messaging and attention — activity, threads, notification levels, DND, scheduled messages,
         reminders, saved items, bookmarks, posting permissions, drafts, link previews, snippets */ `
   ALTER TABLE members ADD COLUMN notify_level TEXT NOT NULL DEFAULT 'default';
@@ -440,5 +439,43 @@ export const MIGRATIONS: string[] = [
   );
   CREATE UNIQUE INDEX huddles_active ON huddles(conversation_id) WHERE ended IS NULL;
   CREATE INDEX huddles_message ON huddles(conversation_id, ts);
+  `,
+
+  /* 6: AI features — model connection, daily recaps, agent activity */ `
+  CREATE TABLE ai_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    base_url TEXT,
+    api_key TEXT,
+    features TEXT NOT NULL DEFAULT '{}',
+    updated INTEGER NOT NULL,
+    updated_by TEXT NOT NULL
+  );
+
+  CREATE TABLE ai_recaps (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    channels TEXT NOT NULL,
+    local_time TEXT NOT NULL,
+    tz TEXT NOT NULL,
+    next_at INTEGER NOT NULL,
+    last_sent INTEGER,
+    -- The newest message a recap has covered; the next one starts after it.
+    last_ts TEXT,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX ai_recaps_due ON ai_recaps(next_at);
+
+  CREATE TABLE agent_threads (
+    app_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    thread_ts TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT '',
+    streaming INTEGER NOT NULL DEFAULT 0,
+    last_activity INTEGER NOT NULL,
+    PRIMARY KEY (app_id, conversation_id, thread_ts)
+  ) WITHOUT ROWID;
+  CREATE INDEX agent_threads_recent ON agent_threads(app_id, last_activity);
   `,
 ];

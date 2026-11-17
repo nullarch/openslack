@@ -6,6 +6,7 @@ import { BookmarksBar, NotifyButton } from './Bookmarks';
 import { call } from '../lib/api';
 import { conversation, conversationName, set, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AiChannelButton } from './ai/AiControls';
 import { AppHomeView, AppTabs, useAppOf, useAppTab } from './AppViews';
 import { Composer } from './Composer';
 import { HuddleHeaderButton } from './Huddle';
@@ -90,6 +91,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
         </button>
       ) : null}
       {isMember ? <NotifyButton channel={conv.id} /> : null}
+      <AiChannelButton channel={conv.id} />
       <IconButton label={S.header.details} onClick={() => openDetails('about')}>
         <Info size={18} />
       </IconButton>
