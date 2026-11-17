@@ -2,6 +2,7 @@ import type { Kernel } from '../app.ts';
 import type { MethodDef } from '../api/registry.ts';
 import { ApiError } from '../core/errors.ts';
 import { installExport } from '../export/export.ts';
+import { installPublicPages } from '../public/pages.ts';
 import { mailEnabled } from '../core/mail.ts';
 import { getUser } from '../core/users.ts';
 import { expireGuests, guestExpired } from '../core/guests.ts';
@@ -38,6 +39,7 @@ export function installAccounts(kernel: Kernel): void {
   installGuestRules(kernel);
   installOAuth(kernel);
   installExport(kernel);
+  installPublicPages(kernel);
 
   // Expired guests lose access the moment they next call, and in a sweep every minute.
   registry.guards.push((name, actor) => {

@@ -26,6 +26,10 @@ export interface ConvRow {
   last_ts: string;
   created: number;
   updated: number;
+  /** Readable on the web without signing in (public channels only). */
+  web_public: number;
+  /** Files shared in it are readable there too. */
+  web_files: number;
 }
 
 export interface MemberRow {
