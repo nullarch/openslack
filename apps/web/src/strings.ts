@@ -229,6 +229,8 @@ export const S = {
     unarchive: 'Unarchive channel',
     rename: 'Rename channel',
     closeDm: 'Close conversation',
+    convertToChannel: 'Change to a private channel',
+    convertName: 'Channel name',
     mute: 'Mute notifications',
     unmute: 'Unmute notifications',
     removeMember: 'Remove from channel',
