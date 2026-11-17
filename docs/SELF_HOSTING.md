@@ -200,6 +200,10 @@ SendGrid Inbound Parse works with "POST the raw, full MIME message" on and `http
 
 Set `CLAMAV_URL=tcp://clamav:3310` to have every upload checked by a ClamAV daemon (for example the `clamav/clamav-debian` container, which also runs on ARM) before anyone can see it. An infected file is deleted and the upload fails with `file_infected`. If the daemon cannot be reached the upload is refused (`scan_unavailable`); `CLAMAV_FAIL_OPEN=1` accepts it unscanned instead. Files larger than `CLAMAV_MAX_MB` (25, clamd's default stream limit) are not scanned; raise both together if you need to.
 
+## Automating administration
+
+Tools that manage a Slack workspace through its admin API work here too: `admin.users.*` (list, roles, invite, remove, session reset), `admin.conversations.*` (search, rename, archive, delete, posting rules) and `admin.teams.settings.*`. They need an admin's user token with the `admin.*` scopes, from an OAuth install that only an admin can approve; the token can never do more than that admin could in the web client, and everything it does is in the audit log.
+
 ## Audit log
 
 Changes to people, roles, apps, channels and workspace settings, and every sign-in (including failed ones), are recorded with who, when, from which address and with what browser or tool. Admins read it with `client.admin.audit.list`; for a SIEM or a script, make a token with `client.admin.auditToken` and read `GET /audit/v1/logs` (the shape of Slack's Audit Logs API: `limit`, `cursor`, `oldest`, `latest`, `action`, `actor`, `entity`). Arguments are reduced to identifiers; passwords and tokens are never written to it.

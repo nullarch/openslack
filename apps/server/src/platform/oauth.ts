@@ -32,6 +32,8 @@ export const USER_SCOPES = new Set([
   'mpim:write', 'pins:read', 'pins:write', 'reactions:read', 'reactions:write', 'reminders:read', 'reminders:write',
   'search:read', 'stars:read', 'team:read', 'users.profile:read', 'users.profile:write', 'users:read', 'users:read.email',
   'users:write', 'dnd:read', 'dnd:write', 'bookmarks:read', 'bookmarks:write', 'identify', 'calls:read', 'calls:write',
+  // Admin API scopes: only an admin can approve them, for their own token.
+  'admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write',
 ]);
 export const BOT_SCOPES = new Set([...DEFAULT_BOT_SCOPES, 'usergroups:read', 'bookmarks:read', 'bookmarks:write', 'reminders:write', 'dnd:read']);
 
@@ -151,7 +153,8 @@ export function installOauth(kernel: Kernel): void {
     const canApproveBot = isAdmin(actor);
     const team = ctx.requireTeam();
     const list = (scopes: string[]): string => scopes.map((scope) => `<li><code>${escapeHtml(scope)}</code></li>`).join('');
-    const blocked = details.botScopes.length > 0 && !canApproveBot;
+    const adminScopes = details.userScopes.some((scope) => scope.startsWith('admin.'));
+    const blocked = (details.botScopes.length > 0 || adminScopes) && !canApproveBot;
     page(
       res,
       200,
@@ -160,7 +163,7 @@ export function installOauth(kernel: Kernel): void {
        <p>Signed in as ${escapeHtml(who.real_name || who.name)}.</p>
        ${details.botScopes.length ? `<p>As a bot, it will be able to:</p><ul>${list(details.botScopes)}</ul>` : ''}
        ${details.userScopes.length ? `<p>On your behalf, it will be able to:</p><ul>${list(details.userScopes)}</ul>` : ''}
-       ${blocked ? '<p class="error">Only workspace admins can install an app with a bot. Ask an admin to open this link.</p>' : ''}
+       ${blocked ? '<p class="error">Only workspace admins can install an app with a bot or admin access. Ask an admin to open this link.</p>' : ''}
        <form method="post" action="/oauth/v2/authorize?${escapeHtml(query)}">
          <input type="hidden" name="form_token" value="${formToken(session)}">
          <div class="row">
@@ -203,8 +206,8 @@ export function installOauth(kernel: Kernel): void {
     const back = (params: Record<string, string>): void =>
       redirectTo(res, `${details.redirectUri}${details.redirectUri.includes('?') ? '&' : '?'}${new URLSearchParams(params)}`);
     if (form.decision !== 'allow') return back({ error: 'access_denied', state: details.state });
-    if (details.botScopes.length && !isAdmin(actorForUser(who.user, 'session', null))) {
-      return errorPage(res, 'Only workspace admins can install an app with a bot.');
+    if ((details.botScopes.length || details.userScopes.some((scope) => scope.startsWith('admin.'))) && !isAdmin(actorForUser(who.user, 'session', null))) {
+      return errorPage(res, 'Only workspace admins can approve an app with a bot or admin access.');
     }
     const code = `${Date.now()}.${newSecret(24)}`;
     grants.set(sha256(code), {
