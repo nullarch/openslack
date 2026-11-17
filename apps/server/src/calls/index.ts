@@ -1,3 +1,4 @@
+import { publicToViewerSql } from '../core/conversations.ts';
 import type { Args } from '../api/registry.ts';
 import type { Kernel } from '../app.ts';
 import { fail } from '../core/errors.ts';
@@ -220,8 +221,9 @@ export function installCalls(kernel: Kernel): void {
     if (!row) fail('invalid_call_id');
     const visible = ctx.db.get(
       `SELECT 1 FROM call_shares s JOIN conversations c ON c.id = s.conversation_id
-        WHERE s.call_id = ? AND (c.kind = 'public' OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = c.id AND m.user_id = ?))`,
+        WHERE s.call_id = ? AND (${publicToViewerSql(ctx, actor.userId).sql} OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = c.id AND m.user_id = ?))`,
       row.id,
+      ...publicToViewerSql(ctx, actor.userId).params,
       actor.userId,
     );
     if (!visible) fail('invalid_call_id');

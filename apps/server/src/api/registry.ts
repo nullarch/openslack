@@ -128,6 +128,12 @@ export class Registry {
    * authorisation. A guard throws to refuse the call.
    */
   readonly guards: ((name: string, actor: Actor) => void)[] = [];
+  /**
+   * Ways someone who is not an admin may still call an admin method: an admin
+   * role held for the organisation, or for the workspace the call names
+   * (`src/org/roles.ts`). True grants the call.
+   */
+  readonly grants: ((name: string, actor: Actor, args: Args) => boolean)[] = [];
 
   /** Register an authenticated method. */
   add(name: string, options: MethodOptions, handler: (call: Call) => Result | Promise<Result>): void {

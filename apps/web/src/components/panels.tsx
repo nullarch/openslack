@@ -419,6 +419,48 @@ function PinsTab({ conv }: { conv: Conversation }) {
   );
 }
 
+/**
+ * With several workspaces: which one the channel belongs to, or all of them.
+ * Admins and Channel Admins change it (admin.conversations.setTeams).
+ */
+function ChannelWorkspace({ conv }: { conv: Conversation }) {
+  const team = useStore((state) => state.team);
+  const allowed = useStore((state) => Boolean(state.self?.is_admin) || state.adminRoles.some((entry) => entry.role_id === 'Rl01' && entry.entity_id === state.team?.id));
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const eligible = allowed && conv.is_channel && !conv.is_general && !conv.is_archived && !conv.is_ext_shared;
+  useEffect(() => {
+    if (!eligible) return;
+    call('client.org.info')
+      .then((result) => setWorkspaces((result.workspaces as { id: string; name: string }[]) ?? []))
+      .catch(() => undefined);
+  }, [eligible]);
+  if (!eligible || !team || !workspaces || workspaces.length === 0) return null;
+  const value = conv.is_org_shared ? 'org' : conv.context_team_id || team.id;
+  const change = async (next: string): Promise<void> => {
+    setBusy(true);
+    await attempt(() => call('admin.conversations.setTeams', next === 'org' ? { channel_id: conv.id, org_channel: true } : { channel_id: conv.id, target_team_ids: next }));
+    setBusy(false);
+  };
+  return (
+    <section className="about-item channel-workspace">
+      <div className="about-head">
+        <h4 id={`workspace-${conv.id}`}>{S.org.channelWorkspace}</h4>
+      </div>
+      <p className="muted">{S.org.channelWorkspaceHint}</p>
+      <select aria-labelledby={`workspace-${conv.id}`} value={value} disabled={busy} onChange={(event) => void change(event.target.value)}>
+          <option value={team.id}>{team.name}</option>
+          {workspaces.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name}
+            </option>
+          ))}
+          <option value="org">{S.org.orgWide}</option>
+      </select>
+    </section>
+  );
+}
+
 /** Shared with another server: say with whom; admins share a channel, or stop sharing it. */
 function SharedChannel({ conv }: { conv: Conversation }) {
   const isAdmin = useStore((state) => state.self?.is_admin ?? false);
@@ -524,6 +566,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
           <p className="about-created muted">{S.details.created(displayName(creator), created)}</p>
           {isMember && !conv.is_archived ? <ChannelEmail channel={conv.id} /> : null}
           <ChannelWebSettings channel={conv.id} />
+          <ChannelWorkspace conv={conv} />
           <SharedChannel conv={conv} />
           {isMember ? <PostingPermissions conv={conv} canManage={canManage} /> : null}
         </>

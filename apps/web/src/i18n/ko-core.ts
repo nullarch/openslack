@@ -661,6 +661,7 @@ export const koCore = {
     audit: '감사 로그',
     compliance: '컴플라이언스',
     connections: '공유 채널',
+    organisation: '조직',
     role: {
       primary_owner: '기본 소유자',
       owner: '소유자',

@@ -1,3 +1,4 @@
+import { publicToViewerSql } from '../core/conversations.ts';
 import type { Kernel } from '../app.ts';
 import type { ConvRow } from '../core/conversations.ts';
 import { isGuest } from '../core/guests.ts';
@@ -90,7 +91,11 @@ export function searchRequest(query: SearchQuery, allowed: string[], options: Se
 function readable(ctx: Ctx, viewerId: string): string[] {
   const rows = isGuest(ctx, viewerId)
     ? ctx.db.all<{ id: string }>('SELECT conversation_id AS id FROM members WHERE user_id = ?', viewerId)
-    : ctx.db.all<{ id: string }>("SELECT id FROM conversations WHERE kind = 'public' UNION SELECT conversation_id FROM members WHERE user_id = ?", viewerId);
+    : ctx.db.all<{ id: string }>(
+        `SELECT c.id FROM conversations c WHERE ${publicToViewerSql(ctx, viewerId).sql} UNION SELECT conversation_id FROM members WHERE user_id = ?`,
+        viewerId,
+        viewerId,
+      );
   return rows.map((row) => row.id);
 }
 

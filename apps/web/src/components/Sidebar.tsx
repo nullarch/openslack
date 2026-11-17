@@ -1,7 +1,7 @@
 import { isNativeApp, serverListUrl } from '../lib/native';
 import { AssistantNavItem } from './ai/Assistant';
 import type { Conversation } from '@app/shared';
-import { AtSign, Bell, BellOff, Bookmark as BookmarkIcon, CheckCheck, ChevronDown, ChevronRight, Compass, FileStack, FileText, FolderInput, FolderMinus, FolderPlus, Hash, Inbox, KeyRound, ListChecks, Lock, LogOut, MessagesSquare, Moon, MoreHorizontal, PenSquare, Pencil, Plus, Search, Send, Server, Settings, ShieldCheck, SlidersHorizontal, Smile, Star, Sun, Trash2, UserPlus, UserRound, Users, Workflow } from 'lucide-react';
+import { AtSign, Bell, BellOff, Bookmark as BookmarkIcon, Building2, Check, CheckCheck, ChevronDown, ChevronRight, Compass, FileStack, FileText, FolderInput, FolderMinus, FolderPlus, Hash, Inbox, KeyRound, ListChecks, Lock, LogOut, MessagesSquare, Moon, MoreHorizontal, PenSquare, Pencil, Plus, Search, Send, Server, Settings, ShieldCheck, SlidersHorizontal, Smile, Star, Sun, Trash2, UserPlus, UserRound, Users, Workflow } from 'lucide-react';
 import { memo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { attempt, go, markRead, openModal, setConversationPrefs, setPrefs, signOut } from '../lib/actions';
 import { openAccountsModal, useAccounts } from '../lib/accounts';
@@ -10,6 +10,7 @@ import { resumeNotifications, selfDndUntil, setNotifyLevel, snooze, userInDnd, w
 import type { ViewName } from '../lib/router';
 import { useRoving } from '../lib/roving';
 import { conversationName, currentId, get, useStore } from '../lib/store';
+import { chooseWorkspace, chosenWorkspace, inChosenWorkspace } from '../lib/workspaces';
 import { S } from '../strings';
 import { SidebarHuddleBadge } from './Huddle';
 import { AiMenuItems } from './ai/AiControls';
@@ -312,6 +313,8 @@ function TeamMenu() {
   const pending = useAccounts((state) => state.pendingRequests);
   const isAdmin = useStore((state) => Boolean(state.self?.is_admin));
   const isGuest = useStore((state) => Boolean(state.self?.is_restricted));
+  const workspaces = useStore((state) => state.workspaces);
+  const chosen = useStore((state) => chosenWorkspace(state));
   const canInvite = permissions.invite;
   const invite = (): void => (canInvite ? openModal({ kind: 'invite' }) : openAccountsModal({ kind: 'requestInvite' }));
   const pick = (action: () => void) => () => {
@@ -322,11 +325,26 @@ function TeamMenu() {
     <>
       <button ref={anchor} type="button" className="team-btn" onClick={() => setOpen(true)} aria-label={S.a11y.workspaceMenu(team?.name ?? '')} aria-haspopup="menu">
         {team ? <img className="team-icon" src={asset(team.icon.image_68)} alt="" width={26} height={26} /> : null}
-        <span className="team-name">{team?.name}</span>
+        <span className="team-name">{chosen && !chosen.first ? chosen.name : team?.name}</span>
         <ChevronDown size={15} />
       </button>
       {open ? (
         <Popover anchor={anchor.current} onClose={() => setOpen(false)} className="menu">
+          {workspaces.length > 1 ? (
+            <>
+              <MenuItem icon={chosen ? <Building2 size={16} /> : <Check size={16} />} label={S.org.allWorkspaces} onSelect={pick(() => chooseWorkspace(null))} />
+              {workspaces.map((entry) => (
+                <MenuItem
+                  key={entry.id}
+                  icon={chosen?.id === entry.id ? <Check size={16} /> : <Building2 size={16} />}
+                  label={entry.name}
+                  hint={entry.first ? S.org.everyone : undefined}
+                  onSelect={pick(() => chooseWorkspace(entry.id))}
+                />
+              ))}
+              <MenuDivider />
+            </>
+          ) : null}
           {!isGuest ? <MenuItem icon={<UserPlus size={16} />} label={canInvite ? S.sidebar.invitePeople : S.accounts.requestInvite} onSelect={pick(invite)} /> : null}
           {permissions.browse_channels ? <MenuItem icon={<Compass size={16} />} label={S.sidebar.browseChannels} onSelect={pick(() => openModal({ kind: 'browse' }))} /> : null}
           {!isGuest ? <MenuItem icon={<Users size={16} />} label={S.accounts.groups} onSelect={pick(() => openAccountsModal({ kind: 'groups' }))} /> : null}
@@ -495,6 +513,7 @@ export function Sidebar() {
   const selfId = useStore((state) => state.self?.id);
   const prefs = useStore((state) => state.prefs);
   const current = useStore((state) => currentId(state));
+  const workspace = useStore((state) => state.workspace);
   const state = useStore.getState();
 
   const custom = Array.isArray(prefs.sidebar_sections) ? (prefs.sidebar_sections as CustomSection[]) : [];
@@ -502,7 +521,10 @@ export function Sidebar() {
   const onlyUnread = prefs.sidebar_filter === 'unreads';
   const all = Object.values(channels).filter(
     // With "only unread", keep what is unread, what has mentions, and the open conversation.
-    (conv) => !onlyUnread || conv.id === current || ((conv.unread_count ?? 0) > 0 && !conv.is_muted) || (conv.mention_count ?? 0) > 0,
+    (conv) =>
+      (!onlyUnread || conv.id === current || ((conv.unread_count ?? 0) > 0 && !conv.is_muted) || (conv.mention_count ?? 0) > 0) &&
+      // With several workspaces, the chosen one's channels (and the open conversation).
+      (conv.id === current || inChosenWorkspace({ workspace, team: state.team }, conv)),
   );
   const names = new Map(all.map((conv) => [conv.id, conversationName({ ...state, channels, users }, conv)]));
   const order = (id: string, list: Conversation[]): Conversation[] => {

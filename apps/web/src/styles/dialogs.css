@@ -1360,3 +1360,48 @@ g.is-hover .viz-hit {
   gap: 6px;
   margin: 0;
 }
+
+/* Administration → Organisation */
+.org-admin > .compliance-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.org-workspace {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.org-workspace-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.org-workspace-head .link-btn {
+  margin-left: auto;
+}
+.org-add,
+.org-assign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.org-add select,
+.org-assign select {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.org-create {
+  margin-top: 18px;
+}
+.org-create h4 {
+  margin: 0 0 8px;
+}
+.channel-workspace select {
+  width: 100%;
+  margin-top: 8px;
+}

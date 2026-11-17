@@ -1,4 +1,5 @@
 import { forgetThisPhone } from './native';
+import { applyWorkspaces, workspaceForNewChannel } from './workspaces';
 import { extractBlockMentions, extractMentions, type Block, type BootData, type Conversation, type Message, type User } from '@app/shared';
 import { S } from '../strings';
 import { ApiError, call, isUnsupported, onAuthLost, onTwoFactorRequired, type Json } from './api';
@@ -146,7 +147,9 @@ export function applyBoot(data: BootData): void {
     emoji: data.emoji,
     prefs: data.prefs,
     maxUploadBytes: data.max_upload_bytes,
+    adminRoles: data.admin_roles ?? [],
   });
+  applyWorkspaces(data.workspaces ?? []);
   applyAccountsBoot(data);
   applyTheme(data.prefs.theme);
   applySidebar(data.prefs);
@@ -869,7 +872,10 @@ export function forgetChannel(id: string): void {
 
 export async function createChannel(name: string, isPrivate: boolean, template: string | null = null): Promise<Json | undefined> {
   // A template creates the channel and what it starts with (description, canvas and list tabs) in one call.
-  const result = template ? await call('client.channels.createFromTemplate', { template, name, is_private: isPrivate }) : await call('conversations.create', { name, is_private: isPrivate });
+  const teamId = workspaceForNewChannel();
+  const result = template
+    ? await call('client.channels.createFromTemplate', { template, name, is_private: isPrivate, team_id: teamId })
+    : await call('conversations.create', { name, is_private: isPrivate, team_id: teamId });
   adopt({ ...result.channel, is_member: true, unread_count: 0, mention_count: 0 });
   go({ name: 'conversation', id: result.channel.id });
   return result.channel;

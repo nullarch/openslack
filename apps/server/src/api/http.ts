@@ -165,9 +165,9 @@ export function workspaceTokenLimit(ctx: Ctx): number | undefined {
 // ── API dispatch ────────────────────────────────────────────────────────────
 
 /** Check that an authenticated caller may use a method: credential type, role and token scopes. */
-export function authorize(def: MethodDef, actor: Actor): void {
+export function authorize(def: MethodDef, actor: Actor, granted = false): void {
   if (def.auth === 'session' && actor.kind !== 'session') throw new ApiError('not_allowed_token_type');
-  if (def.auth === 'admin' && !isAdmin(actor)) throw new ApiError('not_allowed');
+  if (def.auth === 'admin' && !isAdmin(actor) && !granted) throw new ApiError('not_allowed');
   // App-level tokens reach only the methods that take them (Socket Mode, event authorizations).
   if (actor.kind === 'app' && !def.scopes.some((scope) => APP_TOKEN_SCOPES.includes(scope))) {
     throw new ApiError('not_allowed_token_type');
@@ -222,7 +222,8 @@ async function handleApi(
         // Cookie-authenticated calls must be same-origin POSTs.
         if (req.method !== 'POST' || !isSameOrigin(req)) throw new ApiError('invalid_auth');
       }
-      authorize(def, actor);
+      const granted = def.auth === 'admin' && !isAdmin(actor) && !actor.isBot && registry.grants.some((grant) => grant(name, actor, args));
+      authorize(def, actor, granted);
       for (const guard of registry.guards) guard(name, actor);
     }
 

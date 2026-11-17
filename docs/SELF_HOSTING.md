@@ -201,6 +201,20 @@ Requirements and limits:
 - Undelivered changes wait in a queue and are retried for as long as the connection exists; **Administration → Shared channels** shows how many are waiting.
 - Turn the feature off for the whole workspace there too.
 
+## Several workspaces in one organisation
+
+One server can hold an organisation with several workspaces, as Slack's Enterprise Grid does. The workspace you set up is the organisation and its first workspace; everyone is in it. Under **Administration → Organisation** an admin can:
+
+- **Create a workspace** and add people to it. A further workspace has its own members and channels: a public channel there can be found and joined only by its members (and by people invited into it). Removing someone from a workspace takes them out of its channels.
+- **Show a channel in every workspace.** From a channel's details, an admin picks its workspace, or **Every workspace** for an org-wide channel.
+- **Hand out admin roles**, so someone who is not an admin can run one part of the administration, for the whole organisation or for one workspace. The roles and their ids are Slack's (Channel Admin `Rl01`, User Admin `Rl03`, Role Admin `Rl02`, Analytics Admin `Rl0L`, Audit Logs Admin `Rl0C`, Security Admin `Rl0J`, Legal Holds Admin `Rl04`, DLP Admin `Rl09`, Integrations Manager `Rl0D`, Workflow Admin `Rl0K`, Conversation Admin `Rl05`; Channel Manager `Rl0A` for one channel), so scripts that use `admin.roles.*` work unchanged.
+
+Settings, policies (retention, message rules, sign-in rules, IP allowlist, information barriers), apps, custom emoji and user groups belong to the organisation and apply in every workspace. People can switch the sidebar between workspaces from the menu under the workspace name; with one workspace, nothing changes.
+
+Through the API: `admin.teams.create`, `admin.teams.list`, `admin.teams.settings.*` with `team_id`, `admin.users.assign`, `admin.users.list` and `admin.users.remove` with `team_id`, `admin.conversations.create` with `team_id` or `org_wide`, `admin.conversations.setTeams` and `getTeams`, `conversations.create` and `conversations.list` with `team_id`, and `admin.roles.listAssignments`, `addAssignments` and `removeAssignments`.
+
+Not yet: a channel in some but not all workspaces (it is in one, or in all), a workspace's own settings or icon, and roles that open nothing here (Exports Admin, Sales Admin, Message Activity Manager, Platform Developer are recorded for compatibility).
+
 ## Sign in with this workspace
 
 Other tools can let people sign in with their account here (OpenID Connect, the same flow as Slack's Sign in with Slack). Create an app under **Administration → Apps**, add the tool's callback address as a redirect URL, and give the tool:

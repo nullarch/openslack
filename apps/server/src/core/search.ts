@@ -1,8 +1,7 @@
 import { normalizeChannelName } from '@app/shared';
 import type { Param } from '../db/db.ts';
 import type { Ctx } from '../ctx.ts';
-import type { ConvRow } from './conversations.ts';
-import { isGuest } from './guests.ts';
+import { publicToViewerSql, type ConvRow } from './conversations.ts';
 import type { MsgRow } from './messages.ts';
 
 export interface SearchQuery {
@@ -134,13 +133,13 @@ export interface SearchOptions {
  */
 export function searchMessages(ctx: Ctx, viewerId: string, query: SearchQuery, options: SearchOptions): SearchResult {
   if (query.impossible) return { hits: [], total: 0 };
-  // Guests search only the conversations they belong to.
-  const publicToViewer = isGuest(ctx, viewerId) ? '0' : "c.kind = 'public'";
+  // Guests search only the conversations they belong to; others also the public ones of their workspaces.
+  const publicToViewer = publicToViewerSql(ctx, viewerId);
   const where: string[] = [
-    `(${publicToViewer} OR EXISTS (SELECT 1 FROM members mm WHERE mm.conversation_id = c.id AND mm.user_id = ?))`,
+    `(${publicToViewer.sql} OR EXISTS (SELECT 1 FROM members mm WHERE mm.conversation_id = c.id AND mm.user_id = ?))`,
     "(m.subtype IS NULL OR m.subtype NOT IN ('channel_join', 'channel_leave', 'tombstone'))",
   ];
-  const params: Param[] = [viewerId];
+  const params: Param[] = [...publicToViewer.params, viewerId];
 
   const indexed = query.terms.filter((term) => [...term].length >= 3);
   const short = query.terms.filter((term) => [...term].length < 3);

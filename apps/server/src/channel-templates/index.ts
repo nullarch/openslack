@@ -113,7 +113,7 @@ export function installChannelTemplates(kernel: Kernel): void {
   kernel.registry.add('client.channels.createFromTemplate', { auth: 'session' }, async ({ actor, args, req, res }) => {
     const template = CHANNEL_TEMPLATES.find((entry) => entry.id === args.req('template', 'template_not_found')) ?? fail('template_not_found');
     if (template.adminOnly && actor.role === 'member') fail('restricted_action');
-    const created = await invoke('conversations.create', actor, req, res, { name: args.req('name', 'invalid_name_required'), is_private: args.bool('is_private') });
+    const created = await invoke('conversations.create', actor, req, res, { name: args.req('name', 'invalid_name_required'), is_private: args.bool('is_private'), team_id: args.str('team_id') });
     const channel = (created.channel as { id: string }).id;
     const docs: unknown[] = [];
     for (const step of template.steps) {

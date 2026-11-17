@@ -1213,4 +1213,37 @@ export const MIGRATIONS: string[] = [
   ) WITHOUT ROWID;
   CREATE INDEX push_devices_user ON push_devices (user_id);
   `,
+  // 36: an organisation with several workspaces. The workspace row (`team`) is the
+  // organisation and its first workspace, which everyone belongs to; further
+  // workspaces have their own members and channels. A channel with no workspace
+  // belongs to the first; an org-wide channel appears in every workspace. Admin
+  // roles (Slack's role ids) are held for the organisation, a workspace or a channel.
+  `
+  CREATE TABLE workspaces (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    domain TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    discoverability TEXT NOT NULL DEFAULT 'open',
+    created INTEGER NOT NULL,
+    created_by TEXT NOT NULL
+  );
+  CREATE TABLE workspace_members (
+    workspace_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    created INTEGER NOT NULL,
+    PRIMARY KEY (workspace_id, user_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX workspace_members_user ON workspace_members (user_id);
+  ALTER TABLE conversations ADD COLUMN workspace_id TEXT;
+  ALTER TABLE conversations ADD COLUMN org_wide INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE role_assignments (
+    role_id TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    created INTEGER NOT NULL,
+    PRIMARY KEY (role_id, entity_id, user_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX role_assignments_user ON role_assignments (user_id);
+  `,
 ];

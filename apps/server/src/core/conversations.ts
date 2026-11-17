@@ -30,6 +30,10 @@ export interface ConvRow {
   web_public: number;
   /** Files shared in it are readable there too. */
   web_files: number;
+  /** The workspace it belongs to when the organisation has several; null: the first workspace. */
+  workspace_id: string | null;
+  /** Shown in every workspace of the organisation. */
+  org_wide: number;
 }
 
 export interface MemberRow {
@@ -75,7 +79,39 @@ export function memberIds(ctx: Ctx, conversationId: string): string[] {
  */
 export function canSee(ctx: Ctx, conv: ConvRow, userId: string): boolean {
   if (getMember(ctx, conv.id, userId) !== undefined) return true;
-  return conv.kind === 'public' && !isGuest(ctx, userId);
+  return conv.kind === 'public' && !isGuest(ctx, userId) && inWorkspaceOf(ctx, conv, userId);
+}
+
+/**
+ * Whether a person is in the workspace a conversation belongs to. Everyone is
+ * in the organisation's first workspace; a further workspace has its own
+ * members; an org-wide channel belongs to all of them.
+ */
+export function inWorkspaceOf(ctx: Ctx, conv: Pick<ConvRow, 'workspace_id' | 'org_wide'>, userId: string): boolean {
+  if (!conv.workspace_id || conv.org_wide === 1) return true;
+  return ctx.db.get('SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?', conv.workspace_id, userId) !== undefined;
+}
+
+/**
+ * A `team_id` argument naming a further workspace of the organisation; the
+ * organisation's own (or none) is null, an unknown one is not found.
+ */
+export function workspaceFromArg(ctx: Ctx, teamId: string | undefined): string | null {
+  if (!teamId || teamId === ctx.team()?.id) return null;
+  if (!ctx.db.get('SELECT 1 FROM workspaces WHERE id = ?', teamId)) fail('team_not_found');
+  return teamId;
+}
+
+/**
+ * SQL for "a public conversation this person may see without being in it", on
+ * conversations aliased `alias`, with its parameters (for searches).
+ */
+export function publicToViewerSql(ctx: Ctx, viewerId: string, alias = 'c'): { sql: string; params: string[] } {
+  if (isGuest(ctx, viewerId)) return { sql: '0', params: [] };
+  return {
+    sql: `(${alias}.kind = 'public' AND (${alias}.workspace_id IS NULL OR ${alias}.org_wide = 1 OR EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = ${alias}.workspace_id AND wm.user_id = ?)))`,
+    params: [viewerId],
+  };
 }
 
 /**
@@ -202,7 +238,7 @@ export function convToApi(ctx: Ctx, conv: ConvRow, viewerId: string | null, view
     is_org_shared: false,
     created: conv.created,
     updated: conv.updated * 1000,
-    context_team_id: team.id,
+    context_team_id: conv.workspace_id ?? team.id,
   };
 
   if (conv.kind === 'im') {
@@ -261,6 +297,8 @@ export function channelTypeWord(conv: ConvRow): 'channel' | 'group' | 'im' | 'mp
 export interface NewChannel {
   /** Use this id (a channel accepted from another server keeps the id it gave that server). */
   id?: string;
+  /** A further workspace of the organisation; absent: the first. */
+  workspaceId?: string | null;
   name: string;
   isPrivate: boolean;
   creator: string;
@@ -277,8 +315,8 @@ export function createChannel(ctx: Ctx, input: NewChannel): ConvRow {
   const now = nowSeconds();
   ctx.db.tx(() => {
     ctx.db.run(
-      `INSERT INTO conversations (id, kind, name, creator, is_general, purpose, purpose_creator, purpose_set, created, updated)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO conversations (id, kind, name, creator, is_general, purpose, purpose_creator, purpose_set, created, updated, workspace_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       input.isPrivate ? 'private' : 'public',
       name,
@@ -289,6 +327,7 @@ export function createChannel(ctx: Ctx, input: NewChannel): ConvRow {
       input.purpose ? now : 0,
       now,
       now,
+      input.workspaceId ?? null,
     );
     ctx.db.run('INSERT INTO members (conversation_id, user_id, joined) VALUES (?, ?, ?)', id, input.creator, now);
   });
@@ -300,7 +339,10 @@ export function createChannel(ctx: Ctx, input: NewChannel): ConvRow {
         channel: { id, name, is_channel: true, created: now, creator: input.creator, name_normalized: name },
         event_ts: ctx.clock.eventTs(),
       },
-      audience: { all: true },
+      // A further workspace's channel is news to its own people only.
+      audience: input.workspaceId
+        ? { users: ctx.db.all<{ user_id: string }>('SELECT user_id FROM workspace_members WHERE workspace_id = ?', input.workspaceId).map((row) => row.user_id) }
+        : { all: true },
     });
   }
   ctx.bus.emit({

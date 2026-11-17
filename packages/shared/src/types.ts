@@ -295,6 +295,23 @@ export interface BootData {
   ws_url: string;
   max_upload_bytes: number;
   server_version: string;
+  /** The organisation's workspaces the viewer is in; the first is the organisation's own. */
+  workspaces?: WorkspaceInfo[];
+  /** Admin roles the viewer holds (Slack's role ids), and for what: the organisation, a workspace or a channel. */
+  admin_roles?: AdminRoleAssignment[];
+}
+
+export interface WorkspaceInfo {
+  id: string;
+  name: string;
+  domain: string;
+  /** The organisation's own workspace, which everyone is in. */
+  first: boolean;
+}
+
+export interface AdminRoleAssignment {
+  role_id: string;
+  entity_id: string;
 }
 
 /** Events delivered over the client WebSocket. Shapes follow Slack's event types. */

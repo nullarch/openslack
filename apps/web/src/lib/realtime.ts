@@ -1,4 +1,4 @@
-import type { BootData, Conversation, Message, Reaction, User } from '@app/shared';
+import type { AdminRoleAssignment, BootData, Conversation, Message, Reaction, User, WorkspaceInfo } from '@app/shared';
 import { handleAccountsEvent } from './accounts';
 import {
   adoptChannel,
@@ -32,6 +32,7 @@ import { applySidebar, applyTheme } from './theme';
 import { rememberDisplayPrefs } from './locale';
 import { handleAiEvent } from './ai';
 import { handleDocEvent } from './docs';
+import { applyWorkspaces } from './workspaces';
 
 let socket: WebSocket | null = null;
 let attempts = 0;
@@ -317,6 +318,12 @@ function handle(event: Json): void {
       void call('emoji.list')
         .then((result) => set({ emoji: result.emoji }))
         .catch(() => undefined);
+      break;
+    case 'workspaces_changed':
+      applyWorkspaces((event.workspaces as WorkspaceInfo[] | undefined) ?? []);
+      break;
+    case 'admin_roles_changed':
+      set({ adminRoles: (event.admin_roles as AdminRoleAssignment[] | undefined) ?? [] });
       break;
     case 'pref_change':
       set({ prefs: event.prefs });

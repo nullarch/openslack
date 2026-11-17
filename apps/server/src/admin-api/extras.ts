@@ -2,7 +2,7 @@ import { channelNameError, normalizeChannelName } from '@app/shared';
 import { Args, type Call } from '../api/registry.ts';
 import type { Kernel } from '../app.ts';
 import { customEmoji } from '../api/methods/emoji.ts';
-import { addMember, getConv, memberIds, type ConvRow } from '../core/conversations.ts';
+import { addMember, convToApi, getConv, memberIds, workspaceFromArg, type ConvRow } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
 import { newHex, nowSeconds } from '../core/ids.ts';
 import { emitUserChange, getUser, type UserRow } from '../core/users.ts';
@@ -421,12 +421,18 @@ export function installMoreAdminApi(kernel: Kernel): void {
 
   registry.add('admin.conversations.create', { auth: 'admin', scopes: CONV_WRITE }, async (call) => {
     const { args } = call;
-    if (!args.str('team_id') && !args.bool('org_wide')) fail('team_id_or_org_required');
-    if (args.str('team_id')) checkTeam(args, true);
+    const orgWide = args.bool('org_wide');
+    if (!args.str('team_id') && !orgWide) fail('team_id_or_org_required');
+    // A channel in one of the organisation's workspaces, or in all of them (src/org).
+    const workspaceId = orgWide ? null : workspaceFromArg(ctx, args.str('team_id'));
     const name = normalizeChannelName(args.req('name', 'invalid_name'));
     if (channelNameError(name)) fail('invalid_name');
-    const created = await invoke('conversations.create', call, { name, is_private: args.bool('is_private') ? 'true' : 'false' });
+    const created = await invoke('conversations.create', call, { name, is_private: args.bool('is_private') ? 'true' : 'false', team_id: workspaceId ?? undefined });
     const id = (created.channel as { id: string }).id;
+    if (orgWide) {
+      ctx.db.run('UPDATE conversations SET org_wide = 1 WHERE id = ?', id);
+      ctx.bus.emit({ event: { type: 'channel_updated', channel: convToApi(ctx, getConv(ctx, id)!, null), event_ts: ctx.clock.eventTs() }, audience: { conversation: id }, clientOnly: true });
+    }
     const description = args.str('description');
     if (description) await invoke('conversations.setPurpose', call, { channel: id, purpose: description });
     return { channel_id: id };

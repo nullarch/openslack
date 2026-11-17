@@ -1,4 +1,4 @@
-import type { Block, Conversation, FileObject, Message, Team, User } from '@app/shared';
+import type { AdminRoleAssignment, Block, Conversation, FileObject, Message, Team, User, WorkspaceInfo } from '@app/shared';
 import { create } from 'zustand';
 import { parseRoute, type Route } from './router';
 
@@ -49,7 +49,7 @@ export type Panel =
   | { kind: 'details'; channel: string; tab: 'about' | 'members' | 'pins' | 'files' }
   | null;
 
-export type AdminTab = 'members' | 'emoji' | 'apps' | 'workspace' | 'analytics' | 'audit' | 'reports' | 'compliance' | 'connections';
+export type AdminTab = 'members' | 'emoji' | 'apps' | 'workspace' | 'analytics' | 'audit' | 'reports' | 'compliance' | 'connections' | 'organisation';
 
 export type Modal =
   | { kind: 'createChannel' }
@@ -153,6 +153,12 @@ export interface AppState {
   prefs: Record<string, unknown>;
   maxUploadBytes: number;
   commands: SlashCommand[];
+  /** The organisation's workspaces the viewer is in (one, unless the organisation has several). */
+  workspaces: WorkspaceInfo[];
+  /** The workspace the sidebar shows; null: all of them. */
+  workspace: string | null;
+  /** Admin roles the viewer holds. */
+  adminRoles: AdminRoleAssignment[];
 
   convs: Record<string, ConvState>;
   threads: Record<string, ThreadState>;
@@ -206,6 +212,9 @@ export const useStore = create<AppState>(() => ({
   prefs: {},
   maxUploadBytes: 0,
   commands: [],
+  workspaces: [],
+  workspace: null,
+  adminRoles: [],
   convs: {},
   threads: {},
   typing: {},

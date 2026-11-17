@@ -1,24 +1,6 @@
 import { channelNameError, normalizeChannelName } from '@app/shared';
 import type { Actor, Ctx } from '../../ctx.ts';
-import {
-  addMember,
-  archiveConversation,
-  canManage,
-  canSee,
-  convToApi,
-  createChannel,
-  getConv,
-  getMember,
-  markRead,
-  memberIds,
-  openDirect,
-  removeMember,
-  renameConversation,
-  resolveConv,
-  setDirectOpen,
-  touchConv,
-  type ConvRow,
-} from '../../core/conversations.ts';
+import { addMember, archiveConversation, canManage, canSee, convToApi, createChannel, getConv, getMember, markRead, memberIds, openDirect, removeMember, renameConversation, resolveConv, setDirectOpen, touchConv, type ConvRow, workspaceFromArg } from '../../core/conversations.ts';
 import { viewerThreadFields } from '../../attention/threads.ts';
 import { fail } from '../../core/errors.ts';
 import { nowSeconds } from '../../core/ids.ts';
@@ -150,6 +132,8 @@ export function registerConversations(registry: Registry): void {
       name: args.req('name', 'invalid_name_required'),
       isPrivate: args.bool('is_private'),
       creator: actor.userId,
+      // In a further workspace of the organisation (src/org checks the creator may).
+      workspaceId: workspaceFromArg(ctx, args.str('team_id')),
     });
     return { channel: convToApi(ctx, conv, actor.userId, { numMembers: true }) };
   });

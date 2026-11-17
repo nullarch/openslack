@@ -1,5 +1,5 @@
+import { publicToViewerSql } from '../../core/conversations.ts';
 import type { Param } from '../../db/db.ts';
-import { isGuest } from '../../core/guests.ts';
 import type { Actor, Ctx } from '../../ctx.ts';
 import { fileToApi, type FileRow } from '../../core/files.ts';
 import { parseQuery } from '../../core/search.ts';
@@ -17,16 +17,16 @@ function fileSearch(ctx: Ctx, actor: Actor, args: Args): Record<string, unknown>
   const page = args.int('page', 1, { min: 1, max: 100 });
   const query = parseQuery(ctx, actor.userId, text);
   // Guests search only the conversations they belong to.
-  const publicToViewer = isGuest(ctx, actor.userId) ? '0' : "c.kind = 'public'";
+  const publicToViewer = publicToViewerSql(ctx, actor.userId);
 
   const where: string[] = [
     "f.state = 'shared'",
     `EXISTS (SELECT 1 FROM file_shares s JOIN conversations c ON c.id = s.conversation_id
        WHERE s.file_id = f.id
-         AND (${publicToViewer} OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = c.id AND m.user_id = ?))
+         AND (${publicToViewer.sql} OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = c.id AND m.user_id = ?))
          ${query.inConversation ? 'AND c.id = ?' : ''})`,
   ];
-  const params: Param[] = [actor.userId];
+  const params: Param[] = [...publicToViewer.params, actor.userId];
   if (query.inConversation) params.push(query.inConversation);
   for (const term of query.terms) {
     // The name, the title, or the text inside the file (trigram index; shorter terms scan it).

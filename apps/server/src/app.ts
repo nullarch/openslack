@@ -53,6 +53,7 @@ import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
 import { Gateway } from './realtime/gateway.ts';
 import { installFederation } from './federation/index.ts';
+import { installOrg } from './org/index.ts';
 import { Instances } from './core/instances.ts';
 import { Transient } from './core/transient.ts';
 import type { BusEvent } from './core/bus.ts';
@@ -165,6 +166,7 @@ export function createApp(config: Config): App {
   installBarriers(kernel);
   installAccounts(kernel);
   installFederation(kernel);
+  installOrg(kernel);
   // Keep last: the audit log wraps the methods every module above registered.
   installAudit(kernel);
   gateway.start(ctx);

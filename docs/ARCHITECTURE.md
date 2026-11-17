@@ -97,6 +97,15 @@ URLs in API objects are absolute, built from `PUBLIC_URL`. The web client must l
 - **Stopping.** `client.connect.stop` (either side) marks the conversation disconnected on both; each keeps its copy and drops the other side's people from its membership.
 - **Not yet:** files (their names are sent), more than two servers in one channel, avatars of stand-ins.
 
+### Organisations with several workspaces
+
+`src/org` adds Slack Enterprise Grid's shape to the one workspace row.
+
+- **Data.** The `team` row is the organisation and its first workspace; everyone is in it. `workspaces` holds further workspaces and `workspace_members` who is in them. `conversations.workspace_id` (null: the first workspace) and `conversations.org_wide` place a channel; `convToApi` reports `context_team_id` and, for org-wide channels, `is_org_shared` and `shared_team_ids`.
+- **Visibility.** `canSee` adds one condition for public channels someone is not in: they must be in its workspace (`inWorkspaceOf`). Searches and Meilisearch use the same condition as SQL (`publicToViewerSql`). A new public channel in a further workspace announces itself to that workspace's people only.
+- **Roles.** `role_assignments (role_id, entity_id, user_id)` with Slack's role ids (`roles.ts`). Each role lists the admin methods it opens; `registry.grants` lets `authorize` accept an admin method for someone who holds a covering role for the organisation, or for the workspace the call names in `team_id`. Channel Manager held for a channel writes `channel_managers`. Role Admin cannot hand out Role Admin; deactivated people lose their roles.
+- **Methods.** New: `admin.teams.create`, `admin.users.assign`, `admin.conversations.setTeams`/`getTeams`, `admin.roles.*`, `client.org.info`. Existing ones take `team_id` by wrapping (`admin.teams.list`/`settings.*`, `admin.users.list`/`remove`, `conversations.list`); `client.boot` adds `workspaces` and `admin_roles`, and `workspaces_changed`/`admin_roles_changed` keep the client current.
+
 ## App platform contract
 
 Server side lives in `src/platform`; the web client builds its screens on these methods.
