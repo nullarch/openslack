@@ -2,6 +2,7 @@ import type { FileObject } from '@app/shared';
 import { Download, ExternalLink, FileText, File as FileIcon, FileCode, FileArchive, FileSpreadsheet, Globe, Link2 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { openModal, toast } from '../lib/actions';
+import { useAccounts } from '../lib/accounts';
 import { asset, call } from '../lib/api';
 import { useStore } from '../lib/store';
 import { fileSize } from '../lib/time';
@@ -123,7 +124,9 @@ function PublicLink({ file }: { file: FileObject }) {
   const selfId = useStore((state) => state.self?.id);
   const [link, setLink] = useState<string | null>(file.permalink_public ?? null);
   const [busy, setBusy] = useState(false);
-  if (file.user !== selfId) return null;
+  const allowed = useAccounts((state) => state.permissions.public_file_links);
+  // When the workspace turns links off, an existing one can still be turned off here.
+  if (file.user !== selfId || (!allowed && !link)) return null;
   const copy = async (url: string): Promise<void> => {
     await navigator.clipboard?.writeText(url).catch(() => undefined);
     toast(S.files.copied);

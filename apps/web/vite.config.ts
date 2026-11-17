@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 
 // The API server; `pnpm dev` at the repository root starts it on PORT (default 3000).
 const server = `http://localhost:${process.env.PORT ?? 3000}`;
-const proxied = ['/api', '/upload', '/files-pri', '/avatars', '/emoji', '/team-icon', '/healthz'];
+const proxied = ['/api', '/upload', '/files-pri', '/avatars', '/emoji', '/team-icon', '/healthz', '/auth', '/admin/export.zip', '/public', '/manifest.webmanifest', '/sitemap.xml', '/robots.txt'];
 
 export default defineConfig({
   plugins: [react()],

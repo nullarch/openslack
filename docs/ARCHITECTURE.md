@@ -37,6 +37,11 @@ TypeScript run directly by Node (type stripping), so: no `enum`, no parameter pr
 | `src/ai` | AI features (summaries, recaps, search answers, translation, writing help, Agents view); off until an admin connects a model |
 | `src/workflows` | Workflow Builder (triggers, steps, runs) and custom responses |
 | `src/mcp` | Model Context Protocol endpoint (`/mcp`) built on the official SDK |
+| `src/accounts` | Sign-in (password, mailed code, reset, identity providers, two-factor), invitations and invite requests, workspace settings and permissions, profile fields, user groups, guest rules |
+| `src/export` | Slack-format export archive and the zip writer |
+| `src/public` | Server-rendered public channel pages, sitemap, robots.txt |
+| `src/push` | Web Push (VAPID, aes128gcm) and the web app manifest |
+| `src/ops` | `/metrics`, JSON logs, online backup |
 | `src/demo` | Sample workspace used for demos and screenshots (`SEED_DEMO=1`) |
 
 `createApp(config)` in `src/app.ts` wires these together and returns a `Kernel` (`ctx`, `registry`, `router`, `upgrades`, `onClose`) that extension modules plug into: `registry.add()` for API methods, `router.add()` for plain HTTP routes, `upgrades.push()` for WebSocket endpoints, `ctx.bus.subscribe()` for events.
@@ -170,6 +175,30 @@ Server side lives in `src/docs`. Canvases (collaborative documents) and lists (t
 Events: `doc_changed { kind, id, conversation_id, change }` (`created`, `content`, `renamed`, `access`, `comments`, `items`, `schema`, `meta`, `deleted`) goes to everyone with access; clients refetch. Tables: `docs`, `docs_fts`, `doc_access`, `doc_files`, `canvas_updates`, `canvas_versions`, `canvas_comments`, `canvas_mentions`, `list_items`, `list_comments`, `list_due_sent`, `doc_templates`.
 
 The web client keeps the always-loaded part small (`lib/docs.ts`, `components/docs/index.tsx`: conversation tabs, link cards, Activity rows, the search tab); the document page and list views (`DocPage`, `ListView`) and the editor (`CanvasEditor`: TipTap, ProseMirror, Yjs, y-websocket) are lazy chunks.
+
+## Accounts contract
+
+Registered by `installAccounts(kernel)`, last in `createApp`.
+
+| Method or route | Purpose |
+|---|---|
+| `client.status` | Adds `mail_enabled`, `identity_providers: [{ id, label }]`, `two_factor_setup_required` |
+| `client.boot` | Adds `permissions`, `usergroups`, `profile_fields`, `vapid_public_key`, `signup_domains`, `mail_enabled`, and `web_public` on channels open to the web. Guests receive only the people they can see |
+| `client.signin`, `client.signin.withCode`, `client.account.resetPassword` | Answer `{ user_id }`, or `{ two_factor_required: true }` with an HttpOnly `tfa` cookie; then `client.signin.twoFactor { code }` |
+| `client.signin.sendCode { email }`, `client.account.sendPasswordReset { email }` | Mail a code or link; the same answer whether or not the address exists |
+| `client.security.twoFactor.status / begin / enable / disable / regenerateBackupCodes` | Authenticator setup and backup codes |
+| `GET /auth/<provider>/start?invite=` → `/auth/<provider>/callback` | Sign in with `oidc`, `google` or `github`; redirects to `/` or `/signin?error=<code>` / `/signin?step=two-factor` |
+| `client.invites.create { email?, guest?, channels?, guest_expires_in_days? }` | Answers `{ invite, email_sent }` |
+| `client.inviteRequests.create`, `client.admin.inviteRequests.list / approve / deny` | Requests when only admins invite; admins hear `invite_requests_changed` |
+| `client.admin.settings`, `client.admin.updateSettings` | `who_can_*` (`everyone` / `admins`), `signup_domains`, `default_channels`, `require_2fa`, `public_invite_code`, `public_file_links`; tabs hear `team_prefs_changed` and refetch `client.permissions` |
+| `client.admin.setTeamIcon { file_id? }`, `client.admin.setProfileFields { fields }`, `client.admin.setAccountType { user, type }`, `client.admin.setChannelWeb { channel, web_public, web_files }`, `admin.conversations.convertToPrivate { channel_id }` | Administration |
+| `team.profile.get`, `users.profile.set { profile: { fields } }`, `usergroups.*` | Slack's shapes |
+| `client.push.status / subscribe / unsubscribe` | Web Push for this device |
+| `GET /admin/export.zip` | Owners: everything as a Slack-format archive |
+| `GET /public/<channel>/<name>`, `/public`, `/sitemap.xml`, `/robots.txt` | Public channel pages |
+| `GET /metrics` | Prometheus text, with `METRICS_TOKEN` |
+
+Policies the core enforces through hooks rather than per method: `registry.guards` (run on every authenticated call, MCP included: expired guests, pending two-factor setup, channel and emoji creation rights) and `contentChecks` in `core/messages.ts` (who may use @channel). Guest visibility lives in `core/guests.ts` and `canSee()`.
 
 ## Web client contract
 

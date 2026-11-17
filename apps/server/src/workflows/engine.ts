@@ -2,6 +2,7 @@ import type { Block } from '@app/shared';
 import { createToken } from '../core/auth.ts';
 import { addMember, getConv, getMember, openDirect, type ConvRow } from '../core/conversations.ts';
 import { ApiError } from '../core/errors.ts';
+import { isGuest } from '../core/guests.ts';
 import { newHex, newId, nowSeconds, sha256 } from '../core/ids.ts';
 import { getMessage, postMessage } from '../core/messages.ts';
 import { getUser } from '../core/users.ts';
@@ -299,6 +300,8 @@ export class Engine {
         if (!conv || conv.kind !== 'public') throw new StepError('Workflows add people to public channels only.');
         if (conv.is_archived === 1) throw new StepError('The channel is archived.');
         const user = this.userFrom(step.user, vars);
+        // Only admins add guests to channels, and a single-channel guest stays in one; a workflow never does.
+        if (isGuest(this.ctx, user)) throw new StepError('Workflows do not add guests to channels.');
         addMember(this.ctx, conv, user, { inviter: workflow.created_by });
         return null;
       }

@@ -12,6 +12,7 @@ import { confirmDialog } from './confirm';
 import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
 import { AppStepsSetting } from '../workflows/AppSteps';
 import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
+import { GuestControls, InviteRequests, WorkspaceSettings } from '../accounts/Admin';
 
 // ── Members ─────────────────────────────────────────────────────────────────
 
@@ -22,8 +23,11 @@ function MembersAdmin() {
   const people = Object.values(users)
     .filter((user) => !user.is_bot)
     .sort((a, b) => Number(a.deleted) - Number(b.deleted) || displayName(a).localeCompare(displayName(b)));
-  const roleOf = (user: User): string => (user.is_primary_owner ? 'primary_owner' : user.is_owner ? 'owner' : user.is_admin ? 'admin' : 'member');
-  const roles = self.is_owner ? ['owner', 'admin', 'member'] : ['admin', 'member'];
+  const roleOf = (user: User): string =>
+    user.is_primary_owner ? 'primary_owner' : user.is_owner ? 'owner' : user.is_admin ? 'admin' : user.is_ultra_restricted ? 'single' : user.is_restricted ? 'multi' : 'member';
+  // Guests are an account type rather than a role; one list covers both.
+  const roles = [...(self.is_owner ? ['owner', 'admin', 'member'] : ['admin', 'member']), 'multi', 'single'];
+  const roleLabel = (role: string): string => S.admin.role[role] ?? (role === 'multi' ? S.accounts.guestMulti : S.accounts.guestSingle);
 
   // The server's answer is applied at once; the same change also arrives as an event for everyone else.
   const apply = (result: Json | undefined): void => {
@@ -31,6 +35,15 @@ function MembersAdmin() {
     if (changed) useStore.setState((state) => ({ users: { ...state.users, [changed.id]: changed } }));
   };
   const setRole = async (user: User, role: string): Promise<void> => {
+    if (role === 'multi' || role === 'single') {
+      apply(await attempt(() => call('client.admin.setAccountType', { user: user.id, type: role })));
+      return;
+    }
+    if (user.is_restricted) {
+      const result = await attempt(() => call('client.admin.setAccountType', { user: user.id, type: 'member' }));
+      apply(result);
+      if (!result || role === 'member') return;
+    }
     apply(await attempt(() => call('client.admin.setRole', { user: user.id, role })));
   };
   const deactivate = async (user: User): Promise<void> => {
@@ -39,6 +52,8 @@ function MembersAdmin() {
   };
 
   return (
+    <>
+    <InviteRequests />
     <ul className="admin-list">
       {people.map((user) => {
         const role = roleOf(user);
@@ -53,19 +68,20 @@ function MembersAdmin() {
               </span>
               <span className="muted">{user.profile.email ?? `@${user.name}`}</span>
             </span>
+            <GuestControls user={user} editable={!locked} />
             {user.deleted ? (
               <span className="tag">{S.admin.deactivated}</span>
             ) : locked ? (
-              <span className="admin-role">{S.admin.role[role]}</span>
+              <span className="admin-role">{roleLabel(role)}</span>
             ) : (
               <select
                 value={role}
-                aria-label={S.admin.role[role]}
+                aria-label={roleLabel(role)}
                 onChange={(event) => void setRole(user, event.target.value)}
               >
                 {roles.map((option) => (
                   <option key={option} value={option}>
-                    {S.admin.role[option]}
+                    {roleLabel(option)}
                   </option>
                 ))}
               </select>
@@ -79,6 +95,7 @@ function MembersAdmin() {
         );
       })}
     </ul>
+    </>
   );
 }
 
@@ -604,36 +621,6 @@ function AppsAdmin() {
 
 // ── Workspace ───────────────────────────────────────────────────────────────
 
-function WorkspaceAdmin() {
-  const team = useStore((state) => state.team);
-  const self = useStore((state) => state.self);
-  const [name, setName] = useState(team?.name ?? '');
-  const [busy, setBusy] = useState(false);
-  if (!self?.is_admin) return <p className="muted">{S.admin.membersOnly}</p>;
-  const save = async (): Promise<void> => {
-    setBusy(true);
-    const result = await attempt(() => call('client.admin.updateTeam', { name: name.trim() }));
-    setBusy(false);
-    if (result) toast(S.saved);
-  };
-  return (
-    <form
-      className="inline-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save();
-      }}
-    >
-      <Field label={S.admin.workspaceName}>
-        <input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
-      </Field>
-      <Button variant="primary" busy={busy} disabled={!name.trim() || name.trim() === team?.name} onClick={() => void save()}>
-        {S.save}
-      </Button>
-    </form>
-  );
-}
-
 function MessagePolicyAdminGuard() {
   const isAdmin = useStore((state) => Boolean(state.self?.is_admin));
   return isAdmin ? <MessagePolicyAdmin /> : null;
@@ -691,7 +678,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
         {tab === 'apps' ? <AppsAdmin /> : null}
         {tab === 'workspace' ? (
           <>
-            <WorkspaceAdmin />
+            <WorkspaceSettings />
             <MessagePolicyAdminGuard />
             <ResponsesAdmin />
           </>

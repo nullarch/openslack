@@ -132,7 +132,7 @@ export interface SlashCommand {
 }
 
 export interface AppState {
-  phase: 'loading' | 'setup' | 'signin' | 'join' | 'ready' | 'fatal';
+  phase: 'loading' | 'setup' | 'signin' | 'join' | 'reset' | 'twofactor' | 'ready' | 'fatal';
   fatal: string | null;
   /** The workspace as shown on the sign-in screens, before boot. */
   publicTeam: Team | null;

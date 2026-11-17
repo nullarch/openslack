@@ -32,7 +32,7 @@ export interface OutboundResponse {
 
 export interface PostOptions {
   headers: Record<string, string>;
-  body: string;
+  body: string | Buffer;
   timeoutMs: number;
   /** Permit loopback, private and link-local targets. */
   allowPrivate: boolean;

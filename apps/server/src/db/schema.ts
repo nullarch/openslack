@@ -744,4 +744,129 @@ export const MIGRATIONS: string[] = [
     created INTEGER NOT NULL
   );
   `,
+
+  /* 17: accounts — mail codes, two-factor, external sign-in, guests, user groups, profile fields, push, public pages */ `
+  -- '' for members; 'multi' or 'single' for guests.
+  ALTER TABLE users ADD COLUMN guest TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN guest_expires INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN invited_by TEXT;
+  ALTER TABLE users ADD COLUMN totp_secret TEXT;
+  ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0;
+  -- Custom profile field values: { "Xf…": { "value": "…", "alt": "" } }.
+  ALTER TABLE users ADD COLUMN fields TEXT NOT NULL DEFAULT '{}';
+
+  ALTER TABLE invites ADD COLUMN guest TEXT NOT NULL DEFAULT '';
+  ALTER TABLE invites ADD COLUMN guest_channels TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE invites ADD COLUMN guest_expires INTEGER NOT NULL DEFAULT 0;
+
+  -- Readable on the web without signing in; files only when web_files is set.
+  ALTER TABLE conversations ADD COLUMN web_public INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE conversations ADD COLUMN web_files INTEGER NOT NULL DEFAULT 0;
+
+  -- One-time codes sent by mail: sign-in codes and password-reset links.
+  CREATE TABLE mail_codes (
+    code_hash TEXT PRIMARY KEY,
+    purpose TEXT NOT NULL CHECK (purpose IN ('signin', 'reset')),
+    user_id TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created INTEGER NOT NULL,
+    expires INTEGER NOT NULL
+  );
+  CREATE INDEX mail_codes_user ON mail_codes(user_id, purpose);
+
+  -- A password or external sign-in that still needs the second factor.
+  CREATE TABLE login_challenges (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created INTEGER NOT NULL,
+    expires INTEGER NOT NULL
+  );
+
+  CREATE TABLE backup_codes (
+    user_id TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, code_hash)
+  ) WITHOUT ROWID;
+
+  -- Accounts at external identity providers linked to people here.
+  CREATE TABLE identities (
+    provider TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    email TEXT,
+    created INTEGER NOT NULL,
+    PRIMARY KEY (provider, subject)
+  ) WITHOUT ROWID;
+
+  CREATE TABLE oauth_states (
+    state TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    verifier TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    invite_code TEXT,
+    created INTEGER NOT NULL
+  );
+
+  CREATE TABLE invite_requests (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    requested_by TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied')),
+    decided_by TEXT,
+    decided INTEGER,
+    created INTEGER NOT NULL
+  );
+
+  CREATE TABLE profile_fields (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    hint TEXT NOT NULL DEFAULT '',
+    type TEXT NOT NULL DEFAULT 'text',
+    possible_values TEXT,
+    ordering INTEGER NOT NULL DEFAULT 0,
+    is_hidden INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE usergroups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    handle TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    channels TEXT NOT NULL DEFAULT '[]',
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    deleted_by TEXT,
+    date_create INTEGER NOT NULL,
+    date_update INTEGER NOT NULL,
+    date_delete INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE UNIQUE INDEX usergroups_handle ON usergroups(handle);
+  CREATE UNIQUE INDEX usergroups_name ON usergroups(name);
+
+  CREATE TABLE usergroup_members (
+    usergroup_id TEXT NOT NULL REFERENCES usergroups(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    PRIMARY KEY (usergroup_id, user_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX usergroup_members_user ON usergroup_members(user_id);
+
+  CREATE TABLE push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX push_subscriptions_user ON push_subscriptions(user_id);
+
+  -- Small server-wide values: generated keys and similar.
+  CREATE TABLE server_values (
+    name TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];

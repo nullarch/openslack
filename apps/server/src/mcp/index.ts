@@ -39,6 +39,7 @@ async function call(tool: ToolContext, method: string, args: Loose): Promise<Loo
   const def = tool.kernel.registry.get(method);
   if (!def) throw new ApiError('unknown_method');
   authorize(def, tool.actor);
+  for (const guard of tool.kernel.registry.guards) guard(method, tool.actor);
   const result = await def.handler({ ctx: tool.kernel.ctx, actor: tool.actor, args: new Args(args), req: tool.req, res: tool.res });
   return (result ?? {}) as Loose;
 }

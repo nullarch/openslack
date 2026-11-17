@@ -174,7 +174,16 @@ export function authorize(def: MethodDef, actor: Actor): void {
   }
 }
 
-const SIGN_IN_METHODS = new Set(['client.signin', 'client.signup', 'client.setup']);
+const SIGN_IN_METHODS = new Set([
+  'client.signin',
+  'client.signup',
+  'client.setup',
+  'client.signin.twoFactor',
+  'client.signin.sendCode',
+  'client.signin.withCode',
+  'client.account.sendPasswordReset',
+  'client.account.resetPassword',
+]);
 
 async function handleApi(
   ctx: Ctx,
@@ -209,13 +218,14 @@ async function handleApi(
         if (req.method !== 'POST' || !isSameOrigin(req)) throw new ApiError('invalid_auth');
       }
       authorize(def, actor);
+      for (const guard of registry.guards) guard(name, actor);
     }
 
     const ip = req.socket.remoteAddress ?? 'unknown';
     // API tokens get the workspace's own limit when an admin set one; browser sessions keep the built-in one.
     const tokenLimit = actor && actor.kind !== 'session' ? workspaceTokenLimit(ctx) : undefined;
     const wait = SIGN_IN_METHODS.has(name)
-      ? limiter.check(`signin:${ip}`, 20)
+      ? limiter.check(`signin:${ip}:${name}`, 20)
       : limiter.check(actor ? `actor:${actor.userId}:${actor.kind}` : `ip:${ip}`, tokenLimit);
     if (wait > 0) {
       sendJson(res, 429, { ok: false, error: 'ratelimited' }, { 'retry-after': String(wait) });

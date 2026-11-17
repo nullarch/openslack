@@ -4,6 +4,7 @@ import { ZERO_TS } from './clock.ts';
 import { fail } from './errors.ts';
 import { newId, nowSeconds } from './ids.ts';
 import { postSystemMessage } from './messages.ts';
+import { isGuest, shareChannel } from './guests.ts';
 import { getUser, isAdmin } from './users.ts';
 
 export type ConvKind = 'public' | 'private' | 'im' | 'mpim';
@@ -25,6 +26,10 @@ export interface ConvRow {
   last_ts: string;
   created: number;
   updated: number;
+  /** Readable on the web without signing in (public channels only). */
+  web_public: number;
+  /** Files shared in it are readable there too. */
+  web_files: number;
 }
 
 export interface MemberRow {
@@ -64,9 +69,13 @@ export function memberIds(ctx: Ctx, conversationId: string): string[] {
     .map((row) => row.user_id);
 }
 
-/** A conversation is visible to everyone when public, otherwise only to its members. */
+/**
+ * A conversation is visible to its members, and a public channel to every
+ * member of the workspace. Guests see only the conversations they belong to.
+ */
 export function canSee(ctx: Ctx, conv: ConvRow, userId: string): boolean {
-  return conv.kind === 'public' || getMember(ctx, conv.id, userId) !== undefined;
+  if (getMember(ctx, conv.id, userId) !== undefined) return true;
+  return conv.kind === 'public' && !isGuest(ctx, userId);
 }
 
 /**
@@ -393,6 +402,14 @@ export function openDirect(ctx: Ctx, actorId: string, others: string[]): OpenedD
     const user = getUser(ctx, id);
     if (!user) fail('user_not_found');
     if (user.deleted === 1) fail('user_disabled');
+  }
+  // Guests talk only with people from their channels; to a guest, anyone else does not exist.
+  for (const id of ids) {
+    if (!isGuest(ctx, id)) continue;
+    for (const other of ids) {
+      if (other === id || shareChannel(ctx, id, other)) continue;
+      fail(id === actorId ? 'user_not_found' : 'restricted_action');
+    }
   }
   const key = ids.join(',');
   const existing = ctx.db.get<ConvRow>('SELECT * FROM conversations WHERE im_key = ?', key);

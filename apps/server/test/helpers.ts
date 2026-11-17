@@ -6,6 +6,7 @@ import { createApp, type App } from '../src/app.ts';
 import { createToken } from '../src/core/auth.ts';
 import { newId } from '../src/core/ids.ts';
 import { createUser } from '../src/core/users.ts';
+import type { Config } from '../src/ctx.ts';
 
 // Loose on purpose: tests poke at many response shapes.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,8 +18,9 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-export async function startApp(options: { linkPreviews?: boolean; dataDir?: string; keepData?: boolean } = {}): Promise<TestApp> {
-  const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), 'chat-test-'));
+export async function startApp(options: Partial<Config> & { keepData?: boolean } = {}): Promise<TestApp> {
+  const { keepData, ...overrides } = options;
+  const dataDir = overrides.dataDir ?? mkdtempSync(join(tmpdir(), 'chat-test-'));
   const app = createApp({
     linkPreviews: options.linkPreviews ?? false,
     port: 0,
@@ -30,6 +32,7 @@ export async function startApp(options: { linkPreviews?: boolean; dataDir?: stri
     cookieSecure: false,
     version: 'test',
     quiet: true,
+    ...overrides,
   });
   const port = await app.listen();
   return {

@@ -10,6 +10,7 @@ export type Route =
   | { name: 'setup' }
   | { name: 'signin' }
   | { name: 'join'; code: string }
+  | { name: 'reset'; token: string }
   | { name: 'view'; view: ViewName }
   | { name: 'doc'; kind: 'canvas' | 'list'; id: string };
 
@@ -30,6 +31,7 @@ export function parseRoute(location: { pathname: string; search: string }): Rout
   if (parts[0] === 'setup') return { name: 'setup' };
   if (parts[0] === 'signin') return { name: 'signin' };
   if (parts[0] === 'join' && parts[1]) return { name: 'join', code: decodeURIComponent(parts[1]) };
+  if (parts[0] === 'reset' && parts[1]) return { name: 'reset', token: decodeURIComponent(parts[1]) };
   if (parts[0] === 'search') return { name: 'search', query: query.get('q') ?? '' };
   // Canvas and list links: `/docs/<team>/<id>` and `/lists/<team>/<id>` (the team part is optional).
   if ((parts[0] === 'docs' || parts[0] === 'lists') && parts[1]) {
@@ -65,6 +67,8 @@ export function routePath(route: Route): string {
       return '/signin';
     case 'join':
       return `/join/${encodeURIComponent(route.code)}`;
+    case 'reset':
+      return `/reset/${encodeURIComponent(route.token)}`;
     case 'search':
       return `/search?q=${encodeURIComponent(route.query)}`;
     case 'agents':

@@ -1,6 +1,6 @@
 import { BRAND } from '@app/shared';
 import { useEffect } from 'react';
-import { Join, Setup, SignIn } from './components/Auth';
+import { Join, ResetPassword, Setup, SignIn, TwoFactorRequired } from './components/Auth';
 import { DialogHost } from './components/dialogs/confirm';
 import { Shell } from './components/Shell';
 import { Button, Mark, Spinner, Toasts } from './components/ui';
@@ -42,6 +42,10 @@ function Screen() {
       return <SignIn />;
     case 'join':
       return <Join code={route.name === 'join' ? route.code : ''} />;
+    case 'reset':
+      return <ResetPassword token={route.name === 'reset' ? route.token : ''} />;
+    case 'twofactor':
+      return <TwoFactorRequired />;
     case 'ready':
       return <Shell />;
   }

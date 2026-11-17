@@ -1,4 +1,5 @@
 import type { Param } from '../../db/db.ts';
+import { isGuest } from '../../core/guests.ts';
 import type { Actor, Ctx } from '../../ctx.ts';
 import { fileToApi, type FileRow } from '../../core/files.ts';
 import { parseQuery } from '../../core/search.ts';
@@ -15,12 +16,14 @@ function fileSearch(ctx: Ctx, actor: Actor, args: Args): Record<string, unknown>
   const count = args.int('count', 20, { min: 1, max: 100 });
   const page = args.int('page', 1, { min: 1, max: 100 });
   const query = parseQuery(ctx, actor.userId, text);
+  // Guests search only the conversations they belong to.
+  const publicToViewer = isGuest(ctx, actor.userId) ? '0' : "c.kind = 'public'";
 
   const where: string[] = [
     "f.state = 'shared'",
     `EXISTS (SELECT 1 FROM file_shares s JOIN conversations c ON c.id = s.conversation_id
        WHERE s.file_id = f.id
-         AND (c.kind = 'public' OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = c.id AND m.user_id = ?))
+         AND (${publicToViewer} OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = c.id AND m.user_id = ?))
          ${query.inConversation ? 'AND c.id = ?' : ''})`,
   ];
   const params: Param[] = [actor.userId];

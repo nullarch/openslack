@@ -187,6 +187,13 @@ export function installOpenId(kernel: Kernel): void {
     if (!session) return null;
     const { actor } = authenticate(ctx, req, undefined);
     if (!actor || actor.kind !== 'session') return null;
+    // Whatever keeps a person out of the workspace (an expired guest account,
+    // two-factor sign-in still to set up) keeps them out of apps signed into with it.
+    try {
+      for (const guard of kernel.registry.guards) guard('openid.connect.authorize', actor);
+    } catch {
+      return null;
+    }
     const user = getUser(ctx, actor.userId);
     return user && user.deleted === 0 ? { user, session } : null;
   };

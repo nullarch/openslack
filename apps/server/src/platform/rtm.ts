@@ -5,6 +5,7 @@ import type { Kernel } from '../app.ts';
 import type { BusEvent } from '../core/bus.ts';
 import { getConv, getMember, memberIds, resolveConv } from '../core/conversations.ts';
 import { ApiError, fail } from '../core/errors.ts';
+import { eventVisibleToGuest, guestIds } from '../core/guests.ts';
 import { newSecret } from '../core/ids.ts';
 import { canPost, MAX_TEXT_LENGTH, postMessage } from '../core/messages.ts';
 import { getUser, requireUser, userToApi } from '../core/users.ts';
@@ -205,9 +206,12 @@ export class RtmHub {
     const { audience } = busEvent;
     const recipients = 'all' in audience ? null : new Set('users' in audience ? audience.users : memberIds(this.ctx, audience.conversation));
     const payload = JSON.stringify(event);
+    // Workspace-wide events reach guests only when they concern what a guest may see.
+    const guests = recipients ? null : guestIds(this.ctx);
     for (const connection of this.connections) {
       const userId = connection.actor.userId;
       if (recipients && !recipients.has(userId)) continue;
+      if (guests?.has(userId) && !eventVisibleToGuest(this.ctx, userId, event)) continue;
       if (busEvent.exceptUser === userId) continue;
       if (event.type === 'presence_change' && !connection.presence.has(String(event.user))) continue;
       if (connection.socket.readyState !== WebSocket.OPEN) continue;

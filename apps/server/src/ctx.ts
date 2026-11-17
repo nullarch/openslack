@@ -27,6 +27,32 @@ export interface Config {
   quiet: boolean;
   /** Fetch titles and images for links in messages. Off unless set (`LINK_PREVIEWS=0` turns it off when run from the environment). */
   linkPreviews?: boolean;
+  /** Outgoing mail (`smtp://` or `smtps://` URL); null or absent turns mail off. */
+  smtpUrl?: string | null;
+  /** Sender address for outgoing mail. */
+  mailFrom?: string;
+  /** External sign-in providers configured by the operator. */
+  identityProviders?: IdentityProviderConfig[];
+  /** Bearer token that unlocks `/metrics`; null or absent hides it. */
+  metricsToken?: string | null;
+}
+
+/** One external sign-in provider. Endpoints are discovered for OIDC providers. */
+export interface IdentityProviderConfig {
+  /** Path segment and stored provider name: `google`, `github` or `oidc`. */
+  id: string;
+  /** Button label. */
+  label: string;
+  kind: 'oidc' | 'github';
+  clientId: string;
+  clientSecret: string;
+  /** OIDC issuer (discovery at `<issuer>/.well-known/openid-configuration`). */
+  issuer?: string;
+  /** GitHub web and API origins (overridable for GitHub Enterprise and tests). */
+  webUrl?: string;
+  apiUrl?: string;
+  /** Create an account on first sign-in, within the workspace's approved domains. */
+  createAccounts: boolean;
 }
 
 export interface TeamRow {

@@ -1,4 +1,5 @@
 import type { BootData, Conversation, Message, Reaction, User } from '@app/shared';
+import { handleAccountsEvent } from './accounts';
 import {
   adoptChannel,
   applyBoot,
@@ -204,6 +205,7 @@ function handleMessage(event: Json): void {
 }
 
 function handle(event: Json): void {
+  handleAccountsEvent(event);
   switch (event.type) {
     case 'hello': {
       attempts = 0;

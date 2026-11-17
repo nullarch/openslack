@@ -1,8 +1,9 @@
 import { normalizeChannelName, type Conversation, type User } from '@app/shared';
 import { Check, Hash, Lock, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { attempt, closeModal, createChannel, errorText, go, joinChannel, openDirect } from '../../lib/actions';
+import { attempt, closeModal, createChannel, errorText, go, joinChannel, openDirect, toast } from '../../lib/actions';
 import { call, type Json } from '../../lib/api';
+import { GuestInviteOptions, type GuestChoice } from '../accounts/Profile';
 import { conversation, displayName, useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { Avatar, Button, CopyField, Field, Modal, Spinner } from '../ui';
@@ -314,6 +315,8 @@ export function InviteDialog() {
   const [invites, setInvites] = useState<Invite[] | null>(null);
   const [fresh, setFresh] = useState<Invite | null>(null);
   const [busy, setBusy] = useState(false);
+  const [guest, setGuest] = useState<GuestChoice>({ type: '', channels: [], days: 0 });
+  const isAdmin = useStore((state) => Boolean(state.self?.is_admin));
 
   const refresh = (): void => {
     call('client.invites.list')
@@ -324,10 +327,13 @@ export function InviteDialog() {
 
   const create = async (): Promise<void> => {
     setBusy(true);
-    const result: Json = await attempt(() => call('client.invites.create', email.trim() ? { email: email.trim() } : {}));
+    const args: Record<string, unknown> = email.trim() ? { email: email.trim() } : {};
+    if (guest.type) Object.assign(args, { guest: guest.type, channels: guest.channels, guest_expires_in_days: guest.days || 0 });
+    const result: Json = await attempt(() => call('client.invites.create', args));
     setBusy(false);
     if (!result) return;
     setFresh(result.invite as Invite);
+    if (result.email_sent) toast(S.accounts.inviteSent(String(result.invite.email)));
     setEmail('');
     refresh();
   };
@@ -342,13 +348,14 @@ export function InviteDialog() {
           void create();
         }}
       >
-        <Field label={`${S.dialogs.inviteEmail} (${S.optional})`}>
-          <input type="email" value={email} placeholder={S.dialogs.inviteEmailPlaceholder} onChange={(event) => setEmail(event.target.value)} />
+        <Field label={guest.type ? S.dialogs.inviteEmail : `${S.dialogs.inviteEmail} (${S.optional})`}>
+          <input type="email" value={email} required={Boolean(guest.type)} placeholder={S.dialogs.inviteEmailPlaceholder} onChange={(event) => setEmail(event.target.value)} />
         </Field>
         <Button variant="primary" busy={busy} onClick={() => void create()}>
           {S.dialogs.inviteCreate}
         </Button>
       </form>
+      {isAdmin ? <GuestInviteOptions value={guest} onChange={setGuest} /> : null}
       {fresh ? <CopyField value={inviteUrl(fresh)} /> : null}
       <h3 className="dialog-sub">{S.dialogs.inviteActive}</h3>
       {invites === null ? (

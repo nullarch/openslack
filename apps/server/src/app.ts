@@ -27,6 +27,7 @@ import { installScim } from './scim/index.ts';
 import { installRetention } from './retention/index.ts';
 import { installStats } from './stats/index.ts';
 import { installModeration } from './moderation/index.ts';
+import { installAccounts } from './accounts/index.ts';
 import { installAudit } from './audit/index.ts';
 import { installFileText } from './core/file-text.ts';
 import { installAttention } from './attention/index.ts';
@@ -111,6 +112,7 @@ export function createApp(config: Config): App {
   installStats(kernel);
   installModeration(kernel);
   installFileText(kernel);
+  installAccounts(kernel);
   // Keep last: the audit log wraps the methods every module above registered.
   installAudit(kernel);
   gateway.start(ctx);

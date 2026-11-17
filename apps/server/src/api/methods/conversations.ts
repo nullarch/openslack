@@ -52,7 +52,7 @@ export function registerConversations(registry: Registry): void {
     const rows = ctx.db.all<ConvRow>('SELECT * FROM conversations ORDER BY name IS NULL, name, created');
     const visible = rows.filter((conv) => {
       if (excludeArchived && conv.is_archived === 1) return false;
-      if (conv.kind === 'public') return types.has('public_channel');
+      if (conv.kind === 'public') return types.has('public_channel') && canSee(ctx, conv, actor.userId);
       const wanted =
         (conv.kind === 'private' && types.has('private_channel')) ||
         (conv.kind === 'im' && types.has('im')) ||

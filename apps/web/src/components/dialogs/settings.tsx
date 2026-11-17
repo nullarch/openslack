@@ -4,6 +4,7 @@ import { attempt, closeModal, openModal, setPrefs } from '../../lib/actions';
 import { call, uploadFile } from '../../lib/api';
 import { enableNotifications, notificationPermission } from '../../lib/notify';
 import { useStore } from '../../lib/store';
+import { fieldValues, ProfileFieldInputs } from '../accounts/Profile';
 import { themeChoice, type ThemeChoice } from '../../lib/theme';
 import { S } from '../../strings';
 import { PickerPopover } from '../Message';
@@ -110,6 +111,7 @@ export function EditProfileDialog() {
   const [statusText, setStatusText] = useState(self?.profile.status_text ?? '');
   const [statusEmoji, setStatusEmoji] = useState((self?.profile.status_emoji ?? '').replace(/:/g, ''));
   const [tz, setTz] = useState(self?.tz ?? 'UTC');
+  const [fields, setFields] = useState<Record<string, string>>(() => fieldValues(self));
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -133,6 +135,7 @@ export function EditProfileDialog() {
           status_emoji: statusEmoji ? `:${statusEmoji}:` : '',
           status_expiration: 0,
           tz,
+          fields: Object.fromEntries(Object.entries(fields).map(([id, value]) => [id, { value: value.trim() }])),
         },
       }),
     );
@@ -206,6 +209,7 @@ export function EditProfileDialog() {
               ) : null}
             </div>
           </Field>
+          <ProfileFieldInputs values={fields} onChange={setFields} />
           <Field label={S.profile.timeZone}>
             <select value={tz} onChange={(event) => setTz(event.target.value)}>
               {zones.map((zone) => (

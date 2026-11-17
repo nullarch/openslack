@@ -209,8 +209,17 @@ function plainText(text: string, blocks: unknown, attachments: unknown): string 
 function writeMentions(ctx: Ctx, conversationId: string, ts: string, author: string, text: string, blocks: unknown): void {
   ctx.db.run('DELETE FROM mentions WHERE conversation_id = ? AND ts = ?', conversationId, ts);
   const fromText = extractMentions(text);
-  const fromBlocks = blocks ? extractBlockMentions(blocks) : { users: [], broadcast: false };
+  const fromBlocks = blocks ? extractBlockMentions(blocks) : { users: [], broadcast: false, groups: [] };
   const users = new Set([...fromText.users, ...fromBlocks.users]);
+  // A user group mention reaches each member, as a mention of them.
+  for (const group of new Set([...fromText.groups, ...fromBlocks.groups])) {
+    const members = ctx.db.all<{ user_id: string }>(
+      `SELECT m.user_id FROM usergroup_members m JOIN usergroups g ON g.id = m.usergroup_id
+       WHERE g.id = ? AND g.date_delete = 0`,
+      group,
+    );
+    for (const member of members) users.add(member.user_id);
+  }
   for (const userId of users) {
     ctx.db.run(
       'INSERT OR IGNORE INTO mentions (conversation_id, ts, user_id, author) VALUES (?, ?, ?, ?)',
@@ -269,10 +278,24 @@ export function refreshLastTs(ctx: Ctx, conversationId: string): void {
  */
 export const messageGuards: ((ctx: Ctx, input: NewMessage) => void)[] = [];
 
+/**
+ * Checks run before a person's message is stored or changed (not for imports).
+ * A check throws to refuse it. Workspace policies register here.
+ */
+export const contentChecks: ((ctx: Ctx, userId: string, text: string, blocks: unknown) => void)[] = [];
+
+function runContentChecks(ctx: Ctx, userId: string | null, text: string, blocks: unknown): void {
+  if (!userId) return;
+  for (const check of contentChecks) check(ctx, userId, text, blocks);
+}
+
 export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const { conv } = input;
   if (!input.silent) for (const guard of messageGuards) guard(ctx, input);
   const text = input.text ?? '';
+  // System lines (joins, topic changes) are written by the server, not composed by the person.
+  const system = input.subtype?.startsWith('channel_') || input.subtype === 'pinned_item';
+  if (!input.silent && !system) runContentChecks(ctx, input.userId, text, input.blocks);
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const hasContent = text.length > 0 || input.blocks?.length || input.attachments?.length || input.fileIds?.length;
   if (!hasContent && !input.streaming && !input.allowEmpty) fail('no_text');
@@ -405,6 +428,7 @@ export function updateMessage(
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const blocks = patch.blocks === undefined ? parseJson<Block[]>(row.blocks) : patch.blocks;
   const attachments = patch.attachments === undefined ? parseJson<Attachment[]>(row.attachments) : patch.attachments;
+  if (options.markEditedBy) runContentChecks(ctx, options.markEditedBy, text, blocks);
   const eventTs = ctx.clock.eventTs();
 
   ctx.db.tx(() => {

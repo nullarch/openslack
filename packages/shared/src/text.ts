@@ -17,10 +17,13 @@ export interface Mentions {
   users: string[];
   /** True when the text contains `<!channel>`, `<!here>` or `<!everyone>`. */
   broadcast: boolean;
+  /** User group ids mentioned as `<!subteam^S…>`. */
+  groups: string[];
 }
 
 const USER_MENTION = /<@([UW][A-Z0-9]+)(?:\|[^>]*)?>/g;
 const BROADCAST_MENTION = /<!(?:channel|here|everyone)(?:\|[^>]*)?>/;
+const GROUP_MENTION = /<!subteam\^([A-Z0-9]+)(?:\|[^>]*)?>/g;
 
 /** Find mentions in mrkdwn text. Code spans are not excluded; Slack does not exclude them either. */
 export function extractMentions(text: string): Mentions {
@@ -28,12 +31,17 @@ export function extractMentions(text: string): Mentions {
   for (const match of text.matchAll(USER_MENTION)) {
     if (match[1]) users.add(match[1]);
   }
-  return { users: [...users], broadcast: BROADCAST_MENTION.test(text) };
+  const groups = new Set<string>();
+  for (const match of text.matchAll(GROUP_MENTION)) {
+    if (match[1]) groups.add(match[1]);
+  }
+  return { users: [...users], broadcast: BROADCAST_MENTION.test(text), groups: [...groups] };
 }
 
 /** Collect mentions from `rich_text` blocks, which carry them as elements rather than text. */
 export function extractBlockMentions(blocks: unknown): Mentions {
   const users = new Set<string>();
+  const groups = new Set<string>();
   let broadcast = false;
   const visit = (node: unknown): void => {
     if (Array.isArray(node)) {
@@ -44,9 +52,11 @@ export function extractBlockMentions(blocks: unknown): Mentions {
     const record = node as Record<string, unknown>;
     if (record.type === 'user' && typeof record.user_id === 'string') users.add(record.user_id);
     if (record.type === 'broadcast') broadcast = true;
+    if (record.type === 'usergroup' && typeof record.usergroup_id === 'string') groups.add(record.usergroup_id);
     if (typeof record.text === 'string' && (record.type === 'mrkdwn' || record.type === 'section')) {
       const found = extractMentions(record.text);
       for (const id of found.users) users.add(id);
+      for (const id of found.groups) groups.add(id);
       broadcast ||= found.broadcast;
     }
     for (const value of Object.values(record)) {
@@ -54,7 +64,7 @@ export function extractBlockMentions(blocks: unknown): Mentions {
     }
   };
   visit(blocks);
-  return { users: [...users], broadcast };
+  return { users: [...users], broadcast, groups: [...groups] };
 }
 
 /** Flatten blocks and attachments to searchable plain text. */

@@ -17,6 +17,8 @@ export interface ComposeChannel {
 export interface ComposeLookup {
   users: ComposeUser[];
   channels: ComposeChannel[];
+  /** User groups, mentioned as `@handle`. */
+  groups?: { id: string; handle: string }[];
 }
 
 const RAW_TOKEN = /<(?:https?:\/\/|mailto:|tel:|@[UW][A-Z0-9]+|#[CDG][A-Z0-9]+|!(?:here|channel|everyone|subteam\^|date\^))[^<>\n]*>/g;
@@ -43,13 +45,21 @@ export function encodeMessage(input: string, lookup: ComposeLookup): string {
       if (key && !byName.has(key)) byName.set(key, user.id);
     }
   }
-  const names = [...byName.keys(), ...BROADCASTS].sort((a, b) => b.length - a.length).map(escapeRegExp);
+  // A group handle wins over a person with the same name only when no person has it.
+  const groups = new Map<string, string>();
+  for (const group of lookup.groups ?? []) {
+    const key = group.handle.toLowerCase();
+    if (!byName.has(key)) groups.set(key, group.id);
+  }
+  const names = [...byName.keys(), ...groups.keys(), ...BROADCASTS].sort((a, b) => b.length - a.length).map(escapeRegExp);
   if (names.length > 0) {
     const mention = new RegExp(`(^|[^\\p{L}\\p{N}@])@(${names.join('|')})(?![\\p{L}\\p{N}])`, 'giu');
     text = text.replace(mention, (_match, lead: string, name: string) => {
       const key = name.toLowerCase();
       const id = byName.get(key);
       if (id) return `${lead}<@${id}>`;
+      const group = groups.get(key);
+      if (group) return `${lead}<!subteam^${group}|@${key}>`;
       return `${lead}<!${key}>`;
     });
   }
@@ -80,6 +90,7 @@ export function decodeMessage(input: string, lookup: DecodeLookup): string {
       return name ? `#${name}` : match;
     })
     .replace(/<!(here|channel|everyone)(?:\|[^>]*)?>/g, '@$1')
+    .replace(/<!subteam\^[A-Z0-9]+\|(@[^>]+)>/g, '$1')
     .replace(/<(https?:\/\/[^|>\s]+)>/g, '$1')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')

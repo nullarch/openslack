@@ -16,6 +16,7 @@ import {
   FolderPlus,
   Hash,
   Inbox,
+  KeyRound,
   Lock,
   LogOut,
   Moon,
@@ -40,6 +41,7 @@ import {
 } from 'lucide-react';
 import { memo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { attempt, go, markRead, openModal, setConversationPrefs, setPrefs, signOut } from '../lib/actions';
+import { openAccountsModal, useAccounts } from '../lib/accounts';
 import { asset, call } from '../lib/api';
 import { resumeNotifications, selfDndUntil, setNotifyLevel, snooze, userInDnd, whenText, type NotifyLevel } from '../lib/attention';
 import type { ViewName } from '../lib/router';
@@ -334,6 +336,12 @@ function TeamMenu() {
   const team = useStore((state) => state.team);
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const permissions = useAccounts((state) => state.permissions);
+  const pending = useAccounts((state) => state.pendingRequests);
+  const isAdmin = useStore((state) => Boolean(state.self?.is_admin));
+  const isGuest = useStore((state) => Boolean(state.self?.is_restricted));
+  const canInvite = permissions.invite;
+  const invite = (): void => (canInvite ? openModal({ kind: 'invite' }) : openAccountsModal({ kind: 'requestInvite' }));
   const pick = (action: () => void) => () => {
     setOpen(false);
     action();
@@ -347,9 +355,16 @@ function TeamMenu() {
       </button>
       {open ? (
         <Popover anchor={anchor.current} onClose={() => setOpen(false)} className="menu">
-          <MenuItem icon={<UserPlus size={16} />} label={S.sidebar.invitePeople} onSelect={pick(() => openModal({ kind: 'invite' }))} />
-          <MenuItem icon={<Compass size={16} />} label={S.sidebar.browseChannels} onSelect={pick(() => openModal({ kind: 'browse' }))} />
-          <MenuItem icon={<ShieldCheck size={16} />} label={S.sidebar.administration} onSelect={pick(() => openModal({ kind: 'admin', tab: 'members' }))} />
+          {!isGuest ? <MenuItem icon={<UserPlus size={16} />} label={canInvite ? S.sidebar.invitePeople : S.accounts.requestInvite} onSelect={pick(invite)} /> : null}
+          {permissions.browse_channels ? <MenuItem icon={<Compass size={16} />} label={S.sidebar.browseChannels} onSelect={pick(() => openModal({ kind: 'browse' }))} /> : null}
+          {!isGuest ? <MenuItem icon={<Users size={16} />} label={S.accounts.groups} onSelect={pick(() => openAccountsModal({ kind: 'groups' }))} /> : null}
+          {!isGuest ? (
+            <MenuItem
+              icon={<ShieldCheck size={16} />}
+              label={isAdmin && pending > 0 ? `${S.sidebar.administration} (${pending})` : S.sidebar.administration}
+              onSelect={pick(() => openModal({ kind: 'admin', tab: 'members' }))}
+            />
+          ) : null}
           <MenuItem icon={<Settings size={16} />} label={S.sidebar.preferences} onSelect={pick(() => openModal({ kind: 'preferences' }))} />
           <AiMenuItems pick={pick} />
           <MenuItem icon={<Workflow size={16} />} label={S.wf.menu} onSelect={pick(() => go({ name: 'workflows' }))} />
@@ -389,6 +404,8 @@ function SidebarOptions() {
 function AddChannelButton() {
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const permissions = useAccounts((state) => state.permissions);
+  if (!permissions.create_channels && !permissions.browse_channels) return null;
   return (
     <>
       <IconButton ref={anchor} label={S.sidebar.addChannel} onClick={() => setOpen(true)}>
@@ -396,22 +413,26 @@ function AddChannelButton() {
       </IconButton>
       {open ? (
         <Popover anchor={anchor.current} onClose={() => setOpen(false)} className="menu">
-          <MenuItem
-            icon={<Plus size={16} />}
-            label={S.sidebar.createChannel}
-            onSelect={() => {
-              setOpen(false);
-              openModal({ kind: 'createChannel' });
-            }}
-          />
-          <MenuItem
-            icon={<Compass size={16} />}
-            label={S.sidebar.browseChannels}
-            onSelect={() => {
-              setOpen(false);
-              openModal({ kind: 'browse' });
-            }}
-          />
+          {permissions.create_channels ? (
+            <MenuItem
+              icon={<Plus size={16} />}
+              label={S.sidebar.createChannel}
+              onSelect={() => {
+                setOpen(false);
+                openModal({ kind: 'createChannel' });
+              }}
+            />
+          ) : null}
+          {permissions.browse_channels ? (
+            <MenuItem
+              icon={<Compass size={16} />}
+              label={S.sidebar.browseChannels}
+              onSelect={() => {
+                setOpen(false);
+                openModal({ kind: 'browse' });
+              }}
+            />
+          ) : null}
         </Popover>
       ) : null}
     </>
@@ -481,6 +502,7 @@ function MeStrip() {
           <MenuItem icon={<Moon size={16} />} label={S.att.dnd.schedule} onSelect={pick(() => openModal({ kind: 'dndSchedule' }))} />
           <MenuDivider />
           <MenuItem icon={<Settings size={16} />} label={S.sidebar.preferences} onSelect={pick(() => openModal({ kind: 'preferences' }))} />
+          <MenuItem icon={<KeyRound size={16} />} label={S.accounts.securityTitle} onSelect={pick(() => openAccountsModal({ kind: 'security' }))} />
           <MenuDivider />
           <MenuItem icon={<LogOut size={16} />} label={S.sidebar.signOut} onSelect={pick(() => void signOut())} />
         </Popover>
@@ -492,6 +514,9 @@ function MeStrip() {
 // ── Sidebar ─────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
+  const canBrowse = useAccounts((state) => state.permissions.browse_channels);
+  const canInvite = useAccounts((state) => state.permissions.invite);
+  const isGuest = useStore((state) => Boolean(state.self?.is_restricted));
   const channels = useStore((state) => state.channels);
   const users = useStore((state) => state.users);
   const selfId = useStore((state) => state.self?.id);
@@ -563,12 +588,14 @@ export function Sidebar() {
           {regular.map((conv) => (
             <SidebarItem key={conv.id} id={conv.id} />
           ))}
-          <button type="button" className="side-item side-add" onClick={() => openModal({ kind: 'browse' })}>
-            <span className="side-icon">
-              <Plus size={15} />
-            </span>
-            <span className="side-name">{S.sidebar.addChannel}</span>
-          </button>
+          {canBrowse ? (
+            <button type="button" className="side-item side-add" onClick={() => openModal({ kind: 'browse' })}>
+              <span className="side-icon">
+                <Plus size={15} />
+              </span>
+              <span className="side-name">{S.sidebar.addChannel}</span>
+            </button>
+          ) : null}
         </Section>
         <Section
           id="direct"
@@ -582,12 +609,18 @@ export function Sidebar() {
           {direct.map((conv) => (
             <SidebarItem key={conv.id} id={conv.id} />
           ))}
-          <button type="button" className="side-item side-add" onClick={() => openModal({ kind: 'invite' })}>
-            <span className="side-icon">
-              <Users size={15} />
-            </span>
-            <span className="side-name">{S.sidebar.invitePeople}</span>
-          </button>
+          {!isGuest ? (
+            <button
+              type="button"
+              className="side-item side-add"
+              onClick={() => (canInvite ? openModal({ kind: 'invite' }) : openAccountsModal({ kind: 'requestInvite' }))}
+            >
+              <span className="side-icon">
+                <Users size={15} />
+              </span>
+              <span className="side-name">{canInvite ? S.sidebar.invitePeople : S.accounts.requestInvite}</span>
+            </button>
+          ) : null}
         </Section>
       </div>
       <MeStrip />

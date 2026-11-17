@@ -19,6 +19,9 @@ import {
 import { call } from '../lib/api';
 import { conversation, conversationName, displayName, EMPTY_THREAD, threadKey, useStore, type LocalMessage } from '../lib/store';
 import { localTime } from '../lib/time';
+import { useAccounts } from '../lib/accounts';
+import { ChannelWebSettings } from './accounts/Admin';
+import { ProfileFieldFacts } from './accounts/Profile';
 import { S } from '../strings';
 import { AiThreadSummary } from './ai/AiControls';
 import { Composer } from './Composer';
@@ -179,6 +182,7 @@ export function ThreadPanel({ channel, ts }: { channel: string; ts: string }) {
 
 function roleLabel(user: User): string | null {
   if (user.is_bot) return S.profile.bot;
+  if (user.is_restricted) return S.accounts.guestTag;
   if (user.is_owner) return S.profile.owner;
   if (user.is_admin) return S.profile.admin;
   return null;
@@ -207,6 +211,7 @@ export function ProfilePanel({ userId }: { userId: string }) {
             {user.profile.status_emoji ? <Emoji name={user.profile.status_emoji.replace(/:/g, '')} /> : null} {user.profile.status_text}
           </p>
         ) : null}
+        <ProfileFieldFacts user={user} />
         <dl className="profile-facts">
           {user.deleted ? (
             <div>
@@ -376,6 +381,7 @@ function PinsTab({ conv }: { conv: Conversation }) {
 
 function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage: boolean; isMember: boolean }) {
   const creator = useStore((state) => state.users[conv.creator ?? '']);
+  const canCreateChannels = useAccounts((state) => state.permissions.create_channels);
   const created = new Date(conv.created * 1000).toLocaleDateString(undefined, { dateStyle: 'long' });
 
   const editPurpose = async (): Promise<void> => {
@@ -431,6 +437,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
             {conv.purpose?.value ? <Mrkdwn text={conv.purpose.value} /> : <p className="muted">{S.details.none}</p>}
           </section>
           <p className="about-created muted">{S.details.created(displayName(creator), created)}</p>
+          <ChannelWebSettings channel={conv.id} />
           {isMember ? <PostingPermissions conv={conv} canManage={canManage} /> : null}
         </>
       ) : null}
@@ -449,7 +456,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
               <LogOut size={16} /> {S.details.leave}
             </button>
           ) : null}
-          {conv.is_mpim ? (
+          {conv.is_mpim && canCreateChannels ? (
             <button type="button" className="row-action" onClick={() => void convert()}>
               <Hash size={16} /> {S.details.convertToChannel}
             </button>

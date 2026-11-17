@@ -1,0 +1,297 @@
+/* Accounts and workspace administration: sign-in options, security, groups, guests, settings. */
+
+/* ── Sign-in ─────────────────────────────────────────────────────────────── */
+
+.auth-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.auth-provider {
+  width: 100%;
+  height: 42px;
+  justify-content: center;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 -8px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13.5px;
+}
+
+.auth-switch {
+  display: block;
+  margin: 14px auto 0;
+  font-size: 13.5px;
+}
+
+/* ── Two-factor ──────────────────────────────────────────────────────────── */
+
+.twofactor-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-card .twofactor-setup {
+  margin-top: 16px;
+}
+
+.twofactor-qr {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.qr {
+  flex: none;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  image-rendering: pixelated;
+}
+
+.twofactor-key {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.twofactor-key code {
+  font-family: var(--mono);
+  font-size: 13px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.twofactor-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.backup-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  margin: 4px 0;
+  padding: 12px 16px 12px 34px;
+  border-radius: 10px;
+  background: var(--code-bg);
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+.security-on {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ok);
+  font-weight: 650;
+}
+
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stack-form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Pickers ─────────────────────────────────────────────────────────────── */
+
+.check-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+
+.check-list .check-filter {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.check-list ul {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.check-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check-list label:hover {
+  background: var(--bg-hover);
+}
+
+/* ── Groups ──────────────────────────────────────────────────────────────── */
+
+.group-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--bg-soft);
+  color: var(--text-2);
+}
+
+.group-list {
+  margin-bottom: 14px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ── Administration ──────────────────────────────────────────────────────── */
+
+.admin-section {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-section:last-child {
+  border-bottom: 0;
+}
+
+.icon-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.team-icon-preview {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.permission-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.permission-row select {
+  width: auto;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 13.5px;
+}
+
+.profile-fields-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) minmax(0, 1.4fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.account-type {
+  width: auto;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.guest-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+
+.guest-options .check-row {
+  margin-bottom: 0;
+}
+
+.web-settings .check-row {
+  margin: 6px 0;
+}
+
+.profile-custom {
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .form-row,
+  .profile-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .backup-codes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .permission-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

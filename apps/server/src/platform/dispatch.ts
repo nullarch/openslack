@@ -46,6 +46,10 @@ export const SUBSCRIBABLE_EVENTS = [
   'app_home_opened',
   'link_shared',
   'function_executed',
+  'subteam_created',
+  'subteam_updated',
+  'subteam_members_changed',
+  'team_profile_change',
 ];
 
 /** Message subtypes that are ordinary posts, where a mention should notify the app. */

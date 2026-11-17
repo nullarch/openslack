@@ -22,6 +22,13 @@ Open the address it prints and create your workspace. The first person to do so 
 | `PUBLIC_URL` | `http://localhost:PORT` | The address people and bots use to reach the server |
 | `MAX_UPLOAD_MB` | `100` | Largest accepted upload |
 | `LINK_PREVIEWS` | on | `0` turns off link previews, which make the server fetch linked pages (see below) |
+| `SMTP_URL` | none | Outgoing mail, e.g. `smtps://user:pass@smtp.example.com:465`. Turns on mailed invitations, sign-in codes and password resets |
+| `MAIL_FROM` | `<workspace> <no-reply@<host>>` | Sender of that mail |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_NAME` | none | Single sign-on with any OpenID Connect provider |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | none | Sign in with Google |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | none | Sign in with GitHub |
+| `METRICS_TOKEN` | none | Serves Prometheus metrics at `/metrics` to this bearer token |
+| `LOG_FORMAT` | text | `json` writes one JSON object per log line |
 
 Set `PUBLIC_URL` whenever the server is reached at anything other than `localhost`: links, file URLs handed to bots and invite links are built from it. When it starts with `https://`, the session cookie is marked `Secure`.
 
@@ -213,14 +220,45 @@ location / {
 
 Keep the `Host` header intact: the server compares it with the browser's `Origin` to reject cross-site requests.
 
+## Mail
+
+Without mail, nothing breaks: invite links are shown on screen to copy, and people sign in with a password. With `SMTP_URL` set:
+
+- invitations to an address are mailed;
+- the sign-in page offers "Email me a code" (six digits, ten minutes, five tries);
+- "Forgot your password?" mails a one-hour reset link, and resetting signs out every other session.
+
+Any SMTP service works (Postmark, SES, Mailgun, your own). Links in mail use the address the request came from, falling back to `PUBLIC_URL`.
+
+## Sign in with an identity provider
+
+Each provider turns on when both its client id and secret are set. Register this redirect URI with the provider:
+
+```
+<PUBLIC_URL>/auth/<provider>/callback      # provider is oidc, google or github
+```
+
+- **Single sign-on (OIDC):** `OIDC_ISSUER` is the provider's issuer URL (discovery at `/.well-known/openid-configuration`). Accounts are created on first sign-in, within the workspace's approved domains; set `OIDC_CREATE_ACCOUNTS=0` to only link existing accounts.
+- **Google, GitHub:** link to the account with the same verified address. They create accounts only with `GOOGLE_CREATE_ACCOUNTS=1` / `GITHUB_CREATE_ACCOUNTS=1` *and* approved domains set in Administration → Workspace, because anyone can have a Google or GitHub account. An invite link always lets the invited person sign up with a provider.
+
+Two-factor sign-in (authenticator app, with backup codes) works with every sign-in method. An admin who has it turned on can require it for everyone.
+
+## Monitoring
+
+- `/healthz` answers `{"ok":true}` while the server runs.
+- With `METRICS_TOKEN` set, `/metrics` serves Prometheus metrics (accounts, conversations, messages, file bytes, pending app deliveries, connected people, API calls by method and outcome, memory, event-loop delay) to `Authorization: Bearer <token>`.
+- `LOG_FORMAT=json` for log collectors.
+
 ## Backup and restore
 
 The data directory is the whole backup: `app.db` (SQLite, with `app.db-wal` and `app.db-shm` beside it while the server runs) and `files/`. With a bucket configured, back up the bucket as well.
 
-- Simplest: stop the server, copy the directory, start the server.
-- Without stopping: `sqlite3 "$DATA_DIR/app.db" ".backup '/backups/app.db'"`, then copy `files/`.
+- While the server runs: `openslack backup /backups/2026-11-17` (or `node apps/server/src/main.ts backup …` from source, with the same `DATA_DIR`). It takes a consistent snapshot through SQLite's backup API, then copies the files; with files in a bucket it copies only the database. Needs Node.js 22.16 or newer.
+- Or stop the server, copy the directory, start the server.
 
-To restore, put the directory back and start the server.
+To restore, point `DATA_DIR` at the copy (or put it back in place) and start the server. `node scripts/backup-restore-test.mjs` runs the whole cycle against a live server and checks the restored one.
+
+Owners can also download everything from Administration → Workspace as a Slack-format export (`/admin/export.zip`), which this server's importer, or any tool that reads Slack exports, takes back.
 
 ## Upgrading
 
@@ -245,3 +283,27 @@ Measured on an Apple-silicon laptop (Node 24, client and server on the same mach
 | Delivery latency, 5,000 open connections (1,000 people) | p95 54 ms, p99 61 ms; 254 MB memory |
 
 Reproduce the last two with `node apps/server/scripts/load-test.mjs [connections] [people] [messages]` (raise `ulimit -n` first).
+
+## Deploy to a hosting service
+
+The repository carries ready configurations. Each runs **one** instance with a persistent volume at `/data`: the database is a file there, so a second instance or a disk-less plan would lose data. None of these has been tried on the real service yet; they follow each provider's documented format.
+
+**Render** — `render.yaml` is a Blueprint (paid instance type, because disks need one). After the repository is public:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/nullarch/openslack)
+
+Set `PUBLIC_URL` to the service's address when Render asks.
+
+**Fly.io** — `fly.toml`:
+
+```bash
+fly launch --no-deploy --copy-config
+fly volumes create data --size 5
+fly secrets set PUBLIC_URL=https://<app>.fly.dev
+fly deploy
+```
+
+**Railway** — New project → Deploy from GitHub repo (it builds the `Dockerfile`). Then add a Volume mounted at `/data`, set `DATA_DIR=/data` and `PUBLIC_URL` to the generated domain, and generate a domain under Networking.
+
+**Any VPS** — `docker compose up -d` with `compose.yaml`, behind the reverse proxy above.
+

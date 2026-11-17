@@ -2,6 +2,7 @@ import { normalizeChannelName } from '@app/shared';
 import type { Param } from '../db/db.ts';
 import type { Ctx } from '../ctx.ts';
 import type { ConvRow } from './conversations.ts';
+import { isGuest } from './guests.ts';
 import type { MsgRow } from './messages.ts';
 
 export interface SearchQuery {
@@ -133,8 +134,10 @@ export interface SearchOptions {
  */
 export function searchMessages(ctx: Ctx, viewerId: string, query: SearchQuery, options: SearchOptions): SearchResult {
   if (query.impossible) return { hits: [], total: 0 };
+  // Guests search only the conversations they belong to.
+  const publicToViewer = isGuest(ctx, viewerId) ? '0' : "c.kind = 'public'";
   const where: string[] = [
-    "(c.kind = 'public' OR EXISTS (SELECT 1 FROM members mm WHERE mm.conversation_id = c.id AND mm.user_id = ?))",
+    `(${publicToViewer} OR EXISTS (SELECT 1 FROM members mm WHERE mm.conversation_id = c.id AND mm.user_id = ?))`,
     "(m.subtype IS NULL OR m.subtype NOT IN ('channel_join', 'channel_leave', 'tombstone'))",
   ];
   const params: Param[] = [viewerId];
