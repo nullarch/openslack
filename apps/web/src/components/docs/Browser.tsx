@@ -5,7 +5,7 @@ import { call } from '../../lib/api';
 import { createDoc, openDoc, useDocs, type DocKind, type DocSummary } from '../../lib/docs';
 import { displayName, useStore } from '../../lib/store';
 import { relative } from '../../lib/time';
-import { S } from '../../strings';
+import { T } from './text';
 import { Button, IconButton, Modal, Spinner } from '../ui';
 import { EmptyNote, ViewFrame } from '../views/common';
 import { KindIcon } from './index';
@@ -44,8 +44,8 @@ function TemplateGrid({ templates, kind, onPick, onDeleted }: { templates: Templ
           <span className={`doc-card-icon is-${entry}`}>
             <FilePlus2 size={18} />
           </span>
-          <strong>{entry === 'canvas' ? S.docs.newCanvas : S.docs.newList}</strong>
-          <span>{entry === 'canvas' ? S.docs.blankCanvas : S.docs.blankList}</span>
+          <strong>{entry === 'canvas' ? T.newCanvas : T.newList}</strong>
+          <span>{entry === 'canvas' ? T.blankCanvas : T.blankList}</span>
         </button>
       ))}
       {templates.map((template) => (
@@ -56,12 +56,12 @@ function TemplateGrid({ templates, kind, onPick, onDeleted }: { templates: Templ
             </span>
             <strong>{template.title}</strong>
             <span>{template.description || template.preview.slice(0, 120)}</span>
-            <span className="template-by">{template.builtin ? S.docs.builtIn : S.docs.savedBy(displayName(users[template.created_by ?? '']))}</span>
+            <span className="template-by">{template.builtin ? T.builtIn : T.savedBy(displayName(users[template.created_by ?? '']))}</span>
           </button>
           {!template.builtin && (template.created_by === self?.id || self?.is_admin || self?.is_owner) ? (
             <IconButton
               className="template-delete"
-              label={S.docs.deleteTemplate}
+              label={T.deleteTemplate}
               onClick={() => void attempt(() => call('client.docs.templates.delete', { template_id: template.id })).then(onDeleted)}
             >
               <Trash2 size={14} />
@@ -77,7 +77,7 @@ function TemplateGrid({ templates, kind, onPick, onDeleted }: { templates: Templ
 export function TemplatePicker({ channel, kind, onClose }: { channel?: string; kind?: DocKind; onClose: () => void }) {
   const [templates, reload] = useTemplates(kind);
   return (
-    <Modal title={S.docs.templates} onClose={onClose} width={760} className="template-dialog">
+    <Modal title={T.templates} onClose={onClose} width={760} className="template-dialog">
       {templates === null ? (
         <Spinner />
       ) : (
@@ -112,15 +112,15 @@ export default function DocsBrowser({ kind }: { kind: DocKind }) {
   }, [kind, changes]);
   return (
     <ViewFrame
-      title={kind === 'canvas' ? S.docs.browseCanvases : S.docs.browseLists}
+      title={kind === 'canvas' ? T.browseCanvases : T.browseLists}
       className="docs-view"
       actions={
         <>
           <Button size="sm" onClick={() => setPicker(true)}>
-            {S.docs.templates}
+            {T.templates}
           </Button>
           <Button size="sm" variant="primary" onClick={() => void attempt(() => createDoc(kind))}>
-            <FilePlus2 size={15} /> {kind === 'canvas' ? S.docs.newCanvas : S.docs.newList}
+            <FilePlus2 size={15} /> {kind === 'canvas' ? T.newCanvas : T.newList}
           </Button>
         </>
       }
@@ -130,7 +130,7 @@ export default function DocsBrowser({ kind }: { kind: DocKind }) {
           <Spinner />
         </div>
       ) : docs.length === 0 ? (
-        <EmptyNote>{kind === 'canvas' ? S.docs.emptyCanvases : S.docs.emptyLists}</EmptyNote>
+        <EmptyNote>{kind === 'canvas' ? T.emptyCanvases : T.emptyLists}</EmptyNote>
       ) : (
         <ul className="doc-list">
           {docs.map((doc) => (
@@ -149,12 +149,12 @@ export default function DocsBrowser({ kind }: { kind: DocKind }) {
                   <KindIcon kind={doc.kind} size={18} />
                 </span>
                 <span className="doc-row-body">
-                  <strong>{doc.title || S.docs.untitled}</strong>
+                  <strong>{doc.title || T.untitled}</strong>
                   <span>{doc.snippet || ' '}</span>
                 </span>
                 <span className="doc-row-meta">
-                  {doc.access_level === 'read' ? <span className="tag">{S.docs.readOnly}</span> : null}
-                  <span>{S.docs.updatedBy(displayName(users[doc.updated_by]), relative(String(doc.updated)))}</span>
+                  {doc.access_level === 'read' ? <span className="tag">{T.readOnly}</span> : null}
+                  <span>{T.updatedBy(displayName(users[doc.updated_by]), relative(String(doc.updated)))}</span>
                 </span>
               </a>
             </li>

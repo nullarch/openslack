@@ -41,7 +41,7 @@ import { personColor, useDocs } from '../../lib/docs';
 import { nativeEmoji } from '../../lib/emoji';
 import { displayName, get, useStore } from '../../lib/store';
 import { relative } from '../../lib/time';
-import { S } from '../../strings';
+import { T } from './text';
 import { promptDialog } from '../dialogs/confirm';
 import { Avatar, Button, IconButton, Modal, Popover, Spinner } from '../ui';
 import { editorKit } from './editorKit';
@@ -210,7 +210,7 @@ function Tool({ label, active, disabled, onClick, children }: { label: string; a
 }
 
 function Toolbar({ editor, onImage, onComment }: { editor: Editor; onImage: () => void; onComment: () => void }) {
-  const t = S.docs.toolbar;
+  const t = T.toolbar;
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -246,7 +246,7 @@ function Toolbar({ editor, onImage, onComment }: { editor: Editor; onImage: () =
     else chain().setLink({ href: url }).run();
   };
   return (
-    <div className="canvas-toolbar" role="toolbar" aria-label={S.docs.canvas}>
+    <div className="canvas-toolbar" role="toolbar" aria-label={T.canvas}>
       <Tool label={t.undo} onClick={() => chain().undo().run()}>
         <Undo2 size={16} />
       </Tool>
@@ -391,7 +391,7 @@ function CommentBox({ placeholder, onSend, autoFocus }: { placeholder: string; o
         }}
       />
       <Button type="submit" size="sm" variant="primary" busy={busy} disabled={!text.trim()}>
-        {S.docs.reply}
+        {T.reply}
       </Button>
     </form>
   );
@@ -437,7 +437,7 @@ function CommentThread({
               <time>{relative(String(comment.created))}</time>
               {canDelete(comment) ? (
                 <button type="button" className="link-btn comment-delete" onClick={() => onDelete(comment)}>
-                  {S.docs.deleteComment}
+                  {T.deleteComment}
                 </button>
               ) : null}
             </div>
@@ -448,16 +448,16 @@ function CommentThread({
       <div className="comment-actions">
         {root.resolved ? (
           <span className="tag">
-            {S.docs.resolved}
+            {T.resolved}
             {root.resolved_by ? ` · ${displayName(users[root.resolved_by])}` : ''}
           </span>
         ) : null}
         <span className="composer-spacer" />
         <Button size="sm" variant="ghost" onClick={() => onResolve(!root.resolved)}>
-          {root.resolved ? S.docs.reopen : S.docs.resolve}
+          {root.resolved ? T.reopen : T.resolve}
         </Button>
       </div>
-      {!root.resolved ? <CommentBox placeholder={S.docs.replyPlaceholder} onSend={onReply} /> : null}
+      {!root.resolved ? <CommentBox placeholder={T.replyPlaceholder} onSend={onReply} /> : null}
     </article>
   );
 }
@@ -491,14 +491,14 @@ function CommentsPanel({
     if (range) editor.chain().focus().setTextSelection(range).scrollIntoView().run();
   };
   return (
-    <aside className="canvas-side" aria-label={S.docs.comments}>
+    <aside className="canvas-side" aria-label={T.comments}>
       <header className="canvas-side-head">
-        <h2>{S.docs.comments}</h2>
+        <h2>{T.comments}</h2>
         <label className="toggle-label">
           <input type="checkbox" checked={showResolved} onChange={(event) => setShowResolved(event.target.checked)} />
-          {S.docs.showResolved}
+          {T.showResolved}
         </label>
-        <IconButton label={S.docs.close} onClick={onClose}>
+        <IconButton label={T.close} onClick={onClose}>
           ×
         </IconButton>
       </header>
@@ -508,7 +508,7 @@ function CommentsPanel({
             <p className="comment-quote">{draft.quote}</p>
             <CommentBox
               autoFocus
-              placeholder={S.docs.commentPlaceholder}
+              placeholder={T.commentPlaceholder}
               onSend={async (text) => {
                 await call('client.canvases.comments.add', { canvas_id: id, text, quote: draft.quote, anchor: draft.anchor });
                 onDraftDone();
@@ -516,7 +516,7 @@ function CommentsPanel({
             />
           </article>
         ) : null}
-        {roots.length === 0 && !draft ? <p className="view-empty">{S.docs.noComments}</p> : null}
+        {roots.length === 0 && !draft ? <p className="view-empty">{T.noComments}</p> : null}
         {roots.map((root) => (
           <CommentThread
             key={root.id}
@@ -567,13 +567,13 @@ function VersionPreview({ id, version, canWrite, onClose }: { id: string; versio
   const preview = useEditor({ editable: false, extensions: editorKit({ live: false, selfId: self }), content: content ?? undefined }, [content]);
   return (
     <Modal
-      title={`${S.docs.preview} · ${version.label || relative(String(version.created))}`}
+      title={`${T.preview} · ${version.label || relative(String(version.created))}`}
       onClose={onClose}
       width={820}
       className="version-modal"
       footer={
         <>
-          <Button onClick={onClose}>{S.docs.close}</Button>
+          <Button onClick={onClose}>{T.close}</Button>
           {canWrite ? (
             <Button
               variant="primary"
@@ -583,12 +583,12 @@ function VersionPreview({ id, version, canWrite, onClose }: { id: string; versio
                 void attempt(() => call('client.canvases.versions.restore', { canvas_id: id, version_id: version.id })).then((ok) => {
                   setBusy(false);
                   if (ok === undefined) return;
-                  toast(S.docs.restored);
+                  toast(T.restored);
                   onClose();
                 });
               }}
             >
-              {S.docs.restore}
+              {T.restore}
             </Button>
           ) : null}
         </>
@@ -612,10 +612,10 @@ function VersionsPanel({ id, canWrite, onClose }: { id: string; canWrite: boolea
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [id, version]);
   return (
-    <aside className="canvas-side" aria-label={S.docs.versions}>
+    <aside className="canvas-side" aria-label={T.versions}>
       <header className="canvas-side-head">
-        <h2>{S.docs.versions}</h2>
-        <IconButton label={S.docs.close} onClick={onClose}>
+        <h2>{T.versions}</h2>
+        <IconButton label={T.close} onClick={onClose}>
           ×
         </IconButton>
       </header>
@@ -624,26 +624,26 @@ function VersionsPanel({ id, canWrite, onClose }: { id: string; canWrite: boolea
           <Button
             size="sm"
             onClick={() =>
-              void promptDialog({ title: S.docs.saveVersion, label: S.docs.versionLabel, initial: '', confirmLabel: S.docs.saveVersion }).then((label) => {
+              void promptDialog({ title: T.saveVersion, label: T.versionLabel, initial: '', confirmLabel: T.saveVersion }).then((label) => {
                 if (label === null) return;
                 void attempt(() => call('client.canvases.versions.save', { canvas_id: id, label: label.trim() })).then((ok) => {
                   if (ok === undefined) return;
-                  toast(S.docs.versionSaved);
+                  toast(T.versionSaved);
                   load();
                 });
               })
             }
           >
-            {S.docs.saveVersion}
+            {T.saveVersion}
           </Button>
         ) : null}
         {versions === null ? <Spinner /> : null}
-        {versions?.length === 0 ? <p className="view-empty">{S.docs.noVersions}</p> : null}
+        {versions?.length === 0 ? <p className="view-empty">{T.noVersions}</p> : null}
         <ol className="version-list">
           {versions?.map((entry) => (
             <li key={entry.id}>
               <button type="button" className="version-item" data-version={entry.id} onClick={() => setOpen(entry)}>
-                <strong>{entry.label === 'Before restore' ? S.docs.beforeRestore : entry.label || relative(String(entry.created))}</strong>
+                <strong>{entry.label === 'Before restore' ? T.beforeRestore : entry.label || relative(String(entry.created))}</strong>
                 <span>
                   {displayName(users[entry.created_by])} · {new Date(entry.created * 1000).toLocaleString()}
                 </span>
@@ -693,7 +693,7 @@ function LiveEditor({
       editable: canWrite,
       extensions: [
         ...editorKit({ live: canWrite, selfId: user.id, onImage: () => pickImage.current() }),
-        Placeholder.configure({ placeholder: ({ node }) => (node.type.name === 'heading' ? S.docs.headingPlaceholder : S.docs.placeholder) }),
+        Placeholder.configure({ placeholder: ({ node }) => (node.type.name === 'heading' ? T.headingPlaceholder : T.placeholder) }),
         Collaboration.configure({ document: session.doc, field: 'default' }),
         CollaborationCaret.configure({ provider: session.provider, user }),
         commentHighlights(
@@ -704,7 +704,7 @@ function LiveEditor({
           },
         ),
       ],
-      editorProps: { attributes: { class: 'canvas-content', 'aria-label': S.docs.canvas } },
+      editorProps: { attributes: { class: 'canvas-content', 'aria-label': T.canvas } },
     },
     [session, canWrite],
   );
@@ -745,7 +745,7 @@ function LiveEditor({
     const { from, to, empty } = editor.state.selection;
     const binding = ySyncPluginKey.getState(editor.state)?.binding;
     if (empty || !binding) {
-      toast(S.docs.selectToComment);
+      toast(T.selectToComment);
       return;
     }
     const anchor = {
@@ -770,14 +770,14 @@ function LiveEditor({
     <div className={`canvas-layout ${panel ? 'has-side' : ''}`}>
       <div className="canvas-main">
         <div className="canvas-bar">
-          {canWrite ? <Toolbar editor={editor} onImage={() => fileInput.current?.click()} onComment={startComment} /> : <span className="tag">{S.docs.readOnly}</span>}
+          {canWrite ? <Toolbar editor={editor} onImage={() => fileInput.current?.click()} onComment={startComment} /> : <span className="tag">{T.readOnly}</span>}
           {!canWrite ? (
             <Button size="sm" variant="ghost" onClick={startComment}>
-              <MessageSquarePlus size={15} /> {S.docs.addComment}
+              <MessageSquarePlus size={15} /> {T.addComment}
             </Button>
           ) : null}
           <span className="composer-spacer" />
-          <div className="canvas-presence" aria-label={S.docs.here(people.map((person) => person.name).join(', '))}>
+          <div className="canvas-presence" aria-label={T.here(people.map((person) => person.name).join(', '))}>
             {people.map((person) => (
               <span key={person.id} className="presence-chip" style={{ borderColor: person.color }} title={person.name} data-present={person.id}>
                 <Avatar user={get().users[person.id]} size={22} />
@@ -787,16 +787,16 @@ function LiveEditor({
         </div>
         {!synced ? (
           <div className="canvas-status">
-            <Spinner /> {S.docs.connecting}
+            <Spinner /> {T.connecting}
           </div>
         ) : !online ? (
           <div className="canvas-status is-offline" role="status">
-            <WifiOff size={14} /> {S.docs.offline}
+            <WifiOff size={14} /> {T.offline}
           </div>
         ) : null}
         {uploading ? (
           <div className="canvas-status">
-            <Spinner /> {S.docs.uploading}
+            <Spinner /> {T.uploading}
           </div>
         ) : null}
         <div className="canvas-scroll" onClick={onClick}>

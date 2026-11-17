@@ -8,7 +8,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionOptions, type SuggestionProps } from '@tiptap/suggestion';
 import { nativeEmoji, searchEmoji } from '../../lib/emoji';
 import { displayName, get } from '../../lib/store';
-import { S } from '../../strings';
+import { T } from './text';
 
 /**
  * The editor's schema and helpers, shared by the live canvas and read-only
@@ -133,7 +133,7 @@ interface SlashItem extends MenuEntry {
 }
 
 export function slashItems(onImage: () => void): SlashItem[] {
-  const t = S.docs.toolbar;
+  const t = T.toolbar;
   return [
     { id: 'p', label: t.paragraph, run: (c) => c.setParagraph().run() },
     { id: 'h1', label: t.h1, hint: '#', run: (c) => c.setHeading({ level: 1 }).run() },
@@ -171,7 +171,7 @@ function slashCommands(onImage: () => void): AnyExtension {
           startOfLine: false,
           items: ({ query }) => slashItems(onImage).filter((item) => item.label.toLowerCase().includes(query.toLowerCase()) || item.id.startsWith(query.toLowerCase())),
           command: ({ editor, range, props }) => props.run(editor.chain().focus().deleteRange(range)),
-          render: suggestionPopup<SlashItem>(S.docs.noPeopleMatch),
+          render: suggestionPopup<SlashItem>(T.noPeopleMatch),
         }),
       ];
     },
@@ -227,8 +227,8 @@ export function editorKit(options: KitOptions): AnyExtension[] {
     },
     suggestions: options.live
       ? [
-          { char: '@', items: ({ query }) => people(query), render: suggestionPopup<MenuEntry>(S.docs.noPeopleMatch) },
-          { char: '#', items: ({ query }) => channels(query), render: suggestionPopup<MenuEntry>(S.docs.noChannelsMatch) },
+          { char: '@', items: ({ query }) => people(query), render: suggestionPopup<MenuEntry>(T.noPeopleMatch) },
+          { char: '#', items: ({ query }) => channels(query), render: suggestionPopup<MenuEntry>(T.noChannelsMatch) },
         ]
       : [],
   });

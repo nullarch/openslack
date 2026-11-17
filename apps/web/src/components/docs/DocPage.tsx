@@ -6,6 +6,7 @@ import { openDoc, setDocTab, useDocs, type DocKind, type DocSummary } from '../.
 import { displayName, get, set, useStore } from '../../lib/store';
 import { relative } from '../../lib/time';
 import { S } from '../../strings';
+import { T } from './text';
 import { confirmDialog } from '../dialogs/confirm';
 import { Avatar, Button, Field, IconButton, MenuDivider, MenuItem, Modal, Popover, Spinner } from '../ui';
 import { KindIcon } from './index';
@@ -77,15 +78,15 @@ function ShareDialog({ doc, onClose }: { doc: DocSummary; onClose: () => void })
   };
 
   return (
-    <Modal title={S.docs.shareTitle(doc.title || S.docs.untitled)} onClose={onClose} className="share-dialog" footer={<Button onClick={onClose}>{S.done}</Button>}>
+    <Modal title={T.shareTitle(doc.title || T.untitled)} onClose={onClose} className="share-dialog" footer={<Button onClick={onClose}>{S.done}</Button>}>
       {owner ? (
         <div className="share-add">
-          <Field label={S.docs.addPeople}>
+          <Field label={T.addPeople}>
             <div className="share-row">
-              <input className="input" placeholder={S.docs.searchPeople} aria-label={S.docs.addPeople} value={query} onChange={(event) => setQuery(event.target.value)} />
-              <select className="input share-level" aria-label={S.docs.levelWrite} value={level} onChange={(event) => setLevel(event.target.value as 'read' | 'write')}>
-                <option value="write">{S.docs.levelWrite}</option>
-                <option value="read">{S.docs.levelRead}</option>
+              <input className="input" placeholder={T.searchPeople} aria-label={T.addPeople} value={query} onChange={(event) => setQuery(event.target.value)} />
+              <select className="input share-level" aria-label={T.levelWrite} value={level} onChange={(event) => setLevel(event.target.value as 'read' | 'write')}>
+                <option value="write">{T.levelWrite}</option>
+                <option value="read">{T.levelRead}</option>
               </select>
             </div>
           </Field>
@@ -101,14 +102,14 @@ function ShareDialog({ doc, onClose }: { doc: DocSummary; onClose: () => void })
           ) : null}
         </div>
       ) : (
-        <p className="view-empty is-inline">{S.docs.onlyOwner}</p>
+        <p className="view-empty is-inline">{T.onlyOwner}</p>
       )}
-      <h3 className="share-heading">{S.docs.sharedWith}</h3>
+      <h3 className="share-heading">{T.sharedWith}</h3>
       <ul className="share-list">
         <li>
           <Avatar user={users[doc.owner]} size={24} />
           <span className="share-name">{displayName(users[doc.owner])}</span>
-          <span className="tag">{S.docs.owner}</span>
+          <span className="tag">{T.owner}</span>
         </li>
         {access === null ? <Spinner /> : null}
         {(access ?? []).map((entry) => {
@@ -116,25 +117,25 @@ function ShareDialog({ doc, onClose }: { doc: DocSummary; onClose: () => void })
           return (
             <li key={entry.principal} data-access={entry.principal}>
               {who.isChannel ? who.isPrivate ? <Lock size={18} /> : <Hash size={18} /> : <Avatar user={users[entry.principal]} size={24} />}
-              <span className="share-name">{who.isChannel ? S.docs.channelMembers(who.label.replace(/^#/, '')) : who.label}</span>
+              <span className="share-name">{who.isChannel ? T.channelMembers(who.label.replace(/^#/, '')) : who.label}</span>
               {owner ? (
                 <>
                   <select className="input share-level" aria-label={who.label} value={entry.level} onChange={(event) => void grant(entry.principal, who.isChannel, event.target.value as 'read' | 'write')}>
-                    <option value="write">{S.docs.levelWrite}</option>
-                    <option value="read">{S.docs.levelRead}</option>
+                    <option value="write">{T.levelWrite}</option>
+                    <option value="read">{T.levelRead}</option>
                   </select>
-                  <IconButton label={S.docs.remove} onClick={() => void remove(entry.principal)}>
+                  <IconButton label={T.remove} onClick={() => void remove(entry.principal)}>
                     <X size={15} />
                   </IconButton>
                 </>
               ) : (
-                <span className="tag">{entry.level === 'write' ? S.docs.levelWrite : S.docs.levelRead}</span>
+                <span className="tag">{entry.level === 'write' ? T.levelWrite : T.levelRead}</span>
               )}
             </li>
           );
         })}
       </ul>
-      <p className="share-note">{S.docs.publicNote}</p>
+      <p className="share-note">{T.publicNote}</p>
     </Modal>
   );
 }
@@ -145,7 +146,7 @@ function SaveTemplateDialog({ doc, onClose }: { doc: DocSummary; onClose: () => 
   const [busy, setBusy] = useState(false);
   return (
     <Modal
-      title={S.docs.saveTemplate}
+      title={T.saveTemplate}
       onClose={onClose}
       footer={
         <>
@@ -159,22 +160,22 @@ function SaveTemplateDialog({ doc, onClose }: { doc: DocSummary; onClose: () => 
               void attempt(() => call('client.docs.templates.save', { doc_id: doc.id, title: title.trim(), include_items: includeItems })).then((ok) => {
                 setBusy(false);
                 if (ok === undefined) return;
-                toast(S.docs.templateSaved);
+                toast(T.templateSaved);
                 onClose();
               });
             }}
           >
-            {S.docs.saveTemplate}
+            {T.saveTemplate}
           </Button>
         </>
       }
     >
-      <Field label={S.docs.templateName}>
+      <Field label={T.templateName}>
         <input className="input" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} />
       </Field>
       {doc.kind === 'list' ? (
         <label className="toggle-label">
-          <input type="checkbox" checked={includeItems} onChange={(event) => setIncludeItems(event.target.checked)} /> {S.docs.includeItems}
+          <input type="checkbox" checked={includeItems} onChange={(event) => setIncludeItems(event.target.checked)} /> {T.includeItems}
         </label>
       ) : null}
     </Modal>
@@ -192,13 +193,13 @@ function Title({ doc, editable }: { doc: DocSummary; editable: boolean }) {
     }
     void attempt(() => (doc.kind === 'canvas' ? call('client.canvases.rename', { canvas_id: doc.id, title: next }) : call('slackLists.update', { id: doc.id, name: next })));
   };
-  if (!editable) return <h1 className="doc-title">{doc.title || S.docs.untitled}</h1>;
+  if (!editable) return <h1 className="doc-title">{doc.title || T.untitled}</h1>;
   return (
     <input
       className="doc-title is-editable"
       value={value}
-      aria-label={S.docs.rename}
-      placeholder={doc.kind === 'canvas' ? S.docs.untitled : S.docs.untitledList}
+      aria-label={T.rename}
+      placeholder={doc.kind === 'canvas' ? T.untitled : T.untitledList}
       onChange={(event) => setValue(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -252,8 +253,8 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
       <section className="conversation doc-page">
         <div className="doc-missing">
           <KindIcon kind={kind} size={28} />
-          <p>{S.docs.gone}</p>
-          {channel ? <Button onClick={() => setDocTab(channel, null)}>{S.docs.messages}</Button> : null}
+          <p>{T.gone}</p>
+          {channel ? <Button onClick={() => setDocTab(channel, null)}>{T.messages}</Button> : null}
         </div>
       </section>
     );
@@ -272,11 +273,11 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
   const isOwner = doc.access_level === 'owner';
   const togglePanel = (next: CanvasPanel): void => setPanel((current) => (current === next ? null : next));
   const remove = async (): Promise<void> => {
-    const ok = await confirmDialog(kind === 'canvas' ? S.docs.deleteCanvas : S.docs.deleteList, S.docs.delete);
+    const ok = await confirmDialog(kind === 'canvas' ? T.deleteCanvas : T.deleteList, T.delete);
     if (!ok) return;
     const result = await attempt(() => (kind === 'canvas' ? call('canvases.delete', { canvas_id: id }) : call('client.lists.delete', { list_id: id })));
     if (result === undefined) return;
-    toast(S.docs.deleted);
+    toast(T.deleted);
     if (channel) setDocTab(channel, null);
     else go({ name: 'view', view: kind === 'canvas' ? 'canvases' : 'lists' });
   };
@@ -293,23 +294,23 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
           <KindIcon kind={kind} size={16} />
         </span>
         <Title doc={doc} editable={canWrite} />
-        {!canWrite ? <span className="tag">{S.docs.readOnly}</span> : null}
-        <span className="doc-updated">{S.docs.updatedBy(displayName(updatedBy[doc.updated_by]), relative(String(doc.updated)))}</span>
+        {!canWrite ? <span className="tag">{T.readOnly}</span> : null}
+        <span className="doc-updated">{T.updatedBy(displayName(updatedBy[doc.updated_by]), relative(String(doc.updated)))}</span>
         <span className="composer-spacer" />
         {kind === 'canvas' ? (
           <>
             <Button size="sm" variant={panel === 'comments' ? 'primary' : 'ghost'} aria-pressed={panel === 'comments'} onClick={() => togglePanel('comments')}>
-              <MessageSquare size={15} /> {openComments ? S.docs.commentsCount(openComments) : S.docs.comments}
+              <MessageSquare size={15} /> {openComments ? T.commentsCount(openComments) : T.comments}
             </Button>
-            <IconButton label={S.docs.versions} className={panel === 'versions' ? 'is-on' : ''} onClick={() => togglePanel('versions')}>
+            <IconButton label={T.versions} className={panel === 'versions' ? 'is-on' : ''} onClick={() => togglePanel('versions')}>
               <History size={17} />
             </IconButton>
           </>
         ) : null}
         <Button size="sm" onClick={() => setShare(true)}>
-          <Share2 size={15} /> {S.docs.share}
+          <Share2 size={15} /> {T.share}
         </Button>
-        <IconButton ref={menuButton} label={S.docs.openFull} onClick={() => setMenu(true)}>
+        <IconButton ref={menuButton} label={T.openFull} onClick={() => setMenu(true)}>
           <MoreHorizontal size={18} />
         </IconButton>
       </header>
@@ -332,16 +333,16 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
         <Popover anchor={menuButton.current} onClose={() => setMenu(false)} className="menu" align="end">
           <MenuItem
             icon={<Link2 size={16} />}
-            label={S.docs.copyLink}
+            label={T.copyLink}
             onSelect={() => {
               setMenu(false);
-              void navigator.clipboard?.writeText(doc.permalink).then(() => toast(S.docs.linkCopied));
+              void navigator.clipboard?.writeText(doc.permalink).then(() => toast(T.linkCopied));
             }}
           />
           {channel ? (
             <MenuItem
               icon={<ArrowUpRight size={16} />}
-              label={S.docs.openFull}
+              label={T.openFull}
               onSelect={() => {
                 setMenu(false);
                 openDoc(kind, id);
@@ -350,7 +351,7 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
           ) : null}
           <MenuItem
             icon={<Save size={16} />}
-            label={S.docs.saveTemplate}
+            label={T.saveTemplate}
             onSelect={() => {
               setMenu(false);
               setTemplate(true);
@@ -361,7 +362,7 @@ export default function DocPage({ kind, id, channel }: { kind: DocKind; id: stri
               <MenuDivider />
               <MenuItem
                 icon={<Trash2 size={16} />}
-                label={S.docs.delete}
+                label={T.delete}
                 danger
                 onSelect={() => {
                   setMenu(false);

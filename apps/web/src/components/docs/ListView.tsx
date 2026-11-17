@@ -6,6 +6,7 @@ import { useDocs } from '../../lib/docs';
 import { displayName, get, useStore } from '../../lib/store';
 import { relative } from '../../lib/time';
 import { S } from '../../strings';
+import { T } from './text';
 import { confirmDialog } from '../dialogs/confirm';
 import { Avatar, Button, Field, IconButton, MenuDivider, MenuItem, Modal, Popover, Spinner } from '../ui';
 
@@ -136,7 +137,7 @@ function PeoplePicker({ value, onChange, anchor, onClose }: { value: string[]; o
     .slice(0, 12);
   return (
     <Popover anchor={anchor} onClose={onClose} className="menu people-picker">
-      <input className="input" autoFocus placeholder={S.docs.searchPeople} value={query} onChange={(event) => setQuery(event.target.value)} aria-label={S.docs.searchPeople} />
+      <input className="input" autoFocus placeholder={T.searchPeople} value={query} onChange={(event) => setQuery(event.target.value)} aria-label={T.searchPeople} />
       {matches.map((user) => {
         const on = value.includes(user.id);
         return (
@@ -346,7 +347,7 @@ function ColumnDialog({ column, onSave, onClose }: { column?: Column; onSave: (c
   };
   return (
     <Modal
-      title={column ? S.docs.rename : S.docs.addColumn}
+      title={column ? T.rename : T.addColumn}
       onClose={onClose}
       footer={
         <>
@@ -357,25 +358,25 @@ function ColumnDialog({ column, onSave, onClose }: { column?: Column; onSave: (c
         </>
       }
     >
-      <Field label={S.docs.columnName}>
+      <Field label={T.columnName}>
         <input className="input" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
       </Field>
-      <Field label={S.docs.columnType}>
+      <Field label={T.columnType}>
         <select className="input" value={type} disabled={Boolean(column)} onChange={(event) => setType(event.target.value as ColumnType)}>
           {TYPES.map((entry) => (
             <option key={entry} value={entry}>
-              {S.docs.types[entry]}
+              {T.types[entry]}
             </option>
           ))}
         </select>
       </Field>
       {type === 'select' ? (
         <>
-          <Field label={S.docs.choices}>
+          <Field label={T.choices}>
             <textarea className="input" rows={5} value={choices} onChange={(event) => setChoices(event.target.value)} />
           </Field>
           <label className="toggle-label">
-            <input type="checkbox" checked={multi} onChange={(event) => setMulti(event.target.checked)} /> {S.docs.multiple}
+            <input type="checkbox" checked={multi} onChange={(event) => setMulti(event.target.checked)} /> {T.multiple}
           </label>
         </>
       ) : null}
@@ -413,10 +414,10 @@ function ItemPanel({ listId, item, schema, editable, onChange, onClose }: { list
     if (ok !== undefined) setText('');
   };
   return (
-    <aside className="canvas-side list-item-panel" aria-label={S.docs.openItem}>
+    <aside className="canvas-side list-item-panel" aria-label={T.openItem}>
       <header className="canvas-side-head">
-        <h2>{primary ? textOf(primary, item.values[primary.id]) || S.docs.newItem : S.docs.newItem}</h2>
-        <IconButton label={S.docs.close} onClick={onClose}>
+        <h2>{primary ? textOf(primary, item.values[primary.id]) || T.newItem : T.newItem}</h2>
+        <IconButton label={T.close} onClick={onClose}>
           <X size={16} />
         </IconButton>
       </header>
@@ -431,8 +432,8 @@ function ItemPanel({ listId, item, schema, editable, onChange, onClose }: { list
             </div>
           ))}
         </dl>
-        <h3 className="item-comments-title">{S.docs.itemComments}</h3>
-        {comments === null ? <Spinner /> : comments.length === 0 ? <p className="view-empty">{S.docs.noItemComments}</p> : null}
+        <h3 className="item-comments-title">{T.itemComments}</h3>
+        {comments === null ? <Spinner /> : comments.length === 0 ? <p className="view-empty">{T.noItemComments}</p> : null}
         {comments?.map((comment) => (
           <div key={comment.id} className="comment" data-item-comment={comment.id}>
             <Avatar user={users[comment.user]} size={24} />
@@ -452,9 +453,9 @@ function ItemPanel({ listId, item, schema, editable, onChange, onClose }: { list
             void send();
           }}
         >
-          <textarea rows={2} value={text} placeholder={S.docs.commentPlaceholder} aria-label={S.docs.commentPlaceholder} onChange={(event) => setText(event.target.value)} />
+          <textarea rows={2} value={text} placeholder={T.commentPlaceholder} aria-label={T.commentPlaceholder} onChange={(event) => setText(event.target.value)} />
           <Button type="submit" size="sm" variant="primary" disabled={!text.trim()}>
-            {S.docs.reply}
+            {T.reply}
           </Button>
         </form>
       </div>
@@ -510,7 +511,7 @@ function useCardDrag(onDrop: (itemId: string, lane: string) => void) {
 function Board({ items, schema, laneColumn, editable, onMove, onOpen }: { items: Item[]; schema: Column[]; laneColumn: Column; editable: boolean; onMove: (item: Item, lane: string) => void; onOpen: (item: Item) => void }) {
   const primary = schema.find((column) => column.is_primary_column);
   const shown = schema.filter((column) => column !== primary && column !== laneColumn && ['user', 'date', 'select'].includes(column.type)).slice(0, 3);
-  const lanes = [...(laneColumn.options?.choices ?? []).map((choice) => ({ id: choice.value, label: choice.label, color: choice.color })), { id: '', label: S.docs.noValue, color: 'gray' }];
+  const lanes = [...(laneColumn.options?.choices ?? []).map((choice) => ({ id: choice.value, label: choice.label, color: choice.color })), { id: '', label: T.noValue, color: 'gray' }];
   const { over, onPointerDown, onPointerMove, finish } = useCardDrag((itemId, lane) => {
     const item = items.find((entry) => entry.id === itemId);
     if (item) onMove(item, lane);
@@ -542,7 +543,7 @@ function Board({ items, schema, laneColumn, editable, onMove, onOpen }: { items:
                     if (event.key === 'Enter') onOpen(item);
                   }}
                 >
-                  <strong>{primary ? textOf(primary, item.values[primary.id]) || S.docs.newItem : S.docs.newItem}</strong>
+                  <strong>{primary ? textOf(primary, item.values[primary.id]) || T.newItem : T.newItem}</strong>
                   {shown.map((column) =>
                     item.values[column.id] !== undefined ? (
                       <span key={column.id} className="board-card-field">
@@ -633,7 +634,7 @@ export default function ListView({ id }: { id: string }) {
     return keys
       .map((key) => ({
         key,
-        label: key === '' ? S.docs.noValue : column.type === 'checkbox' ? column.name : textOf(column, [key]),
+        label: key === '' ? T.noValue : column.type === 'checkbox' ? column.name : textOf(column, [key]),
         rows: shown.filter((item) => keyOf(item) === key),
       }))
       .filter((group) => group.rows.length > 0 || column.type === 'select');
@@ -677,24 +678,24 @@ export default function ListView({ id }: { id: string }) {
     <div className={`canvas-layout list-layout ${item ? 'has-side' : ''}`}>
       <div className="canvas-main">
         <div className="list-bar">
-          <div className="seg" role="tablist" aria-label={S.docs.table}>
+          <div className="seg" role="tablist" aria-label={T.table}>
             <button type="button" role="tab" aria-selected={prefs.view === 'table'} className={prefs.view === 'table' ? 'is-on' : ''} onClick={() => setPrefs({ view: 'table' })}>
-              <Table2 size={15} /> {S.docs.table}
+              <Table2 size={15} /> {T.table}
             </button>
             <button type="button" role="tab" aria-selected={prefs.view === 'board'} className={prefs.view === 'board' ? 'is-on' : ''} disabled={!laneColumn} onClick={() => setPrefs({ view: 'board' })}>
-              <Kanban size={15} /> {S.docs.board}
+              <Kanban size={15} /> {T.board}
             </button>
           </div>
-          <input className="input list-filter" type="search" placeholder={S.docs.filterPlaceholder} aria-label={S.docs.filter} value={filter} onChange={(event) => setFilter(event.target.value)} />
+          <input className="input list-filter" type="search" placeholder={T.filterPlaceholder} aria-label={T.filter} value={filter} onChange={(event) => setFilter(event.target.value)} />
           {prefs.view === 'table' ? (
             <>
               <Button size="sm" variant="ghost" onClick={(event) => setSortMenu(event.currentTarget)}>
-                {sortColumn ? `${S.docs.sortBy}: ${sortColumn.name}` : S.docs.sort}
+                {sortColumn ? `${T.sortBy}: ${sortColumn.name}` : T.sort}
               </Button>
               <label className="list-select">
-                <span>{S.docs.groupBy}</span>
+                <span>{T.groupBy}</span>
                 <select value={prefs.group ?? ''} onChange={(event) => setPrefs({ group: event.target.value || null })}>
-                  <option value="">{S.docs.groupNone}</option>
+                  <option value="">{T.groupNone}</option>
                   {schema
                     .filter((column) => ['select', 'user', 'checkbox'].includes(column.type))
                     .map((column) => (
@@ -707,7 +708,7 @@ export default function ListView({ id }: { id: string }) {
             </>
           ) : selects.length > 1 ? (
             <label className="list-select">
-              <span>{S.docs.boardBy}</span>
+              <span>{T.boardBy}</span>
               <select value={laneColumn?.id ?? ''} onChange={(event) => setPrefs({ board: event.target.value })}>
                 {selects.map((column) => (
                   <option key={column.id} value={column.id}>
@@ -718,13 +719,13 @@ export default function ListView({ id }: { id: string }) {
             </label>
           ) : null}
           <span className="composer-spacer" />
-          <span className="list-count">{S.docs.items(items.length)}</span>
+          <span className="list-count">{T.items(items.length)}</span>
           <a className="btn btn-ghost btn-sm" href={`/lists-export/${id}.csv`} download>
-            <Download size={15} /> <span className="btn-label">{S.docs.exportCsv}</span>
+            <Download size={15} /> <span className="btn-label">{T.exportCsv}</span>
           </a>
           {editable ? (
             <Button size="sm" onClick={() => setColumnDialog({})}>
-              <Columns3 size={15} /> {S.docs.addColumn}
+              <Columns3 size={15} /> {T.addColumn}
             </Button>
           ) : null}
         </div>
@@ -768,7 +769,7 @@ export default function ListView({ id }: { id: string }) {
                         </td>
                       ))}
                       <td className="col-actions">
-                        <IconButton label={S.docs.openItem} onClick={() => setOpenItem(row.id)}>
+                        <IconButton label={T.openItem} onClick={() => setOpenItem(row.id)}>
                           {row.comment_count ? (
                             <span className="row-comments">
                               <MessageSquare size={14} /> {row.comment_count}
@@ -778,7 +779,7 @@ export default function ListView({ id }: { id: string }) {
                           )}
                         </IconButton>
                         {editable ? (
-                          <IconButton label={S.docs.openItem} onClick={(event) => setRowMenu({ item: row, anchor: event.currentTarget })}>
+                          <IconButton label={T.openItem} onClick={(event) => setRowMenu({ item: row, anchor: event.currentTarget })}>
                             <MoreHorizontal size={14} />
                           </IconButton>
                         ) : null}
@@ -788,7 +789,7 @@ export default function ListView({ id }: { id: string }) {
                 </tbody>
               ))}
             </table>
-            {items.length === 0 ? <p className="view-empty">{S.docs.noItems}</p> : shown.length === 0 ? <p className="view-empty">{S.docs.noMatch}</p> : null}
+            {items.length === 0 ? <p className="view-empty">{T.noItems}</p> : shown.length === 0 ? <p className="view-empty">{T.noMatch}</p> : null}
           </div>
         )}
         {editable ? (
@@ -802,7 +803,7 @@ export default function ListView({ id }: { id: string }) {
             }}
           >
             <Plus size={16} />
-            <input className="input" placeholder={S.docs.addItem} aria-label={S.docs.addItem} value={newText} onChange={(event) => setNewText(event.target.value)} />
+            <input className="input" placeholder={T.addItem} aria-label={T.addItem} value={newText} onChange={(event) => setNewText(event.target.value)} />
           </form>
         ) : null}
       </div>
@@ -810,13 +811,13 @@ export default function ListView({ id }: { id: string }) {
 
       {sortMenu ? (
         <Popover anchor={sortMenu} onClose={() => setSortMenu(null)} className="menu">
-          <MenuItem label={S.docs.sortNone} onSelect={() => (setPrefs({ sort: null }), setSortMenu(null))} />
+          <MenuItem label={T.sortNone} onSelect={() => (setPrefs({ sort: null }), setSortMenu(null))} />
           <MenuDivider />
           {schema.map((column) => (
             <MenuItem
               key={column.id}
               label={column.name}
-              hint={prefs.sort?.column === column.id ? (prefs.sort.desc ? S.docs.descending : S.docs.ascending) : undefined}
+              hint={prefs.sort?.column === column.id ? (prefs.sort.desc ? T.descending : T.ascending) : undefined}
               onSelect={() => {
                 setPrefs({ sort: { column: column.id, desc: prefs.sort?.column === column.id && !prefs.sort.desc } });
                 setSortMenu(null);
@@ -828,14 +829,14 @@ export default function ListView({ id }: { id: string }) {
       {columnMenu ? (
         <Popover anchor={columnMenu.anchor} onClose={() => setColumnMenu(null)} className="menu">
           <MenuItem
-            label={`${S.docs.ascending}`}
+            label={`${T.ascending}`}
             onSelect={() => {
               setPrefs({ sort: { column: columnMenu.column.id, desc: false } });
               setColumnMenu(null);
             }}
           />
           <MenuItem
-            label={`${S.docs.descending}`}
+            label={`${T.descending}`}
             onSelect={() => {
               setPrefs({ sort: { column: columnMenu.column.id, desc: true } });
               setColumnMenu(null);
@@ -843,7 +844,7 @@ export default function ListView({ id }: { id: string }) {
           />
           <MenuDivider />
           <MenuItem
-            label={S.docs.rename}
+            label={T.rename}
             onSelect={() => {
               setColumnDialog({ column: columnMenu.column });
               setColumnMenu(null);
@@ -851,12 +852,12 @@ export default function ListView({ id }: { id: string }) {
           />
           {schema.length > 1 ? (
             <MenuItem
-              label={S.docs.deleteColumn}
+              label={T.deleteColumn}
               danger
               onSelect={() => {
                 const column = columnMenu.column;
                 setColumnMenu(null);
-                void confirmDialog(column.name, S.docs.deleteColumn).then((ok) => {
+                void confirmDialog(column.name, T.deleteColumn).then((ok) => {
                   if (ok) void attempt(() => saveColumns(schema.filter((entry) => entry.id !== column.id)));
                 });
               }}
@@ -868,7 +869,7 @@ export default function ListView({ id }: { id: string }) {
         <Popover anchor={rowMenu.anchor} onClose={() => setRowMenu(null)} className="menu" align="end">
           <MenuItem
             icon={<Archive size={16} />}
-            label={S.docs.archive}
+            label={T.archive}
             onSelect={() => {
               const target = rowMenu.item;
               setRowMenu(null);
@@ -877,7 +878,7 @@ export default function ListView({ id }: { id: string }) {
           />
           <MenuItem
             icon={<Trash2 size={16} />}
-            label={S.docs.deleteItem}
+            label={T.deleteItem}
             danger
             onSelect={() => {
               const target = rowMenu.item;
