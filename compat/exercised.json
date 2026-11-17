@@ -257,6 +257,8 @@
   "web-api-extras": {
     "sdk": "@slack/web-api 8.4.0",
     "methods": [
+      "agents.sessions.rename",
+      "agents.sessions.setStatus",
       "apps.event.authorizations.list",
       "apps.uninstall",
       "auth.teams.list",

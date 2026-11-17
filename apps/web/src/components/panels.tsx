@@ -1,3 +1,4 @@
+import { AgentSessionBar } from './ai/AgentSession';
 import { ChannelEmail } from './ChannelEmail';
 import { escapeText, type Conversation, type Message, type User } from '@app/shared';
 import { BellOff, Bell, BellRing, Hash, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
@@ -130,6 +131,7 @@ export function ThreadPanel({ channel, ts }: { channel: string; ts: string }) {
 
   return (
     <PanelFrame title={S.thread.title} subtitle={thread.title ?? label} dropLabel={S.composer.dropHere} actions={followButton}>
+      <AgentSessionBar channel={channel} threadTs={ts} />
       <div className="panel-scroll thread-scroll" ref={scroller} onScroll={onScroll}>
         {!thread.loaded ? (
           <div className="list-loading">

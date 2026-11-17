@@ -1210,6 +1210,14 @@ const en = {
 
   errorFallback: (code: string) => `Something went wrong (${code}).`,
   ai: {
+    session: {
+      status: { active: 'Ready', processing: 'Working…', suspended: 'Waiting for you', closed: 'Done' } as Record<'active' | 'processing' | 'suspended' | 'closed', string>,
+      untitled: 'Agent session',
+      rename: 'Rename session',
+      renameLabel: 'Title',
+      stop: 'Stop',
+      stopped: 'Asked the agent to stop.',
+    },
     sparkle: 'AI',
     onlyYou: 'Only visible to you',
     summarizeUnread: 'Summarize unread messages',

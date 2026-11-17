@@ -1012,4 +1012,11 @@ export const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+
+  /* 29: agent sessions — the state an agent reports for its work in a thread (agents.sessions.*) */ `
+  ALTER TABLE agent_threads ADD COLUMN session_status TEXT NOT NULL DEFAULT '';
+  ALTER TABLE agent_threads ADD COLUMN status_set INTEGER;
+  ALTER TABLE agent_threads ADD COLUMN initiator TEXT;
+  CREATE INDEX agent_threads_thread ON agent_threads (conversation_id, thread_ts);
+  `,
 ];

@@ -235,6 +235,32 @@ async function main(browser) {
       await shot(maya, 'ai-agents');
       await card.locator('.agent-threads button', { hasText: 'triage the checkout bug' }).click();
       await maya.locator('.panel .msg', { hasText: 'triage the checkout bug' }).first().waitFor();
+
+      // The agent reports a session: the thread shows it, with Stop while it works, and people can rename it.
+      const session = await fetch(`${server.base}/api/agents.sessions.setStatus`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${created.bot_token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ channel_id: general, thread_ts: parent, status: 'processing', title: 'Triage checkout bugs' }),
+      }).then((response) => response.json());
+      assert.equal(session.ok, true, JSON.stringify(session));
+      const bar = maya.locator('.panel [data-agent-session]');
+      await bar.locator('.agent-session-title', { hasText: 'Triage checkout bugs' }).waitFor();
+      await bar.locator('.agent-session-meta', { hasText: 'Working… · Triage Agent' }).waitFor();
+      await shot(maya, 'ai-agent-session');
+      await bar.locator('[data-agent-stop]').click();
+      await maya.locator('.toast', { hasText: 'Asked the agent to stop.' }).waitFor();
+      await bar.getByRole('button', { name: 'Rename session' }).click();
+      const dialog = maya.locator('.modal[role="dialog"]').last();
+      await dialog.locator('input').fill('Checkout bugs, sorted');
+      await dialog.getByRole('button', { name: 'Save' }).click();
+      await bar.locator('.agent-session-title', { hasText: 'Checkout bugs, sorted' }).waitFor();
+      await fetch(`${server.base}/api/agents.sessions.setStatus`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${created.bot_token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ channel_id: general, thread_ts: parent, status: 'suspended' }),
+      });
+      await bar.locator('.agent-session-meta', { hasText: 'Waiting for you' }).waitFor();
+      assert.equal(await bar.locator('[data-agent-stop]').count(), 0, 'Stop only while it works');
     });
 
     await step('dark theme and phone width: the sheet, the answer box, the dialog and the Agents view fit', async () => {

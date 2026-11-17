@@ -18,7 +18,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
-| `web-api-extras` | @slack/web-api 8.4.0 | 7 | 0 |
+| `web-api-extras` | @slack/web-api 8.4.0 | 9 | 0 |
 | `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
 | `web-api-remote-files` | @slack/web-api 8.4.0 | 6 | 0 |
 
@@ -77,6 +77,8 @@ An app receives events for conversations its bot user belongs to, and workspace-
 | `file_deleted` |  |  |
 | `team_rename` |  |  |
 | `app_home_opened` | ✓ | ✓ |
+| `agent_session_stopped` |  | ✓ |
+| `agent_session_title_changed` |  | ✓ |
 | `link_shared` | ✓ | ✓ |
 | `function_executed` | ✓ |  |
 | `subteam_created` |  |  |
@@ -98,7 +100,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **178 supported**, 119 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **180 supported**, 117 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -129,6 +131,8 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **178 supported**, 119 
 | `admin.users.setAdmin` |  | ✓ |  |
 | `admin.users.setOwner` |  |  |  |
 | `admin.users.setRegular` |  | ✓ |  |
+| `agents.sessions.rename` | ✓ | ✓ | Thread sessions only; the title is not a channel name. |
+| `agents.sessions.setStatus` | ✓ | ✓ | Thread sessions only: `thread_ts` is required (no code channels yet). Display overrides (`icon_*`, `username`) are accepted and not shown. |
 | `api.test` |  |  |  |
 | `apps.connections.open` | ✓ | ✓ | A bot token gets `missing_scope` rather than `not_allowed_token_type`. |
 | `apps.event.authorizations.list` | ✓ | ✓ |  |
@@ -288,7 +292,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **178 supported**, 119 
 | Family | Count | Methods |
 |---|---|---|
 | `admin` | 76 | `admin.analytics.getFile`, `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.conversations.bulkArchive`, `admin.conversations.bulkDelete`, `admin.conversations.bulkMove`, `admin.conversations.convertToPublic`, `admin.conversations.create`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.getConversationPrefs`, `admin.conversations.getCustomRetention`, `admin.conversations.invite`, `admin.conversations.lookup`, `admin.conversations.removeCustomRetention`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.setCustomRetention`, `admin.conversations.setTeams`, `admin.emoji.list`, `admin.emoji.rename`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.inviteRequests.approved.list`, `admin.inviteRequests.denied.list`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.admins.list`, `admin.teams.create`, `admin.teams.list`, `admin.teams.owners.list`, `admin.teams.settings.info`, `admin.teams.settings.setDescription`, `admin.teams.settings.setDiscoverability`, `admin.teams.settings.setIcon`, `admin.usergroups.addChannels`, `admin.usergroups.addTeams`, `admin.usergroups.listChannels`, `admin.usergroups.removeChannels`, `admin.users.assign`, `admin.users.getExpiration`, `admin.users.session.clearSettings`, `admin.users.session.getSettings`, `admin.users.session.invalidate`, `admin.users.session.list`, `admin.users.session.resetBulk`, `admin.users.session.setSettings`, `admin.users.setExpiration`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup`, `admin.workflows.search`, `admin.workflows.unpublish` |
-| `agents` | 11 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView`, `agents.sessions.rename`, `agents.sessions.setStatus` |
+| `agents` | 9 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView` |
 | `apps` | 3 | `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `blocks` | 1 | `blocks.validate` |
 | `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
@@ -314,5 +318,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **178 supported**, 119 
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 190 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 193 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

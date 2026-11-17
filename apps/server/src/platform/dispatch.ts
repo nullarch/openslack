@@ -44,6 +44,8 @@ export const SUBSCRIBABLE_EVENTS = [
   'file_deleted',
   'team_rename',
   'app_home_opened',
+  'agent_session_stopped',
+  'agent_session_title_changed',
   'link_shared',
   'function_executed',
   'subteam_created',

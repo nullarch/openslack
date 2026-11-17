@@ -4,6 +4,14 @@ import { INTL_LOCALE } from '../lib/locale';
 /** Korean, part three: AI, the app platform, huddles, canvases and lists, workflows and errors. */
 export const koRest = {
   ai: {
+    session: {
+      status: { active: '대기 중', processing: '작업 중…', suspended: '내 답을 기다리는 중', closed: '끝남' },
+      untitled: '에이전트 작업',
+      rename: '작업 이름 바꾸기',
+      renameLabel: '제목',
+      stop: '멈추기',
+      stopped: '에이전트에게 멈추라고 알렸어요.',
+    },
     sparkle: 'AI',
     onlyYou: '나에게만 보임',
     summarizeUnread: '읽지 않은 메시지 요약',

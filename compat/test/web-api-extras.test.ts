@@ -46,6 +46,16 @@ describe('@slack/web-api: reactions.list, team.preferences.list, auth.teams.list
     assert.equal((authorizations.authorizations as Json[])[0].user_id, created.app.bot_user_id);
   });
 
+  test('agents.sessions.setStatus and rename: an agent reports its work in a thread', async () => {
+    const general = (await owner.ok('client.boot')).channels.find((channel: Json) => channel.is_general).id;
+    await owner.ok('conversations.invite', { channel: general, users: created.app.bot_user_id }).catch(() => undefined);
+    const parent = await owner.ok('chat.postMessage', { channel: general, text: 'please look at the build' });
+    const set = await bot.agents.sessions.setStatus({ channel_id: general, thread_ts: parent.ts, status: 'processing', title: 'Build check' });
+    assert.deepEqual([set.status, set.agent_status, set.title], ['processing', 'processing', 'Build check']);
+    const renamed = await bot.agents.sessions.rename({ channel_id: general, thread_ts: parent.ts, title: 'Build check (green)' });
+    assert.equal(renamed.title, 'Build check (green)');
+  });
+
   test('apps.uninstall revokes the tokens', async () => {
     const row = t.app.ctx.db.get<{ client_id: string; client_secret: string }>('SELECT client_id, client_secret FROM apps WHERE id = ?', created.app.id)!;
     await bot.apps.uninstall({ client_id: row.client_id, client_secret: row.client_secret });

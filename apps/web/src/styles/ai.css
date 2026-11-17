@@ -438,3 +438,59 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* An agent's session at the top of a thread */
+.agent-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+.agent-session-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.agent-session-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-session-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.agent-session-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex: none;
+}
+.agent-session.is-processing .agent-session-dot {
+  background: var(--primary);
+  animation: agent-pulse 1.4s ease-in-out infinite;
+}
+.agent-session.is-suspended .agent-session-dot {
+  background: var(--alert);
+}
+.agent-session.is-active .agent-session-dot {
+  background: var(--ok);
+}
+@keyframes agent-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-session.is-processing .agent-session-dot {
+    animation: none;
+  }
+}

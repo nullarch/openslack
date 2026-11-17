@@ -1,5 +1,6 @@
 import type { Kernel } from '../app.ts';
 import { installAdmin } from './admin.ts';
+import { installAgentSessions } from './agent-sessions.ts';
 import { AssistantThreads } from './assistant.ts';
 import { installCommands } from './commands.ts';
 import { installDispatch, type Delivery } from './dispatch.ts';
@@ -58,6 +59,7 @@ export function installPlatform(kernel: Kernel): void {
   installWebhooks(kernel);
   new Streams(ctx, options).install(kernel);
   new AssistantThreads(ctx, options).install(kernel);
+  installAgentSessions(kernel, delivery);
   installAdmin(kernel, sockets, http);
   installManifest(kernel, sockets, http);
   new RtmHub(ctx).install(kernel);
