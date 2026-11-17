@@ -1,45 +1,7 @@
+import { isNativeApp, serverListUrl } from '../lib/native';
 import { AssistantNavItem } from './ai/Assistant';
 import type { Conversation } from '@app/shared';
-import {
-  AtSign,
-  Bell,
-  BellOff,
-  Bookmark as BookmarkIcon,
-  CheckCheck,
-  ChevronDown,
-  ChevronRight,
-  Compass,
-  FileStack,
-  FileText,
-  ListChecks,
-  FolderInput,
-  FolderMinus,
-  FolderPlus,
-  Hash,
-  Inbox,
-  KeyRound,
-  Lock,
-  LogOut,
-  Moon,
-  MoreHorizontal,
-  MessagesSquare,
-  PenSquare,
-  Pencil,
-  Plus,
-  Search,
-  Send,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-  Smile,
-  Star,
-  Sun,
-  Trash2,
-  UserPlus,
-  UserRound,
-  Users,
-  Workflow,
-} from 'lucide-react';
+import { AtSign, Bell, BellOff, Bookmark as BookmarkIcon, CheckCheck, ChevronDown, ChevronRight, Compass, FileStack, FileText, FolderInput, FolderMinus, FolderPlus, Hash, Inbox, KeyRound, ListChecks, Lock, LogOut, MessagesSquare, Moon, MoreHorizontal, PenSquare, Pencil, Plus, Search, Send, Server, Settings, ShieldCheck, SlidersHorizontal, Smile, Star, Sun, Trash2, UserPlus, UserRound, Users, Workflow } from 'lucide-react';
 import { memo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { attempt, go, markRead, openModal, setConversationPrefs, setPrefs, signOut } from '../lib/actions';
 import { openAccountsModal, useAccounts } from '../lib/accounts';
@@ -379,6 +341,7 @@ function TeamMenu() {
           <AiMenuItems pick={pick} />
           <MenuItem icon={<Workflow size={16} />} label={S.wf.menu} onSelect={pick(() => go({ name: 'workflows' }))} />
           <MenuDivider />
+          {isNativeApp() ? <MenuItem icon={<Server size={16} />} label={S.sidebar.switchServer} onSelect={pick(() => window.location.assign(serverListUrl()))} /> : null}
           <MenuItem icon={<LogOut size={16} />} label={S.sidebar.signOut} onSelect={pick(() => void signOut())} />
         </Popover>
       ) : null}

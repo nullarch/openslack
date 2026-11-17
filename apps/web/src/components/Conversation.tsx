@@ -109,6 +109,11 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
   );
 }
 
+
+function touchFirst(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
+
 export function ConversationView({ channel }: { channel: string }) {
   const conv = useStore((state) => conversation(state, channel));
   const isMember = useStore((state) => state.channels[channel] !== undefined);
@@ -164,7 +169,8 @@ function ConversationBody({ channel, conv, isMember, name, placeholder }: { chan
           </Button>
         </div>
       ) : (
-        <Composer key={`composer:${channel}`} channel={channel} placeholder={placeholder} autoFocus />
+        // On a touch screen focusing would raise the keyboard each time a conversation opens.
+        <Composer key={`composer:${channel}`} channel={channel} placeholder={placeholder} autoFocus={!touchFirst()} />
       )}
     </>
   );

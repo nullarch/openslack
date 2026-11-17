@@ -16,6 +16,7 @@ import { start } from './lib/actions';
 import { trackInputMode } from './lib/a11y';
 import './lib/realtime';
 import { registerServiceWorker } from './lib/push';
+import { installNative } from './lib/native';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -26,3 +27,4 @@ createRoot(document.getElementById('root')!).render(
 trackInputMode();
 void start();
 registerServiceWorker();
+installNative();

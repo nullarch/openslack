@@ -222,6 +222,7 @@ export const koCore = {
     app: '앱',
     invitePeople: '사람 초대하기',
     administration: '관리',
+    switchServer: '서버 전환',
     preferences: '환경설정',
     editProfile: '프로필 편집',
     setStatus: '상태 설정',

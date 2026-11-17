@@ -222,6 +222,7 @@ export const jaCore = {
     app: 'アプリ',
     invitePeople: 'メンバーを招待する',
     administration: '管理',
+    switchServer: 'サーバーを切り替え',
     preferences: '環境設定',
     editProfile: 'プロフィールを編集',
     setStatus: 'ステータスを設定',

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OpenSlack</string>
+    <string name="title_activity_main">OpenSlack</string>
+    <string name="package_name">dev.openslack.mobile</string>
+    <string name="custom_url_scheme">dev.openslack.mobile</string>
+</resources>

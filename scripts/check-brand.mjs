@@ -6,7 +6,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SOURCE_DIRS = ['apps/server/src', 'apps/server/test', 'apps/web/src', 'apps/web/e2e', 'packages/shared/src', 'compat/test', 'compat/scripts', 'scripts'];
+const SOURCE_DIRS = ['apps/server/src', 'apps/server/test', 'apps/web/src', 'apps/web/e2e', 'packages/shared/src', 'compat/test', 'compat/scripts', 'scripts', 'apps/mobile/www', 'apps/mobile/scripts', 'apps/push-relay/src', 'apps/push-relay/test'];
 const ALLOWED = new Set(['packages/shared/src/brand.ts', 'scripts/check-brand.mjs']);
 const EXTENSIONS = /\.(ts|tsx|mts|mjs|js|jsx|css|html|sql)$/;
 

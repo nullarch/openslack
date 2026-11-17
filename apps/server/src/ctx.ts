@@ -51,6 +51,8 @@ export interface Config {
   identityProviders?: IdentityProviderConfig[];
   /** Bearer token that unlocks `/metrics`; null or absent hides it. */
   metricsToken?: string | null;
+  /** The push relay for the native apps (PUSH_RELAY_URL); no native push without it. */
+  pushRelayUrl?: string | null;
   /** Share the database with other server processes on this machine (CLUSTER=1, or each worker under WORKERS). */
   cluster?: boolean;
   /** Heartbeat, death and polling intervals between processes (tests shorten them). */

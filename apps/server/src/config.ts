@@ -81,6 +81,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     identityProviders: identityProvidersFromEnv(env),
     metricsToken: env.METRICS_TOKEN?.trim() || null,
     cluster: env.CLUSTER === '1',
+    pushRelayUrl: env.PUSH_RELAY_URL?.trim().replace(/\/+$/, '') || null,
   };
 }
 

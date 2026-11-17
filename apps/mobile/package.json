@@ -1,0 +1,23 @@
+{
+  "name": "@app/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "iOS and Android apps: a list of servers, each server's web client in the app, native push through the relay.",
+  "scripts": {
+    "sync": "cap sync && node scripts/native-config.mjs",
+    "ios": "cap sync ios && cap open ios",
+    "android": "cap sync android && cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/push-notifications": "8.1.3"
+  },
+  "devDependencies": {
+    "@app/shared": "workspace:*",
+    "@capacitor/cli": "8.5.3"
+  }
+}

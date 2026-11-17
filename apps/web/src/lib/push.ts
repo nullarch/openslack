@@ -1,4 +1,5 @@
 import { call } from './api';
+import { disableNativePush, enableNativePush, isNativeApp, nativePushState } from './native';
 
 /**
  * The service worker (offline shell and push) and this device's push
@@ -7,7 +8,7 @@ import { call } from './api';
  */
 
 export function registerServiceWorker(): void {
-  if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return;
+  if (!('serviceWorker' in navigator) || !import.meta.env.PROD || isNativeApp()) return;
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
   });
@@ -25,6 +26,8 @@ async function registration(): Promise<ServiceWorkerRegistration | null> {
 }
 
 export async function pushState(): Promise<PushState> {
+  // In the native apps, the phone's own notifications (through the server's relay).
+  if (isNativeApp()) return nativePushState();
   if (!supported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'blocked';
   // A subscription needs the permission, so without it there is nothing to look
@@ -50,6 +53,7 @@ function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
 }
 
 export async function enablePush(vapidKey: string): Promise<PushState> {
+  if (isNativeApp()) return enableNativePush();
   const reg = await registration();
   if (!reg) return 'unsupported';
   if ((await Notification.requestPermission()) !== 'granted') return 'blocked';
@@ -60,6 +64,7 @@ export async function enablePush(vapidKey: string): Promise<PushState> {
 }
 
 export async function disablePush(): Promise<PushState> {
+  if (isNativeApp()) return disableNativePush();
   const reg = await registration();
   const subscription = await reg?.pushManager.getSubscription();
   if (subscription) {

@@ -4,6 +4,9 @@
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr);
   height: 100dvh;
+  box-sizing: border-box;
+  /* Clear of the notch, the status bar and the home indicator (viewport-fit=cover: an installed app, the native apps). */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: var(--chrome);
 }
 

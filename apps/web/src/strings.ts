@@ -228,6 +228,7 @@ const en = {
     app: 'App',
     invitePeople: 'Invite people',
     administration: 'Administration',
+    switchServer: 'Switch server',
     preferences: 'Preferences',
     editProfile: 'Edit profile',
     setStatus: 'Set a status',

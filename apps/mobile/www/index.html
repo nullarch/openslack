@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Servers</title>
+    <link rel="stylesheet" href="shell.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <img class="mark" src="icon.svg" alt="" width="48" height="48" />
+        <h1 id="title">Your servers</h1>
+        <p id="lead" class="lead">Add the address of your team's server.</p>
+      </header>
+      <ul id="servers" class="servers" aria-labelledby="title"></ul>
+      <form id="add" class="add" novalidate>
+        <label for="address" id="address-label">Server address</label>
+        <input id="address" name="address" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="chat.example.com" required />
+        <p id="error" class="error" role="alert" hidden></p>
+        <button id="submit" type="submit">Add and open</button>
+      </form>
+    </main>
+    <script src="shell.js" charset="utf-8"></script>
+  </body>
+</html>

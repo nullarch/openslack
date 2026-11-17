@@ -3,9 +3,9 @@ FROM node:24-alpine AS build
 WORKDIR /src
 RUN corepack enable
 COPY . .
-# Only what the server and the web client need: not the desktop app (Electron), the SDK
-# compatibility suite, the docs site or the examples.
-RUN pnpm install --frozen-lockfile --filter "!@app/desktop" --filter "!@app/compat" --filter "!@app/docs" --filter "!example-*" \
+# Only what the server and the web client need: not the desktop and mobile apps, the push
+# relay, the SDK compatibility suite, the docs site or the examples.
+RUN pnpm install --frozen-lockfile --filter "!@app/desktop" --filter "!@app/mobile" --filter "!@app/push-relay" --filter "!@app/compat" --filter "!@app/docs" --filter "!example-*" \
  && pnpm release
 
 # Run: no dependencies to install, one process, one data directory.

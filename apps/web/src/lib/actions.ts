@@ -1,3 +1,4 @@
+import { forgetThisPhone } from './native';
 import { extractBlockMentions, extractMentions, type Block, type BootData, type Conversation, type Message, type User } from '@app/shared';
 import { S } from '../strings';
 import { ApiError, call, isUnsupported, onAuthLost, onTwoFactorRequired, type Json } from './api';
@@ -913,6 +914,7 @@ onTwoFactorRequired(() => {
 
 export async function signOut(): Promise<void> {
   try {
+    await forgetThisPhone();
     await call('client.signout');
   } finally {
     window.location.assign('/signin');

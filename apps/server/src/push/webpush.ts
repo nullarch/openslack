@@ -1,3 +1,4 @@
+import { hasDevices, installNativePush, nativePushAvailable, pushToDevices } from './native.ts';
 import { createECDH, createHmac, createPrivateKey, createCipheriv, randomBytes, sign, type KeyObject } from 'node:crypto';
 import { BRAND, mrkdwnToPlain, parseMrkdwn } from '@app/shared';
 import type { Kernel } from '../app.ts';
@@ -104,10 +105,10 @@ export interface PushMessage {
   tag: string;
 }
 
-/** Send to every device a person subscribed. Gone subscriptions are removed. */
+/** Send to every device a person subscribed (browsers, and phones through the relay). Gone subscriptions are removed. */
 export async function pushTo(ctx: Ctx, userId: string, message: PushMessage): Promise<number> {
   const subscriptions = ctx.db.all<SubscriptionRow>('SELECT * FROM push_subscriptions WHERE user_id = ?', userId);
-  let delivered = 0;
+  let delivered = await pushToDevices(ctx, userId, message);
   for (const subscription of subscriptions) {
     try {
       const response = await post(subscription.endpoint, {
@@ -198,7 +199,11 @@ export function installPush(kernel: Kernel): void {
   registry.add('client.push.status', { auth: 'session' }, ({ actor }) => ({
     vapid_public_key: vapid(ctx).publicKey,
     subscriptions: ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM push_subscriptions WHERE user_id = ?', actor.userId)?.n ?? 0,
+    // Whether the native apps can get notifications from this server.
+    native_relay: nativePushAvailable(ctx),
+    devices: ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM push_devices WHERE user_id = ?', actor.userId)?.n ?? 0,
   }));
+  installNativePush(kernel);
 
   registry.add('client.push.subscribe', { auth: 'session' }, ({ actor, args }) => {
     const subscription = args.json<{ endpoint?: string; keys?: { p256dh?: string; auth?: string } }>('subscription');
@@ -237,8 +242,8 @@ export function installPush(kernel: Kernel): void {
     if (!PUSHABLE_SUBTYPES.has(event.subtype as string | undefined)) return;
     const conv = typeof event.channel === 'string' ? getConv(ctx, event.channel) : undefined;
     if (!conv || typeof event.ts !== 'string') return;
-    // Only people with a subscription cost anything to look at.
-    if (!ctx.db.get('SELECT 1 FROM push_subscriptions LIMIT 1')) return;
+    // Only people with a subscription or a phone cost anything to look at.
+    if (!ctx.db.get('SELECT 1 FROM push_subscriptions LIMIT 1') && !(nativePushAvailable(ctx) && hasDevices(ctx))) return;
     const author = typeof event.user === 'string' ? event.user : undefined;
     const targets = recipients(ctx, conv, event.ts, author);
     if (targets.length === 0) return;

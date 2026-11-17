@@ -1201,4 +1201,16 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX peer_outbox_peer ON peer_outbox (peer_id, id);
   `,
+  // 35: phones running the native apps. Their push tokens can only be used by the
+  // relay that holds the apps' Apple and Google credentials (PUSH_RELAY_URL).
+  `
+  CREATE TABLE push_devices (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  ) WITHOUT ROWID;
+  CREATE INDEX push_devices_user ON push_devices (user_id);
+  `,
 ];

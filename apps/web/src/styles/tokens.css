@@ -2,8 +2,66 @@
  * Design tokens. Identity: a petrol frame (top bar and sidebar) around a
  * neutral sheet, with marigold as the single accent — it marks where you are.
  */
+/*
+ * WebKit in the iOS 26.3 simulator (Safari and app web views alike) draws
+ * Korean and Japanese as empty boxes under system-ui and -apple-system rather
+ * than falling back to a font that has them. These faces cover only CJK
+ * ranges and come before system-ui in the stacks below: CJK text gets a
+ * system CJK font by name (the one browsers fall back to anyway), Latin text
+ * still gets the system font.
+ */
+@font-face {
+  font-family: 'CJK Fallback';
+  src: local('AppleSDGothicNeo-Regular'), local('Apple SD Gothic Neo'), local('Noto Sans KR'), local('Noto Sans CJK KR'), local('Malgun Gothic');
+  font-weight: 400;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF;
+}
+@font-face {
+  font-family: 'CJK Fallback';
+  src: local('AppleSDGothicNeo-Bold'), local('Noto Sans KR Bold'), local('Malgun Gothic Bold');
+  font-weight: 700;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF;
+}
+@font-face {
+  font-family: 'CJK Fallback';
+  src: local('HiraginoSans-W3'), local('Hiragino Sans'), local('Hiragino Kaku Gothic ProN'), local('Yu Gothic'), local('Noto Sans JP'), local('Noto Sans CJK JP');
+  font-weight: 400;
+  unicode-range: U+3000-30FF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: 'CJK Fallback';
+  src: local('HiraginoSans-W6'), local('Hiragino Kaku Gothic ProN W6'), local('Yu Gothic Bold'), local('Noto Sans JP Bold');
+  font-weight: 700;
+  unicode-range: U+3000-30FF, U+FF00-FFEF;
+}
+/* A Japanese interface draws kanji with Japanese shapes. */
+@font-face {
+  font-family: 'CJK Fallback JA';
+  src: local('HiraginoSans-W3'), local('Hiragino Sans'), local('Hiragino Kaku Gothic ProN'), local('Yu Gothic'), local('Meiryo'), local('Noto Sans JP'), local('Noto Sans CJK JP');
+  font-weight: 400;
+  unicode-range: U+3000-30FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: 'CJK Fallback JA';
+  src: local('HiraginoSans-W6'), local('Hiragino Kaku Gothic ProN W6'), local('Yu Gothic Bold'), local('Meiryo Bold'), local('Noto Sans JP Bold');
+  font-weight: 700;
+  unicode-range: U+3000-30FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: 'CJK Fallback JA';
+  src: local('AppleSDGothicNeo-Regular'), local('Apple SD Gothic Neo'), local('Noto Sans KR'), local('Malgun Gothic');
+  font-weight: 400;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF;
+}
+@font-face {
+  font-family: 'CJK Fallback JA';
+  src: local('AppleSDGothicNeo-Bold'), local('Noto Sans KR Bold'), local('Malgun Gothic Bold');
+  font-weight: 700;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF;
+}
+
 :root {
-  --font: 'Figtree Variable', 'Figtree', system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic',
+  --font: 'Figtree Variable', 'Figtree', 'CJK Fallback', system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic',
     'Hiragino Sans', 'Yu Gothic', 'PingFang SC', sans-serif;
   --mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --emoji: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
@@ -103,7 +161,7 @@
  * would be drawn with Korean shapes.
  */
 :root:lang(ja) {
-  --font: 'Figtree Variable', 'Figtree', system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic',
+  --font: 'Figtree Variable', 'Figtree', 'CJK Fallback JA', system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic',
     Meiryo, 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
   /* No small kana (ァ, ッ) or ー at the start of a line. */
   line-break: strict;

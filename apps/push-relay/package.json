@@ -1,0 +1,16 @@
+{
+  "name": "@app/push-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Passes notifications from self-hosted servers to Apple and Google for the published native apps.",
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -32,6 +32,7 @@ Open the address it prints and create your workspace. The first person to do so 
 | `LOG_FORMAT` | text | `json` writes one JSON object per log line |
 | `WORKERS` | one process | Serve from this many processes on one port (see "Several processes") |
 | `CLUSTER` | off | `1` lets processes you start yourself share the data directory |
+| `PUSH_RELAY_URL` | none | The push relay that delivers notifications to the native apps (see "Mobile apps") |
 
 Set `PUBLIC_URL` whenever the server is reached at anything other than `localhost`: links, file URLs handed to bots and invite links are built from it. When it starts with `https://`, the session cookie is marked `Secure`.
 
@@ -172,6 +173,14 @@ What leaves the server, and only when a person asks:
 Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "default"`): if the model declines a request, the API retries it on another model within the same call.
 
 The Agents view (workspace menu → Agents) needs no model. It lists apps acting as agents — connected over Socket Mode, or using assistant status, titles or streamed replies — with their recent threads and current status, limited to threads the viewer can read.
+
+## Mobile apps
+
+The iOS and Android apps (`apps/mobile`) keep a list of servers and show each server's own web client, so they work with any version of the server. People add your server by its address, or by a link `<app scheme>://open?server=https://chat.example.com`.
+
+Notifications on phones go through a push relay: Apple and Google accept them only with the credentials of whoever published the app. Set `PUSH_RELAY_URL` to the relay of the build your people install; the server signs what it sends with its own key, and the relay keeps nothing (`apps/push-relay`). Without a relay the apps still work, and show messages while open. The relay sees each notification's title and text on the way through, as Apple and Google do.
+
+The apps are not in the stores yet: see `apps/mobile/README.md` for what is left.
 
 ## Shared channels with other servers
 
