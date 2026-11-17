@@ -35,6 +35,7 @@ import { installCalls } from './calls/index.ts';
 import { installSessions } from './sessions/index.ts';
 import { installInboundEmail } from './inbound/email.ts';
 import { installChannelTemplates } from './channel-templates/index.ts';
+import { installDlp } from './dlp/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installDocs } from './docs/index.ts';
 import { installMcp } from './mcp/index.ts';
@@ -122,6 +123,7 @@ export function createApp(config: Config): App {
   installSessions(kernel);
   installInboundEmail(kernel);
   installChannelTemplates(kernel);
+  installDlp(kernel);
   installAccounts(kernel);
   // Keep last: the audit log wraps the methods every module above registered.
   installAudit(kernel);
