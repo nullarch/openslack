@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { call, type Json } from '../../lib/api';
 import { S } from '../../strings';
 import { Spinner } from '../ui';
+import { INTL_LOCALE } from '../../lib/locale';
 
 /**
  * Workspace analytics (client.admin.stats): a row of stat tiles, people active
@@ -29,9 +30,9 @@ interface Stats {
 
 const KINDS = ['public', 'private', 'direct'] as const;
 
-const compact = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
-const whole = new Intl.NumberFormat();
-const shortDay = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const compact = new Intl.NumberFormat(INTL_LOCALE, { notation: 'compact', maximumFractionDigits: 1 });
+const whole = new Intl.NumberFormat(INTL_LOCALE);
+const shortDay = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 function bytes(value: number): string {
   if (value < 1024) return `${value} B`;

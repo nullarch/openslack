@@ -25,7 +25,8 @@ import { maybeNotify } from './notify';
 import { handleHuddleEvent, refreshHuddles } from './huddles';
 import { handlePlatformEvent, restoreViews } from './platform';
 import { currentId, get, set, type LocalMessage } from './store';
-import { applyTheme } from './theme';
+import { applySidebar, applyTheme } from './theme';
+import { rememberDisplayPrefs } from './locale';
 import { handleAiEvent } from './ai';
 import { handleDocEvent } from './docs';
 
@@ -314,6 +315,9 @@ function handle(event: Json): void {
     case 'pref_change':
       set({ prefs: event.prefs });
       applyTheme(event.prefs?.theme);
+      applySidebar(event.prefs ?? {});
+      // A language or clock changed on another device applies here on the next load.
+      rememberDisplayPrefs(event.prefs ?? {});
       break;
     case 'team_rename':
       set((state) => ({ team: state.team ? { ...state.team, ...(event.team ?? {}), name: event.name } : state.team }));

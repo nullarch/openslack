@@ -7,6 +7,7 @@ import { useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { Button, Field, IconButton, Modal, Spinner } from '../ui';
 import { AiText, CitationList } from './AiControls';
+import { formatDateTime } from '../../lib/time';
 
 const FEATURES: AiFeature[] = ['summaries', 'recaps', 'search_answers', 'translate', 'writing'];
 
@@ -336,7 +337,7 @@ function RecapModal() {
               </label>
             ))}
           </fieldset>
-          {nextAt ? <p className="field-hint">{S.ai.recap.next(new Date(nextAt * 1000).toLocaleString())}</p> : null}
+          {nextAt ? <p className="field-hint">{S.ai.recap.next(formatDateTime(nextAt))}</p> : null}
         </>
       ) : null}
       {error ? <p className="field-error" role="alert">{error}</p> : null}

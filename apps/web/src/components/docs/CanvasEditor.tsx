@@ -45,6 +45,7 @@ import { T } from './text';
 import { promptDialog } from '../dialogs/confirm';
 import { Avatar, Button, IconButton, Modal, Popover, Spinner } from '../ui';
 import { editorKit } from './editorKit';
+import { formatDateTime } from '../../lib/time';
 
 const EmojiPicker = lazy(() => import('../EmojiPicker'));
 
@@ -645,7 +646,7 @@ function VersionsPanel({ id, canWrite, onClose }: { id: string; canWrite: boolea
               <button type="button" className="version-item" data-version={entry.id} onClick={() => setOpen(entry)}>
                 <strong>{entry.label === 'Before restore' ? T.beforeRestore : entry.label || relative(String(entry.created))}</strong>
                 <span>
-                  {displayName(users[entry.created_by])} · {new Date(entry.created * 1000).toLocaleString()}
+                  {displayName(users[entry.created_by])} · {formatDateTime(entry.created)}
                 </span>
               </button>
             </li>

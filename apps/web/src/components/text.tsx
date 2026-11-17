@@ -6,6 +6,7 @@ import { customEmojiUrl, nativeEmoji } from '../lib/emoji';
 import { parseRoute } from '../lib/router';
 import { conversation, displayName, useStore } from '../lib/store';
 import { S } from '../strings';
+import { formatDateTime } from '../lib/time';
 
 // ── Emoji ───────────────────────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ export function Link({ url, children }: { url: string; children: ReactNode }) {
 export function DateToken({ timestamp, fallback }: { timestamp: number; fallback: string }) {
   const date = new Date(timestamp * 1000);
   if (Number.isNaN(date.getTime())) return <>{fallback}</>;
-  return <time dateTime={date.toISOString()}>{date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</time>;
+  return <time dateTime={date.toISOString()}>{formatDateTime(date)}</time>;
 }
 
 // ── mrkdwn ──────────────────────────────────────────────────────────────────

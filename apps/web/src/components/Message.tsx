@@ -44,9 +44,38 @@ const SYSTEM_SUBTYPES = new Set([
   'channel_name',
   'channel_archive',
   'channel_unarchive',
+  'channel_convert',
+  'channel_convert_to_private',
   'pinned_item',
 ]);
 const QUICK_REACTIONS = ['white_check_mark', 'eyes', 'raised_hands'];
+
+/**
+ * The server writes system lines in English; show them in the interface language by
+ * their subtype. Anything not recognised is shown as sent.
+ */
+const SYSTEM_TEXT: [subtype: string, pattern: RegExp, render: (match: RegExpExecArray) => string][] = [
+  ['channel_join', /^(<@[A-Z0-9]+>) has joined the channel$/, (m) => S.system.joined(m[1]!)],
+  ['channel_leave', /^(<@[A-Z0-9]+>) has left the channel$/, (m) => S.system.left(m[1]!)],
+  ['channel_archive', /^(<@[A-Z0-9]+>) archived the channel$/, (m) => S.system.archived(m[1]!)],
+  ['channel_name', /^(<@[A-Z0-9]+>) has renamed the channel from "(.*)" to "(.*)"$/, (m) => S.system.renamed(m[1]!, m[2]!, m[3]!)],
+  ['channel_topic', /^(<@[A-Z0-9]+>) set the channel topic: ([\s\S]*)$/, (m) => S.system.topicSet(m[1]!, m[2]!)],
+  ['channel_topic', /^(<@[A-Z0-9]+>) cleared the channel topic$/, (m) => S.system.topicCleared(m[1]!)],
+  ['channel_purpose', /^(<@[A-Z0-9]+>) set the channel description: ([\s\S]*)$/, (m) => S.system.purposeSet(m[1]!, m[2]!)],
+  ['channel_purpose', /^(<@[A-Z0-9]+>) cleared the channel description$/, (m) => S.system.purposeCleared(m[1]!)],
+  ['channel_convert', /^(<@[A-Z0-9]+>) turned this conversation into the private channel #(\S+)$/, (m) => S.system.convertedFromDm(m[1]!, m[2]!)],
+  ['channel_convert_to_private', /^(<@[A-Z0-9]+>) made this channel private$/, (m) => S.system.madePrivate(m[1]!)],
+];
+
+export function systemText(message: Message): string {
+  const text = message.text ?? '';
+  for (const [subtype, pattern, render] of SYSTEM_TEXT) {
+    if (message.subtype !== subtype) continue;
+    const match = pattern.exec(text);
+    if (match) return render(match);
+  }
+  return text;
+}
 
 export function isSystem(message: Message): boolean {
   return message.subtype !== undefined && SYSTEM_SUBTYPES.has(message.subtype);
@@ -423,7 +452,7 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
       <div className={`msg msg-system ${highlighted ? 'is-highlighted' : ''}`} data-ts={message.ts}>
         <span className="msg-gutter" />
         <div className="msg-system-text">
-          <Mrkdwn text={message.text} inline />
+          <Mrkdwn text={systemText(message)} inline />
           <time title={fullDateTime(message.ts)}>{clock(message.ts)}</time>
         </div>
       </div>

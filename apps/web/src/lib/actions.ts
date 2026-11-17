@@ -19,7 +19,8 @@ import {
   type ThreadPrompt,
   type ThreadState,
 } from './store';
-import { applyTheme } from './theme';
+import { applySidebar, applyTheme } from './theme';
+import { rememberDisplayPrefs } from './locale';
 
 const PAGE = 50;
 const ZERO_TS = '0000000000.000000';
@@ -145,6 +146,18 @@ export function applyBoot(data: BootData): void {
   });
   applyAccountsBoot(data);
   applyTheme(data.prefs.theme);
+  applySidebar(data.prefs);
+  // Language and clock come from the account; on a device that showed others, load again once with them.
+  if (rememberDisplayPrefs(data.prefs)) {
+    try {
+      if (!sessionStorage.getItem('display-reloaded')) {
+        sessionStorage.setItem('display-reloaded', '1');
+        window.location.reload();
+      }
+    } catch {
+      // Without storage the choice cannot survive a reload; keep this page as it is.
+    }
+  }
 }
 
 /** Load everything needed for the first screen, then connect. Called after sign-in too. */
@@ -866,7 +879,10 @@ export async function setConversationPrefs(id: string, prefs: { starred?: boolea
 export async function setPrefs(patch: Record<string, unknown>): Promise<void> {
   set((state) => ({ prefs: { ...state.prefs, ...patch } }));
   if ('theme' in patch) applyTheme(patch.theme);
-  await attempt(() => call('client.prefs.set', { prefs: patch }));
+  if ('sidebar_theme' in patch || 'sidebar_color' in patch) applySidebar(get().prefs);
+  const saved = await attempt(() => call('client.prefs.set', { prefs: patch }));
+  // A new language or clock applies on a fresh load, so every string and time is redrawn in it.
+  if (saved && ('language' in patch || 'time_format' in patch) && rememberDisplayPrefs(get().prefs)) window.location.reload();
 }
 
 let leaving = false;

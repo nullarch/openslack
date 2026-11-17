@@ -1,5 +1,6 @@
 import type { Conversation, FileObject, Message } from '@app/shared';
 import { S } from '../strings';
+import { whenText } from './time';
 import { adoptChannel, afterBoot, attempt, errorText, patchChannel, toast } from './actions';
 import { ApiError, call, type Json } from './api';
 import { EMPTY_ATTENTION, get, set, threadKey, type AttentionState, type Bookmark, type DndSchedule, type DndStatus } from './store';
@@ -219,17 +220,8 @@ export async function removeSaved(channel: string, ts: string): Promise<void> {
   await attempt(() => call('client.saved.remove', { channel, ts }));
 }
 
-/** Readable "when" for a reminder confirmation: "tomorrow at 9:00 AM", "at 3:15 PM". */
-export function whenText(seconds: number): string {
-  const date = new Date(seconds * 1000);
-  const now = new Date();
-  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  const days = Math.round((new Date(date.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86_400_000);
-  if (days === 0) return `at ${time}`;
-  if (days === 1) return `tomorrow at ${time}`;
-  if (days > 1 && days < 7) return `on ${date.toLocaleDateString(undefined, { weekday: 'long' })} at ${time}`;
-  return `on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric' })} at ${time}`;
-}
+/** Readable "when" for a reminder confirmation, in the interface language. */
+export { whenText };
 
 export async function remindAbout(channel: string, ts: string, time: string): Promise<void> {
   const result = await attempt(() => call('client.saved.remind', { channel, ts, time }));

@@ -1,10 +1,14 @@
 import { BRAND } from '@app/shared';
+import { INTL_LOCALE, LOCALE } from './lib/locale';
+import { ko } from './strings.ko';
 
 /**
- * Every user-facing string, in one place, so another language can be added by
- * providing a second object of the same shape.
+ * Every user-facing string, in one place. English is the source; every other
+ * language is an object of exactly the same shape (`Strings`), so a key missing
+ * from a translation is a type error. `S` is the language this page shows,
+ * chosen once at load (see lib/locale.ts).
  */
-export const S = {
+const en = {
   brand: BRAND.name,
   loading: 'Loading…',
   cancel: 'Cancel',
@@ -370,7 +374,7 @@ export const S = {
 
   search: {
     title: (query: string) => `Results for “${query}”`,
-    count: (total: number) => (total === 1 ? '1 message' : `${total.toLocaleString()} messages`),
+    count: (total: number) => (total === 1 ? '1 message' : `${total.toLocaleString(INTL_LOCALE)} messages`),
     none: 'No messages match.',
     noneHint: 'Try fewer words, or check the modifiers.',
     more: 'Show more results',
@@ -459,6 +463,30 @@ export const S = {
     promptTitle: 'You were mentioned while away.',
     promptBody: 'Turn on desktop notifications so you don’t miss the next one.',
     promptDismiss: 'Not now',
+    language: 'Language',
+    languageAuto: 'Match browser',
+    timeFormat: 'Clock',
+    timeAuto: 'Automatic',
+    time12: '12-hour',
+    time24: '24-hour',
+    reloadHint: 'The page reloads to apply this.',
+    notifyAbout: 'Notify me about',
+    notifyAll: 'All new messages',
+    notifyMentions: 'Direct messages, mentions and keywords',
+    notifyNothing: 'Nothing',
+    notifyAboutHint: 'A conversation can override this from its notification menu.',
+    notifyThreads: 'Replies to threads I follow',
+    notifyPreview: 'Show the message text in notifications',
+    notifySound: 'Play a sound',
+    email: 'Email notifications',
+    emailLabel: 'Email me about missed mentions and direct messages',
+    email15m: 'Every 15 minutes',
+    email1h: 'Once an hour',
+    emailOff: 'Never',
+    sidebar: 'Sidebar',
+    sidebarThemes: { harbor: 'Harbor', forest: 'Forest', plum: 'Plum', ink: 'Ink', clay: 'Clay', mist: 'Mist', custom: 'Custom' } as Record<string, string>,
+    sidebarColor: 'Sidebar color',
+    sidebarContrast: (ratio: string) => `Text is drawn in the color that reads best on it (contrast ${ratio}:1).`,
   },
 
   dialogs: {
@@ -719,6 +747,20 @@ export const S = {
     botUser: (handle: string) => `Bot user @${handle}`,
   },
 
+  /** System lines, reworded in the interface language from the subtype the server sends. */
+  system: {
+    joined: (who: string) => `${who} has joined the channel`,
+    left: (who: string) => `${who} has left the channel`,
+    archived: (who: string) => `${who} archived the channel`,
+    renamed: (who: string, from: string, to: string) => `${who} has renamed the channel from "${from}" to "${to}"`,
+    topicSet: (who: string, topic: string) => `${who} set the channel topic: ${topic}`,
+    topicCleared: (who: string) => `${who} cleared the channel topic`,
+    purposeSet: (who: string, purpose: string) => `${who} set the channel description: ${purpose}`,
+    purposeCleared: (who: string) => `${who} cleared the channel description`,
+    convertedFromDm: (who: string, name: string) => `${who} turned this conversation into the private channel #${name}`,
+    madePrivate: (who: string) => `${who} made this channel private`,
+  },
+
   notify: {
     inChannel: (name: string, channel: string) => `${name} in #${channel}`,
     sentFile: (name: string) => `Sent a file: ${name}`,
@@ -732,6 +774,9 @@ export const S = {
     minutesAgo: (count: number) => (count === 1 ? '1 minute ago' : `${count} minutes ago`),
     hoursAgo: (count: number) => (count === 1 ? '1 hour ago' : `${count} hours ago`),
     daysAgo: (count: number) => (count === 1 ? 'yesterday' : `${count} days ago`),
+    atTime: (time: string) => `at ${time}`,
+    tomorrowAt: (time: string) => `tomorrow at ${time}`,
+    onDayAt: (day: string, time: string) => `on ${day} at ${time}`,
   },
 
   /** Messaging and attention: activity, threads, unreads, later, drafts, files, DND and friends. */
@@ -1171,9 +1216,9 @@ export const S = {
       unfurlHint: 'When someone posts a link to one of these domains (or a subdomain), the app receives `link_shared` and can attach a preview with `chat.unfurl`. Up to five, separated by commas.',
       unfurlDomains: 'Domains',
       rate: 'API rate limit',
-      rateHint: (fallback: number) => `Calls per minute each app token may make. Leave empty for the default of ${fallback.toLocaleString()}. People using this site are not affected.`,
+      rateHint: (fallback: number) => `Calls per minute each app token may make. Leave empty for the default of ${fallback.toLocaleString(INTL_LOCALE)}. People using this site are not affected.`,
       ratePerMinute: 'Calls per minute',
-      rateCurrent: (value: number) => `Apps are limited to ${value.toLocaleString()} calls per minute per token.`,
+      rateCurrent: (value: number) => `Apps are limited to ${value.toLocaleString(INTL_LOCALE)} calls per minute per token.`,
     },
   },
 
@@ -1488,3 +1533,7 @@ export const S = {
     invalid_functions: 'Each step needs a callback_id and a title, and parameters with a name and a type.',
   },
 };
+
+export type Strings = typeof en;
+
+export const S: Strings = LOCALE === 'ko' ? ko : en;

@@ -18,7 +18,7 @@ import {
 } from '../lib/actions';
 import { call } from '../lib/api';
 import { conversation, conversationName, displayName, EMPTY_THREAD, threadKey, useStore, type LocalMessage } from '../lib/store';
-import { localTime } from '../lib/time';
+import { formatDate, localTime } from '../lib/time';
 import { useAccounts } from '../lib/accounts';
 import { ChannelWebSettings } from './accounts/Admin';
 import { ProfileFieldFacts } from './accounts/Profile';
@@ -399,7 +399,7 @@ function PinsTab({ conv }: { conv: Conversation }) {
 function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage: boolean; isMember: boolean }) {
   const creator = useStore((state) => state.users[conv.creator ?? '']);
   const canCreateChannels = useAccounts((state) => state.permissions.create_channels);
-  const created = new Date(conv.created * 1000).toLocaleDateString(undefined, { dateStyle: 'long' });
+  const created = formatDate(conv.created, 'long');
 
   const editPurpose = async (): Promise<void> => {
     const purpose = await promptDialog({ title: S.details.description, label: S.details.description, initial: conv.purpose?.value ?? '', multiline: true });

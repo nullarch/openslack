@@ -162,6 +162,11 @@ export async function run(main, launchOptions = {}) {
   let browser;
   try {
     browser = await launchBrowser(launchOptions);
+    // The tests read English text: every page is English unless a test asks for another locale.
+    const newContext = browser.newContext.bind(browser);
+    browser.newContext = (options = {}) => newContext({ locale: 'en-US', ...options });
+    const newPage = browser.newPage.bind(browser);
+    browser.newPage = (options = {}) => newPage({ locale: 'en-US', ...options });
     await main(browser);
     assert.deepEqual(errors, [], 'no page errors or console errors');
     console.log(`\n${passed} steps passed. Screenshots: ${shots}`);

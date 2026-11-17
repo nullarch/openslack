@@ -6,6 +6,7 @@ import { set, useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { Avatar, IconButton, Spinner } from '../ui';
 import '../../styles/ai.css';
+import { agoText } from '../../lib/time';
 
 interface AgentThread {
   channel: string;
@@ -31,14 +32,7 @@ interface Agent {
 
 const REFRESH_MS = 4000;
 
-function ago(seconds: number): string {
-  const diff = Math.max(0, Date.now() / 1000 - seconds);
-  const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  if (diff < 60) return format.format(-Math.round(diff), 'second');
-  if (diff < 3600) return format.format(-Math.round(diff / 60), 'minute');
-  if (diff < 86_400) return format.format(-Math.round(diff / 3600), 'hour');
-  return format.format(-Math.round(diff / 86_400), 'day');
-}
+const ago = agoText;
 
 function AgentCard({ agent }: { agent: Agent }) {
   const user = useStore((state) => state.users[agent.bot_user_id]);
