@@ -4,3 +4,10 @@ Copyright 2026 the OpenSlack authors
 This product is not affiliated with, endorsed by or sponsored by Slack
 Technologies, LLC or Salesforce, Inc. "Slack" is a trademark of its owner
 and is used here only to describe API compatibility.
+
+Bundled third-party files
+
+apps/web/public/effects/selfie_segmenter.tflite is MediaPipe's Selfie
+Segmenter model, and the web build copies vision_wasm_internal.js and
+vision_wasm_internal.wasm from the @mediapipe/tasks-vision package.
+Copyright Google LLC, licensed under the Apache License, Version 2.0.
