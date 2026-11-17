@@ -120,3 +120,63 @@ describe('SCIM provisioning', () => {
     assert.equal((await scim('GET', `/Users?filter=${encodeURIComponent('title co "x"')}`)).status, 400);
   });
 });
+
+describe('SCIM groups', () => {
+  let t: TestApp;
+  let owner: Session;
+  let token: string;
+  let ana: string;
+  let ben: string;
+
+  before(async () => {
+    t = await startApp();
+    owner = await setupWorkspace(t);
+    token = (await owner.ok('client.admin.scimToken')).token;
+    ana = (await addMember(t, owner, 'Ana Lee')).userId;
+    ben = (await addMember(t, owner, 'Ben Kim')).userId;
+  });
+  after(() => t.close());
+
+  const scim = async (method: string, path: string, body?: unknown): Promise<{ status: number; body: Json }> => {
+    const response = await fetch(`${t.base}/scim/v2${path}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/scim+json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const text = await response.text();
+    return { status: response.status, body: text ? (JSON.parse(text) as Json) : {} };
+  };
+  const members = async (group: string): Promise<string[]> => ((await owner.ok('usergroups.users.list', { usergroup: group })).users as string[]).sort();
+
+  test('a group becomes a user group with an @handle and its members', async () => {
+    const created = await scim('POST', '/Groups', { schemas: ['urn:ietf:params:scim:schemas:core:2.0:Group'], displayName: 'Platform Team', members: [{ value: ana }] });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.displayName, 'Platform Team');
+    assert.deepEqual(created.body.members.map((member: Json) => member.value), [ana]);
+    const group = (await owner.ok('usergroups.list', { include_users: true })).usergroups.find((entry: Json) => entry.id === created.body.id);
+    assert.equal(group.handle, 'platform-team');
+    assert.equal((await scim('GET', `/Groups?filter=${encodeURIComponent('displayName eq "platform team"')}`)).body.totalResults, 1);
+    assert.equal((await scim('GET', `/Groups/${created.body.id}?excludedAttributes=members`)).body.members, undefined);
+    assert.equal((await scim('POST', '/Groups', { displayName: 'Platform Team' })).status, 409);
+  });
+
+  test('PATCH in the Entra and Okta forms changes members and the name; DELETE disables, POST brings it back', async () => {
+    const id = (await scim('GET', `/Groups?filter=${encodeURIComponent('displayName eq "Platform Team"')}`)).body.Resources[0].id;
+    const patch = (operations: Json[]): Promise<{ status: number; body: Json }> => scim('PATCH', `/Groups/${id}`, { schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'], Operations: operations });
+    assert.equal((await patch([{ op: 'Add', path: 'members', value: [{ value: ben }] }])).status, 200);
+    assert.deepEqual(await members(id), [ana, ben].sort());
+    await patch([{ op: 'remove', path: `members[value eq "${ana}"]` }]);
+    assert.deepEqual(await members(id), [ben]);
+    await patch([{ op: 'Replace', path: 'displayName', value: 'Platform Guild' }]);
+    assert.equal((await scim('GET', `/Groups/${id}`)).body.displayName, 'Platform Guild');
+    await patch([{ op: 'replace', value: { members: [{ value: ana }] } }]);
+    assert.deepEqual(await members(id), [ana]);
+    assert.equal((await patch([{ op: 'Add', path: 'members', value: [{ value: 'UNOPE' }] }])).status, 400);
+
+    assert.equal((await scim('DELETE', `/Groups/${id}`)).status, 204);
+    assert.equal((await scim('GET', `/Groups/${id}`)).status, 404);
+    const back = await scim('POST', '/Groups', { displayName: 'Platform Guild', members: [{ value: ben }] });
+    assert.equal(back.status, 201);
+    assert.equal(back.body.id, id, 'the same group comes back');
+    assert.deepEqual(await members(id), [ben]);
+
+    const { entries } = await owner.ok('client.admin.audit.list', { limit: 100 });
+    assert.ok(entries.some((entry: Json) => entry.action === 'user_group_members_changed' && entry.actor.user.id === owner.userId), 'changes are audited as the admin behind the token');
+  });
+});

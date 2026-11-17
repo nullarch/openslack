@@ -165,7 +165,7 @@ Okta, Microsoft Entra ID, OneLogin and other identity providers can create, upda
 | Authentication | Bearer token (the one above) |
 | Unique identifier | `userName` (an email address works) |
 
-Supported: listing and filtering users (`userName`, `externalId`, `emails`), create, replace, patch (including the forms Okta and Entra send) and delete, which deactivates the account and keeps its history. Groups are not provisioned yet.
+Supported: listing and filtering users (`userName`, `externalId`, `emails`), create, replace, patch (including the forms Okta and Entra send) and delete, which deactivates the account and keeps its history; people created this way join the default channels. Groups (`/Groups`) become user groups with an `@handle` made from the group's name; membership and renames follow the identity provider, and deleting a group disables it (provisioning it again brings it back). Changes are recorded in the audit log as the admin who made the token.
 
 ## Email notifications
 

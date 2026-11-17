@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readBody } from '../api/http.ts';
+import { Args } from '../api/registry.ts';
+import { ApiError } from '../core/errors.ts';
 import type { Kernel } from '../app.ts';
 import { defaultChannels } from '../accounts/invites.ts';
 import { authenticate, createToken, hashPassword } from '../core/auth.ts';
@@ -19,6 +21,7 @@ import { createUser, emitUserChange, getUser, isAdmin, uniqueHandle, userToApi, 
 
 const SCOPE = 'admin.scim';
 const USER_SCHEMA = 'urn:ietf:params:scim:schemas:core:2.0:User';
+const GROUP_SCHEMA = 'urn:ietf:params:scim:schemas:core:2.0:Group';
 const LIST_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 const ERROR_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:Error';
 const PATCH_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
@@ -241,12 +244,164 @@ export function installScim(kernel: Kernel): void {
     return Boolean(actor && actor.kind === 'user' && actor.scopes?.has(SCOPE) && isAdmin(actor));
   };
 
-  kernel.router.add(null, /^\/scim\/v2\/(Users|ServiceProviderConfig|ResourceTypes|Schemas)(?:\/([^/]+))?\/?$/, async ({ req, res, url, params }) => {
+  // ── Groups: an identity provider's groups become user groups (@handles) ──
+
+  interface GroupRow {
+    id: string;
+    name: string;
+    handle: string;
+    date_create: number;
+    date_update: number;
+    date_delete: number;
+  }
+
+  const toScimGroup = (row: GroupRow, withMembers = true): Json => ({
+    schemas: [GROUP_SCHEMA],
+    id: row.id,
+    displayName: row.name,
+    ...(withMembers
+      ? {
+          members: ctx.db
+            .all<{ user_id: string; name: string }>('SELECT m.user_id, u.name FROM usergroup_members m JOIN users u ON u.id = m.user_id WHERE m.usergroup_id = ? ORDER BY u.name', row.id)
+            .map((member) => ({ value: member.user_id, display: member.name, $ref: `${base()}/Users/${member.user_id}` })),
+        }
+      : {}),
+    meta: { resourceType: 'Group', created: iso(row.date_create), lastModified: iso(row.date_update), location: `${base()}/Groups/${row.id}` },
+  });
+
+  /** Run a user-group API method as the admin behind the SCIM token, so its rules, events and audit entry apply. */
+  const invoke = async (name: string, req: IncomingMessage, res: ServerResponse, raw: Json): Promise<Json> => {
+    const { actor } = authenticate(ctx, req, undefined);
+    const def = kernel.registry.get(name)!;
+    try {
+      return ((await def.handler({ ctx, actor: { ...actor!, scopes: null }, args: new Args(raw), req, res })) ?? {}) as Json;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        if (/already_exists|_taken$/.test(error.code)) throw new ScimError(409, error.code, 'uniqueness');
+        throw new ScimError(400, error.code, 'invalidValue');
+      }
+      throw error;
+    }
+  };
+
+  /** A handle from a group's name: lowercase letters, digits, . _ -; at most 21; made unique. */
+  const handleFor = (name: string): string => {
+    const seed = name.toLowerCase().replace(/[^\p{Ll}\p{Lo}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 21) || 'group';
+    let candidate = seed;
+    for (let n = 2; ctx.db.get('SELECT 1 FROM usergroups WHERE handle = ?', candidate) || ctx.db.get('SELECT 1 FROM users WHERE name = ?', candidate); n += 1) {
+      candidate = `${seed.slice(0, 21 - String(n).length - 1)}-${n}`;
+    }
+    return candidate;
+  };
+
+  const memberIdsOf = (value: unknown): string[] => {
+    const list = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
+    return list.map((entry) => (entry && typeof entry === 'object' ? String((entry as Json).value ?? '') : String(entry))).filter(Boolean);
+  };
+
+  const setGroupMembers = async (group: GroupRow, ids: string[], req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    for (const id of ids) {
+      const user = getUser(ctx, id);
+      if (!user || user.is_bot === 1) throw new ScimError(400, `User ${id} not found`, 'invalidValue');
+    }
+    await invoke('usergroups.users.update', req, res, { usergroup: group.id, users: [...new Set(ids)].join(',') });
+  };
+
+  const findGroup = (id: string): GroupRow => {
+    const row = ctx.db.get<GroupRow>('SELECT * FROM usergroups WHERE id = ? AND date_delete = 0', id);
+    if (!row) throw new ScimError(404, `Group ${id} not found`);
+    return row;
+  };
+
+  const handleGroups = async (req: IncomingMessage, res: ServerResponse, url: URL, id: string | undefined): Promise<void> => {
+    const method = req.method ?? 'GET';
+    const withMembers = !/\bmembers\b/.test(url.searchParams.get('excludedAttributes') ?? '');
+    if (!id && method === 'GET') {
+      let rows = ctx.db.all<GroupRow>('SELECT * FROM usergroups WHERE date_delete = 0 ORDER BY name');
+      const filter = url.searchParams.get('filter');
+      if (filter) {
+        const match = /^\s*(displayName|id|externalId)\s+eq\s+"((?:[^"\\]|\\.)*)"\s*$/i.exec(filter);
+        if (!match) throw new ScimError(400, `Unsupported filter: ${filter}`, 'invalidFilter');
+        const value = match[2]!.replace(/\\(.)/g, '$1');
+        const key = match[1]!.toLowerCase();
+        rows = key === 'displayname' ? rows.filter((row) => row.name.toLowerCase() === value.toLowerCase()) : key === 'id' ? rows.filter((row) => row.id === value) : [];
+      }
+      const start = Math.max(1, Number(url.searchParams.get('startIndex') ?? 1) || 1);
+      const count = Math.min(MAX_PAGE, Math.max(0, Number(url.searchParams.get('count') ?? 100) || 0));
+      const page = rows.slice(start - 1, start - 1 + count);
+      return send(res, 200, { schemas: [LIST_SCHEMA], totalResults: rows.length, startIndex: start, itemsPerPage: page.length, Resources: page.map((row) => toScimGroup(row, withMembers)) });
+    }
+    if (!id && method === 'POST') {
+      const body = await readJson(req);
+      const name = typeof body.displayName === 'string' ? body.displayName.trim().slice(0, 80) : '';
+      if (!name) throw new ScimError(400, 'displayName is required', 'invalidValue');
+      // A group deleted earlier and provisioned again comes back with its handle.
+      const disabled = ctx.db.get<GroupRow>('SELECT * FROM usergroups WHERE name = ? AND date_delete != 0', name);
+      let group: GroupRow;
+      if (disabled) {
+        await invoke('usergroups.enable', req, res, { usergroup: disabled.id });
+        group = findGroup(disabled.id);
+      } else {
+        if (ctx.db.get('SELECT 1 FROM usergroups WHERE name = ?', name)) throw new ScimError(409, `${name} already exists`, 'uniqueness');
+        const created = await invoke('usergroups.create', req, res, { name, handle: handleFor(name) });
+        group = findGroup(String((created.usergroup as Json).id));
+      }
+      await setGroupMembers(group, memberIdsOf(body.members), req, res);
+      return send(res, 201, toScimGroup(findGroup(group.id)));
+    }
+    if (!id) throw new ScimError(405, `${method} is not supported here`);
+    const group = findGroup(decodeURIComponent(id));
+    if (method === 'GET') return send(res, 200, toScimGroup(group, withMembers));
+    if (method === 'PUT') {
+      const body = await readJson(req);
+      const name = typeof body.displayName === 'string' ? body.displayName.trim().slice(0, 80) : group.name;
+      if (name && name !== group.name) await invoke('usergroups.update', req, res, { usergroup: group.id, name });
+      await setGroupMembers(group, memberIdsOf(body.members), req, res);
+      return send(res, 200, toScimGroup(findGroup(group.id)));
+    }
+    if (method === 'PATCH') {
+      const body = await readJson(req);
+      const operations = Array.isArray(body.Operations) ? (body.Operations as Json[]) : null;
+      if (!operations) throw new ScimError(400, 'Operations are required', 'invalidSyntax');
+      let members = new Set(groupMemberIds(group.id));
+      let name: string | null = null;
+      for (const operation of operations) {
+        const op = String(operation.op ?? '').toLowerCase();
+        const path = typeof operation.path === 'string' ? operation.path : '';
+        const memberFilter = /^members\[value eq "([^"]+)"\]$/i.exec(path);
+        if (path.toLowerCase() === 'displayname') name = String(operation.value ?? '').trim().slice(0, 80);
+        else if (memberFilter && op === 'remove') members.delete(memberFilter[1]!);
+        else if (path.toLowerCase() === 'members' || (!path && operation.value && typeof operation.value === 'object' && 'members' in (operation.value as Json))) {
+          const value = path ? operation.value : (operation.value as Json).members;
+          const ids = memberIdsOf(value);
+          if (op === 'add') ids.forEach((member) => members.add(member));
+          else if (op === 'remove') (ids.length ? ids : [...members]).forEach((member) => members.delete(member));
+          else if (op === 'replace') members = new Set(ids);
+          else throw new ScimError(400, `Unknown op ${String(operation.op)}`, 'invalidSyntax');
+        } else if (!path && operation.value && typeof operation.value === 'object' && 'displayName' in (operation.value as Json)) {
+          name = String((operation.value as Json).displayName ?? '').trim().slice(0, 80);
+        }
+      }
+      if (name && name !== group.name) await invoke('usergroups.update', req, res, { usergroup: group.id, name });
+      await setGroupMembers(group, [...members], req, res);
+      return send(res, 200, toScimGroup(findGroup(group.id)));
+    }
+    if (method === 'DELETE') {
+      await invoke('usergroups.disable', req, res, { usergroup: group.id });
+      return send(res, 204);
+    }
+    throw new ScimError(405, `${method} is not supported here`);
+  };
+
+  const groupMemberIds = (groupId: string): string[] => ctx.db.all<{ user_id: string }>('SELECT user_id FROM usergroup_members WHERE usergroup_id = ?', groupId).map((row) => row.user_id);
+
+  kernel.router.add(null, /^\/scim\/v2\/(Users|Groups|ServiceProviderConfig|ResourceTypes|Schemas)(?:\/([^/]+))?\/?$/, async ({ req, res, url, params }) => {
     const [resource, id] = params as [string, string | undefined];
     try {
       if (!ctx.team()) throw new ScimError(404, 'This server has not been set up yet.');
       if (!authorized(req)) throw new ScimError(401, 'A SCIM token from an admin is required (client.admin.scimToken).');
       const method = req.method ?? 'GET';
+      if (resource === 'Groups') return await handleGroups(req, res, url, id);
 
       if (resource === 'ServiceProviderConfig') {
         return send(res, 200, {
@@ -263,8 +418,11 @@ export function installScim(kernel: Kernel): void {
       if (resource === 'ResourceTypes') {
         return send(res, 200, {
           schemas: [LIST_SCHEMA],
-          totalResults: 1,
-          Resources: [{ schemas: ['urn:ietf:params:scim:schemas:core:2.0:ResourceType'], id: 'User', name: 'User', endpoint: '/Users', schema: USER_SCHEMA }],
+          totalResults: 2,
+          Resources: [
+            { schemas: ['urn:ietf:params:scim:schemas:core:2.0:ResourceType'], id: 'User', name: 'User', endpoint: '/Users', schema: USER_SCHEMA },
+            { schemas: ['urn:ietf:params:scim:schemas:core:2.0:ResourceType'], id: 'Group', name: 'Group', endpoint: '/Groups', schema: GROUP_SCHEMA },
+          ],
         });
       }
       if (resource === 'Schemas') {
