@@ -188,6 +188,52 @@ await run(
       await shot(daniel, 'huddle-card-light');
     });
 
+    await step('captions: words spoken in one browser appear for the other, only while unmuted', async () => {
+      // A stand-in for the browser's speech recognition, driven by the test.
+      const fake = () => {
+        class FakeRecognition {
+          constructor() {
+            window.__recognizers = [...(window.__recognizers ?? []), this];
+          }
+          start() {
+            this.running = true;
+          }
+          stop() {
+            this.running = false;
+            this.onend?.();
+          }
+        }
+        window.SpeechRecognition = FakeRecognition;
+        window.webkitSpeechRecognition = FakeRecognition;
+        window.__say = (text, isFinal) => {
+          const live = (window.__recognizers ?? []).filter((recognizer) => recognizer.running);
+          for (const recognizer of live) recognizer.onresult?.({ resultIndex: 0, results: [{ isFinal, 0: { transcript: text } }] });
+          return live.length;
+        };
+      };
+      await maya.evaluate(fake);
+      await daniel.evaluate(fake);
+      await maya.locator('[data-huddle-dock] [data-control="captions"]').click();
+      await maya.locator('.toast', { hasText: 'saved as a transcript' }).waitFor();
+      await daniel.locator('[data-huddle-dock] [data-control="captions"]').click();
+      assert.equal(await maya.evaluate(() => window.__say('we ship on', false)), 1);
+      await daniel.locator('[data-huddle-captions] .huddle-caption.is-interim', { hasText: 'we ship on' }).waitFor();
+      await maya.evaluate(() => window.__say('We ship on Friday.', true));
+      await daniel.locator('[data-huddle-captions] .huddle-caption:not(.is-interim)', { hasText: 'We ship on Friday.' }).waitFor();
+      await daniel.locator('[data-huddle-captions] .huddle-caption.is-interim').waitFor({ state: 'detached' });
+      await shot(daniel, 'huddle-captions-dock');
+      // Muted: this browser stops listening; unmuted: it listens again.
+      await maya.locator('[data-huddle-dock] [data-control="mic"]').click();
+      await maya.waitForFunction(() => window.__say('muted words', true) === 0);
+      await maya.locator('[data-huddle-dock] [data-control="mic"]').click();
+      await maya.waitForFunction(() => (window.__recognizers ?? []).some((recognizer) => recognizer.running));
+      await daniel.locator('[data-huddle-dock] [data-control="expand"]').click();
+      await maya.evaluate(() => window.__say('And the notes go in the thread.', true));
+      await daniel.locator('[data-huddle-stage] [data-huddle-captions] .huddle-caption', { hasText: 'And the notes go in the thread.' }).waitFor();
+      await shot(daniel, 'huddle-captions-stage');
+      await daniel.locator('[data-huddle-stage] [data-control="expand"]').click();
+    });
+
     await step('a tab that closes without telling the server is dropped by LiveKit’s webhook', async () => {
       // Suppress the leave request a closing tab sends, so only LiveKit can tell the server.
       await daniel.evaluate(() => {
@@ -226,6 +272,11 @@ await run(
       await daniel.locator('[data-huddle-pill]').waitFor({ state: 'detached' });
       assert.equal(await sideItem(daniel, 'engineering').locator('.side-huddle').count(), 0);
       await shot(daniel, 'huddle-ended-light');
+      // The captions became a transcript file in the huddle thread.
+      await daniel.locator('.message-scroll .msg', { has: daniel.locator('[data-huddle-card="ended"]') }).last().locator('.thread-summary').click();
+      const panel = daniel.locator('.panel');
+      await panel.locator('.msg', { hasText: 'Transcript of the huddle' }).waitFor({ timeout: 10_000 });
+      await panel.getByText(/Huddle transcript \d{4}-\d{2}-\d{2}\.txt/).first().waitFor();
     });
 
     await step('without LiveKit configured there is no huddle button', async () => {

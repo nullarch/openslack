@@ -33,6 +33,7 @@ import { conversation, conversationName, displayName, useStore, type LocalMessag
 import { S } from '../strings';
 import '../styles/huddles.css';
 import { Mrkdwn } from './text';
+import { CaptionsButton, CaptionsOverlay } from './HuddleCaptions';
 import { Avatar, Button, IconButton, Popover } from './ui';
 
 const REACTIONS = ['👍', '🎉', '😂', '❤️', '👏', '🙌'];
@@ -271,6 +272,7 @@ function Controls({ compact }: { compact: boolean }) {
       <IconButton label={S.huddles.react} onClick={(event) => setReactAnchor(event.currentTarget)} data-control="react">
         <SmilePlus size={size} />
       </IconButton>
+      <CaptionsButton size={size} />
       {reactAnchor ? (
         <Popover anchor={reactAnchor} onClose={() => setReactAnchor(null)} side="top" className="huddle-reaction-picker">
           {REACTIONS.map((emoji) => (
@@ -349,6 +351,7 @@ function Stage({ channel, huddle }: { channel: string; huddle: Huddle | undefine
           ))}
         </div>
         <Reactions />
+        <CaptionsOverlay />
       </div>
       <Controls compact={false} />
     </div>
@@ -382,6 +385,7 @@ export function HuddleDock() {
           </span>
         ))}
       </div>
+      <CaptionsOverlay compact />
       <Controls compact />
       <Reactions />
     </div>

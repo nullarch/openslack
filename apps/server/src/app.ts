@@ -20,6 +20,7 @@ import { fail } from './core/errors.ts';
 import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
+import { installHuddleCaptions } from './huddles/captions.ts';
 import { installHuddles } from './huddles/index.ts';
 import { installAi } from './ai/index.ts';
 import { installWorkflows } from './workflows/index.ts';
@@ -123,6 +124,7 @@ export function createApp(config: Config): App {
   installFileText(kernel);
   installEmailNotifications(kernel);
   installCalls(kernel);
+  installHuddleCaptions(kernel);
   installSessions(kernel);
   installInboundEmail(kernel);
   installChannelTemplates(kernel);

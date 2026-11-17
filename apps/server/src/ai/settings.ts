@@ -4,7 +4,7 @@ import { nowSeconds } from '../core/ids.ts';
 import { createProvider, DEFAULT_CLAUDE_MODEL, type AiProvider, type ProviderKind, type ProviderSettings } from './provider.ts';
 
 /** The AI features an admin can switch on and off one by one. */
-export const FEATURES = ['summaries', 'recaps', 'search_answers', 'translate', 'writing', 'assistant'] as const;
+export const FEATURES = ['summaries', 'recaps', 'search_answers', 'translate', 'writing', 'assistant', 'huddle_notes'] as const;
 export type Feature = (typeof FEATURES)[number];
 
 interface SettingsRow {

@@ -121,9 +121,15 @@ Tokens for the media server are issued only to members of the conversation, for 
 
 Checked: the server and the web client against LiveKit 1.13.11 run directly (`livekit-server --config-body …`), with two browsers exchanging audio, camera video, a screen share and reactions, and the webhook and the periodic comparison each removing someone who vanished. Not checked: the compose file above, calls longer than a few minutes, more than two people, and networks with NAT between browser and LiveKit.
 
+### Captions and huddle notes
+
+Anyone in a huddle can turn on captions. Speech becomes text in that person's own browser, through the Web Speech API, for their own microphone only and only while it is not muted; the server never receives audio. Browsers differ in where they do this: Safari and some versions of Chrome recognise speech on the device, others send the audio to their maker's speech service. Browsers without the API (Firefox today) show the captions of others but cannot caption their own speech.
+
+Finished lines go to everyone in the huddle and are kept while it runs. When it ends they become a text file, *Huddle transcript YYYY-MM-DD.txt*, posted by the built-in Huddles bot in the huddle's thread, and, when a model is connected and *Notes after a huddle* is on in the AI settings, a summary with decisions and action items alongside it. The kept lines are then deleted; the file is an ordinary file under retention and legal hold. An admin can turn transcripts off under **Administration → Compliance**: captions are then live only.
+
 ## AI features
 
-Summaries, daily recaps, answers above search results, translation, writing help, a built-in assistant with memory, and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.
+Summaries, daily recaps, answers above search results, translation, writing help, a built-in assistant with memory, notes after a huddle, and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.
 
 | Setting | Meaning |
 |---|---|

@@ -22,6 +22,7 @@ import {
 import { call, type Json } from './api';
 import { handleAttentionEvent, loadAttention } from './attention';
 import { maybeNotify } from './notify';
+import { handleCaptionEvent } from './captions';
 import { handleHuddleEvent, refreshHuddles } from './huddles';
 import { handlePlatformEvent, restoreViews } from './platform';
 import { currentId, get, set, type LocalMessage } from './store';
@@ -337,7 +338,7 @@ function handle(event: Json): void {
       set((state) => ({ appConnections: { ...state.appConnections, [event.app_id]: Boolean(event.connected) } }));
       break;
     default:
-      if (!handleAttentionEvent(event) && !handleAiEvent(event) && !handlePlatformEvent(event) && !handleDocEvent(event)) handleHuddleEvent(event);
+      if (!handleAttentionEvent(event) && !handleAiEvent(event) && !handlePlatformEvent(event) && !handleDocEvent(event) && !handleCaptionEvent(event)) handleHuddleEvent(event);
       break;
   }
 }

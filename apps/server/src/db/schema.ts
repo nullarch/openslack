@@ -977,4 +977,14 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX assistant_memories_user ON assistant_memories (user_id, state, created);
   `,
+
+  /* 25: huddle captions — final lines kept while a huddle runs, turned into a transcript when it ends */ `
+  CREATE TABLE huddle_captions (
+    huddle_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    text TEXT NOT NULL
+  );
+  CREATE INDEX huddle_captions_huddle ON huddle_captions (huddle_id, at);
+  `,
 ];

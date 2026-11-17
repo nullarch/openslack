@@ -13,7 +13,7 @@ import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
 import { AppStepsSetting } from '../workflows/AppSteps';
 import { AnalyticsAdmin } from '../admin/Analytics';
 import { LegalHolds, SensitiveInfoSetting, SessionPolicy } from '../admin/Compliance';
-import { BarriersSetting, IpAllowlistSetting } from '../admin/Network';
+import { BarriersSetting, HuddleTranscriptsSetting, IpAllowlistSetting } from '../admin/Network';
 import { AuditAdmin, ReportsAdmin, RetentionSetting, ServiceTokens } from '../admin/Governance';
 import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
 import { GuestControls, InviteRequests, WorkspaceSettings } from '../accounts/Admin';
@@ -702,6 +702,7 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
             <SessionPolicy />
             <IpAllowlistSetting />
             <BarriersSetting />
+            <HuddleTranscriptsSetting />
             <LegalHolds />
           </>
         ) : null}

@@ -149,3 +149,37 @@ export function BarriersSetting() {
     </section>
   );
 }
+
+// ── Huddle transcripts ──────────────────────────────────────────────────────
+
+export function HuddleTranscriptsSetting() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    call('client.huddles.info')
+      .then((result) => setEnabled(result.transcripts !== false))
+      .catch(() => setEnabled(null));
+  }, []);
+  if (enabled === null) return null;
+  return (
+    <section className="compliance-section">
+      <h3 className="dialog-sub">{S.network.transcriptsTitle}</h3>
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => {
+            const next = event.target.checked;
+            void attempt(() => call('client.admin.setHuddleTranscripts', { enabled: next })).then((result) => {
+              if (result) {
+                setEnabled(next);
+                toast(S.saved);
+              }
+            });
+          }}
+        />
+        <span>{S.network.transcripts}</span>
+      </label>
+      <p className="field-hint">{S.network.transcriptsHint}</p>
+    </section>
+  );
+}

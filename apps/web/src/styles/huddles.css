@@ -156,12 +156,14 @@
 }
 
 .huddle-controls.is-compact {
-  gap: 2px;
+  /* Eight controls in the sidebar's width; they wrap rather than overflow when text is enlarged. */
+  flex-wrap: wrap;
+  gap: 0;
 }
 
 .huddle-controls.is-compact .icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   color: var(--chrome-text);
 }
 
@@ -171,8 +173,8 @@
 }
 
 .huddle-controls.is-compact .huddle-leave {
-  height: 30px;
-  min-width: 30px;
+  height: 28px;
+  min-width: 28px;
   padding: 0;
 }
 
@@ -522,5 +524,49 @@
 
   .huddle-pill .avatar {
     display: none;
+  }
+}
+
+/* Live captions: over the bottom of the stage, or one line in the dock. */
+.huddle-captions {
+  align-self: center;
+  width: min(760px, 100%);
+  margin-bottom: 4px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 0.72);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.huddle-captions:not(:has(p)) {
+  display: none;
+}
+.huddle-caption {
+  margin: 0;
+}
+.huddle-caption strong {
+  color: #b9e3ef;
+  font-weight: 600;
+}
+.huddle-caption.is-interim {
+  color: #d8dee0;
+}
+.huddle-caption-note {
+  margin: 0;
+  color: #c9d6da;
+  font-size: 13px;
+}
+.huddle-captions.is-compact {
+  width: auto;
+  align-self: stretch;
+  margin: 6px 0 2px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  border-radius: 6px;
+}
+@media (forced-colors: active) {
+  .huddle-captions {
+    border: 1px solid CanvasText;
   }
 }
