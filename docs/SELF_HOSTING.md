@@ -160,6 +160,10 @@ Okta, Microsoft Entra ID, OneLogin and other identity providers can create, upda
 
 Supported: listing and filtering users (`userName`, `externalId`, `emails`), create, replace, patch (including the forms Okta and Entra send) and delete, which deactivates the account and keeps its history. Groups are not provisioned yet.
 
+## Retention
+
+By default everything is kept. Workspace owners can set how many days messages in channels, direct messages and files are kept with the `client.admin.setRetention` API method (`{"retention": {"messages_days": 365, "dm_days": 90, "files_days": 365}}`; `0` keeps forever, `dm_days: null` follows channels). `client.admin.retention` shows the policy and, with `preview`, how much a policy would delete. Deletion starts when the policy is saved and then runs hourly; it cannot be undone. A thread whose first message is past the limit but has newer replies keeps a "deleted" placeholder so the replies stay reachable.
+
 ## Kubernetes
 
 A Helm chart is in `deploy/helm/chat`. It runs one replica (the server owns its database file and the realtime connections) with its data on a persistent volume:
