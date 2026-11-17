@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import {
   composer,
+  composerText,
   freePort,
   modifier,
   openChannel,
@@ -119,8 +120,8 @@ async function main(browser) {
     // Edit with the up arrow, as in Slack. It edits the message just sent, never an older one.
     await maya.locator('.message-scroll .msg:not(.is-pending)', { hasText: text }).waitFor();
     await composer(maya).press('ArrowUp');
-    const editor = maya.locator('.edit-box textarea');
-    assert.equal(await editor.inputValue(), text);
+    const editor = maya.locator('.edit-box .edit-input');
+    assert.equal(await composerText(editor), text);
     await editor.fill(`${text} (revised)`);
     await editor.press('Enter');
     await row(daniel, `${text} (revised)`).locator('.msg-edited').waitFor();

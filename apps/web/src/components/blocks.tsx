@@ -4,6 +4,7 @@ import { Component, lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { clickBlockAction } from '../lib/actions';
 import { asset, call } from '../lib/api';
 import { removePreview } from '../lib/attention';
+import { useAccounts } from '../lib/accounts';
 import { useStore } from '../lib/store';
 import { StateBag, SurfaceContext, useSurface, type Surface } from '../lib/surface';
 import { S } from '../strings';
@@ -50,6 +51,11 @@ function unicodeEmoji(codes: string): string | null {
   }
 }
 
+function GroupMention({ id }: { id: string }) {
+  const handle = useAccounts((state) => state.usergroups[id]?.handle);
+  return <span className="mention">@{handle ?? id}</span>;
+}
+
 function RichInline({ element }: { element: Any }) {
   switch (element?.type) {
     case 'text': {
@@ -71,23 +77,29 @@ function RichInline({ element }: { element: Any }) {
     case 'link':
       return <>{styled(<Link url={String(element.url)}>{element.text || element.url}</Link>, element.style)}</>;
     case 'user':
-      return <UserMention id={String(element.user_id)} />;
+      return <>{styled(<UserMention id={String(element.user_id)} />, element.style)}</>;
     case 'channel':
-      return <ChannelLink id={String(element.channel_id)} />;
+      return <>{styled(<ChannelLink id={String(element.channel_id)} />, element.style)}</>;
     case 'usergroup':
-      return <span className="mention">@{String(element.usergroup_id)}</span>;
+      return <>{styled(<GroupMention id={String(element.usergroup_id)} />, element.style)}</>;
     case 'broadcast':
-      return <Broadcast range={String(element.range)} />;
+      return <>{styled(<Broadcast range={String(element.range)} />, element.style)}</>;
     case 'emoji': {
       const native = element.unicode ? unicodeEmoji(String(element.unicode)) : null;
+      const name = element.skin_tone > 1 ? `${element.name}::skin-tone-${element.skin_tone}` : String(element.name);
       if (native) {
         return (
-          <span className="emoji" role="img" title={`:${element.name}:`}>
-            {native}
-          </span>
+          <>
+            {styled(
+              <span className="emoji" role="img" aria-label={String(element.name).replace(/_/g, ' ')} title={`:${name}:`}>
+                {native}
+              </span>,
+              element.style,
+            )}
+          </>
         );
       }
-      return <Emoji name={String(element.name)} />;
+      return <>{styled(<Emoji name={name} />, element.style)}</>;
     }
     case 'date':
       return <DateToken timestamp={Number(element.timestamp)} fallback={String(element.fallback ?? '')} />;
@@ -114,48 +126,80 @@ function RichInlines({ elements }: { elements: Any }) {
   );
 }
 
+function RichElement({ element }: { element: Any }) {
+  switch (element?.type) {
+    case 'rich_text_section':
+      return (
+        <div className="rich-section">
+          <RichInlines elements={element.elements} />
+        </div>
+      );
+    case 'rich_text_list': {
+      const List = element.style === 'ordered' ? 'ol' : 'ul';
+      const indent = Number(element.indent ?? 0);
+      return (
+        <List className={`rich-list is-level-${indent % 3}`} style={{ marginLeft: indent * 22 }} start={Number(element.offset ?? 0) + 1}>
+          {(element.elements ?? []).map((item: Any, itemIndex: number) => (
+            <li key={itemIndex}>
+              <RichInlines elements={item.elements} />
+            </li>
+          ))}
+        </List>
+      );
+    }
+    case 'rich_text_preformatted':
+      return (
+        <pre className="code-block">
+          <code>
+            <RichInlines elements={element.elements} />
+          </code>
+        </pre>
+      );
+    case 'rich_text_quote':
+      return (
+        <blockquote className="quote">
+          <RichInlines elements={element.elements} />
+        </blockquote>
+      );
+    default:
+      return null;
+  }
+}
+
 function RichText({ block }: { block: Any }) {
   const elements: Any[] = Array.isArray(block.elements) ? block.elements : [];
   return (
     <div className="rich-text">
-      {elements.map((element, index) => {
-        switch (element?.type) {
-          case 'rich_text_section':
-            return (
-              <div key={index} className="rich-section">
-                <RichInlines elements={element.elements} />
-              </div>
-            );
-          case 'rich_text_list': {
-            const List = element.style === 'ordered' ? 'ol' : 'ul';
-            return (
-              <List key={index} className="rich-list" style={{ marginLeft: Number(element.indent ?? 0) * 22 }} start={Number(element.offset ?? 0) + 1}>
-                {(element.elements ?? []).map((item: Any, itemIndex: number) => (
-                  <li key={itemIndex}>
-                    <RichInlines elements={item.elements} />
-                  </li>
-                ))}
-              </List>
-            );
-          }
-          case 'rich_text_preformatted':
-            return (
-              <pre key={index} className="code-block">
-                <code>
-                  <RichInlines elements={element.elements} />
-                </code>
-              </pre>
-            );
-          case 'rich_text_quote':
-            return (
-              <blockquote key={index} className="quote">
-                <RichInlines elements={element.elements} />
-              </blockquote>
-            );
-          default:
-            return null;
-        }
-      })}
+      {elements.map((element, index) => (
+        <RichElement key={index} element={element} />
+      ))}
+    </div>
+  );
+}
+
+/** Up to three emoji and nothing else, as in mrkdwn: shown large. */
+function emojiOnly(elements: Any[]): boolean {
+  if (elements.length !== 1 || elements[0]?.type !== 'rich_text_section') return false;
+  let count = 0;
+  for (const item of elements[0].elements ?? []) {
+    if (item?.type === 'emoji') count += 1;
+    else if (item?.type === 'text' && String(item.text ?? '').trim() === '') continue;
+    else return false;
+  }
+  return count > 0 && count <= 3;
+}
+
+/**
+ * A person's message written in the composer: its `rich_text` blocks drawn as
+ * one body, so it reads like mrkdwn text (the edited mark follows the last line).
+ */
+export function RichTextBody({ blocks }: { blocks: Block[] }) {
+  const elements = blocks.flatMap((block) => (Array.isArray(block.elements) ? (block.elements as Any[]) : []));
+  return (
+    <div className={`rich-text rich-body ${emojiOnly(elements) ? 'is-jumbo' : ''}`}>
+      {elements.map((element, index) => (
+        <RichElement key={index} element={element} />
+      ))}
     </div>
   );
 }

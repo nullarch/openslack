@@ -142,7 +142,7 @@ async function main() {
   const answer = list.locator('.msg:not(.is-ephemeral)', { hasText: 'Hello from the agent about “release notes”' }).last();
   await answer.waitFor({ timeout: 10_000 });
   assert.equal(await answer.locator('.msg-author').innerText(), 'Hello Agent');
-  assert.equal(await composer.inputValue(), '', 'the command was run, not posted as a message');
+  assert.equal(await composer.textContent(), '', 'the command was run, not posted as a message');
   assert.equal(await list.locator('.msg', { hasText: '/hello release notes' }).count(), 0);
   console.log('  ok    a slash command typed in the composer was acknowledged privately and answered in the channel');
 
@@ -150,7 +150,7 @@ async function main() {
   await composer.pressSequentially('/hel');
   await page.locator('.suggest-item', { hasText: '/hello [topic]' }).waitFor();
   await composer.press('Enter');
-  assert.equal(await composer.inputValue(), '/hello ');
+  assert.equal(await composer.textContent(), '/hello ');
   await composer.pressSequentially('again');
   await composer.press('Enter');
   await list.locator('.msg:not(.is-ephemeral)', { hasText: 'Hello from the agent about “again”' }).last().waitFor({ timeout: 10_000 });

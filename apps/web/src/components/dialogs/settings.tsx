@@ -8,6 +8,7 @@ import { useStore } from '../../lib/store';
 import { fieldValues, ProfileFieldInputs } from '../accounts/Profile';
 import { contrast, isHexColor, SIDEBAR_PRESETS, sidebarInk, themeChoice, type ThemeChoice } from '../../lib/theme';
 import { INTL_LOCALE, languagePref, timeFormatPref } from '../../lib/locale';
+import { markupComposer } from '../../lib/richInput';
 import { useAccounts } from '../../lib/accounts';
 import { S } from '../../strings';
 import { PickerPopover } from '../Message';
@@ -143,6 +144,7 @@ export function PreferencesDialog() {
   const theme = useStore((state) => themeChoice(state.prefs.theme));
   const language = useStore((state) => languagePref(state.prefs.language));
   const clockPref = useStore((state) => timeFormatPref(state.prefs.time_format));
+  const markup = useStore((state) => markupComposer(state.prefs));
   const [permission, setPermission] = useState(notificationPermission());
   const options: { id: ThemeChoice; label: string }[] = [
     { id: 'system', label: S.prefs.themeSystem },
@@ -183,6 +185,11 @@ export function PreferencesDialog() {
           onChange={(id) => void setPrefs({ time_format: id })}
         />
         <p className="field-hint">{S.prefs.reloadHint}</p>
+      </fieldset>
+      <fieldset className="pref-group">
+        <legend>{S.prefs.composing}</legend>
+        <Toggle label={S.prefs.markup} checked={markup} onChange={(checked) => void setPrefs({ compose_markup: checked })} />
+        <p className="field-hint">{S.prefs.markupHint}</p>
       </fieldset>
       <fieldset className="pref-group">
         <legend>{S.prefs.notifications}</legend>

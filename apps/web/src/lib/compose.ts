@@ -28,16 +28,19 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Turn typed text into mrkdwn: escape `& < >`, then encode `@name`, `#channel` and `@here`. */
-export function encodeMessage(input: string, lookup: ComposeLookup): string {
-  // Tokens typed in raw mrkdwn form (`<https://…|label>`) pass through untouched.
-  const kept: string[] = [];
-  let text = input.replace(RAW_TOKEN, (token) => {
-    kept.push(token);
-    return `\u0000${kept.length - 1}\u0000`;
-  });
-  text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** A typed `@name`, `@here` or `#channel`, resolved. */
+export type Resolved = { kind: 'user'; id: string } | { kind: 'usergroup'; id: string; handle: string } | { kind: 'broadcast'; id: string } | { kind: 'channel'; id: string };
 
+interface Matchers {
+  /** `@name` after something that is not a letter, digit or `@`; group 1 is what came before, group 2 the name. */
+  mention: RegExp | null;
+  user: (name: string) => Resolved | null;
+  channel: (name: string) => Resolved | null;
+}
+
+const CHANNEL = /(^|[^\p{L}\p{N}&#])#([\p{L}\p{N}_-]+)/gu;
+
+function matchers(lookup: ComposeLookup): Matchers {
   const byName = new Map<string, string>();
   for (const user of lookup.users) {
     for (const name of user.names) {
@@ -52,25 +55,107 @@ export function encodeMessage(input: string, lookup: ComposeLookup): string {
     if (!byName.has(key)) groups.set(key, group.id);
   }
   const names = [...byName.keys(), ...groups.keys(), ...BROADCASTS].sort((a, b) => b.length - a.length).map(escapeRegExp);
-  if (names.length > 0) {
-    const mention = new RegExp(`(^|[^\\p{L}\\p{N}@])@(${names.join('|')})(?![\\p{L}\\p{N}])`, 'giu');
-    text = text.replace(mention, (_match, lead: string, name: string) => {
+  const channels = new Map(lookup.channels.map((channel) => [channel.name.toLowerCase(), channel.id]));
+  return {
+    mention: names.length > 0 ? new RegExp(`(^|[^\\p{L}\\p{N}@])@(${names.join('|')})(?![\\p{L}\\p{N}])`, 'giu') : null,
+    user: (name) => {
       const key = name.toLowerCase();
       const id = byName.get(key);
-      if (id) return `${lead}<@${id}>`;
+      if (id) return { kind: 'user', id };
       const group = groups.get(key);
-      if (group) return `${lead}<!subteam^${group}|@${key}>`;
-      return `${lead}<!${key}>`;
+      if (group) return { kind: 'usergroup', id: group, handle: key };
+      return BROADCASTS.includes(key) ? { kind: 'broadcast', id: key } : null;
+    },
+    channel: (name) => {
+      const id = channels.get(name.toLowerCase());
+      return id ? { kind: 'channel', id } : null;
+    },
+  };
+}
+
+function token(resolved: Resolved): string {
+  if (resolved.kind === 'user') return `<@${resolved.id}>`;
+  if (resolved.kind === 'usergroup') return `<!subteam^${resolved.id}|@${resolved.handle}>`;
+  if (resolved.kind === 'broadcast') return `<!${resolved.id}>`;
+  return `<#${resolved.id}>`;
+}
+
+const CODE = /```[\s\S]*?```|`[^`\n]+`/g;
+
+function escapeAll(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Turn typed text into mrkdwn: escape `& < >`, then encode `@name`, `#channel`
+ * and `@here`. Code spans and fences are only escaped: what is typed in code stays as typed.
+ */
+export function encodeMessage(input: string, lookup: ComposeLookup): string {
+  const match = matchers(lookup);
+  let out = '';
+  let cursor = 0;
+  for (const hit of input.matchAll(CODE)) {
+    out += encodeProse(input.slice(cursor, hit.index), match) + escapeAll(hit[0]);
+    cursor = hit.index + hit[0].length;
+  }
+  return out + encodeProse(input.slice(cursor), match);
+}
+
+function encodeProse(input: string, match: Matchers): string {
+  if (!input) return '';
+  // Tokens typed in raw mrkdwn form (`<https://…|label>`) pass through untouched.
+  const kept: string[] = [];
+  let text = input.replace(RAW_TOKEN, (raw) => {
+    kept.push(raw);
+    return `\u0000${kept.length - 1}\u0000`;
+  });
+  text = escapeAll(text);
+
+  if (match.mention) {
+    text = text.replace(match.mention, (whole, lead: string, name: string) => {
+      const resolved = match.user(name);
+      return resolved ? `${lead}${token(resolved)}` : whole;
     });
   }
-
-  const channels = new Map(lookup.channels.map((channel) => [channel.name.toLowerCase(), channel.id]));
-  text = text.replace(/(^|[^\p{L}\p{N}&#])#([\p{L}\p{N}_-]+)/gu, (match, lead: string, name: string) => {
-    const id = channels.get(name.toLowerCase());
-    return id ? `${lead}<#${id}>` : match;
+  text = text.replace(CHANNEL, (whole, lead: string, name: string) => {
+    const resolved = match.channel(name);
+    return resolved ? `${lead}${token(resolved)}` : whole;
   });
 
   return text.replace(/\u0000(\d+)\u0000/g, (_match, index: string) => kept[Number(index)] ?? '');
+}
+
+/**
+ * The same names `encodeMessage` would encode, found in plain text: pieces of
+ * text and resolved mentions in order. The rich composer uses it for names
+ * typed out in full rather than picked from the list.
+ */
+export function splitMentions(input: string, lookup: ComposeLookup): (string | Resolved)[] {
+  const match = matchers(lookup);
+  const found: { start: number; end: number; resolved: Resolved }[] = [];
+  if (match.mention) {
+    for (const hit of input.matchAll(match.mention)) {
+      const resolved = match.user(hit[2]!);
+      const start = hit.index + hit[1]!.length;
+      if (resolved) found.push({ start, end: start + 1 + hit[2]!.length, resolved });
+    }
+  }
+  for (const hit of input.matchAll(CHANNEL)) {
+    const resolved = match.channel(hit[2]!);
+    const start = hit.index + hit[1]!.length;
+    if (resolved) found.push({ start, end: start + 1 + hit[2]!.length, resolved });
+  }
+  found.sort((a, b) => a.start - b.start);
+  const out: (string | Resolved)[] = [];
+  let cursor = 0;
+  for (const item of found) {
+    if (item.start < cursor) continue;
+    if (item.start > cursor) out.push(input.slice(cursor, item.start));
+    out.push(item.resolved);
+    cursor = item.end;
+  }
+  if (cursor < input.length) out.push(input.slice(cursor));
+  return out;
 }
 
 export interface DecodeLookup {

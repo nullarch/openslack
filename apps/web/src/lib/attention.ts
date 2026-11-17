@@ -1,4 +1,4 @@
-import type { Conversation, FileObject, Message } from '@app/shared';
+import type { Block, Conversation, FileObject, Message } from '@app/shared';
 import { S } from '../strings';
 import { whenText } from './time';
 import { adoptChannel, afterBoot, attempt, errorText, patchChannel, toast } from './actions';
@@ -266,8 +266,10 @@ export const draftEvents = new EventTarget();
 
 // ── Scheduled messages ──────────────────────────────────────────────────────
 
-export async function scheduleMessage(channel: string, text: string, postAt: number, threadTs?: string, broadcast?: boolean): Promise<boolean> {
-  const result = await attempt(() => call('chat.scheduleMessage', { channel, text, post_at: postAt, thread_ts: threadTs, reply_broadcast: broadcast || undefined }));
+export async function scheduleMessage(channel: string, text: string, postAt: number, threadTs?: string, broadcast?: boolean, blocks?: Block[]): Promise<boolean> {
+  const result = await attempt(() =>
+    call('chat.scheduleMessage', { channel, text, blocks: blocks?.length ? blocks : undefined, post_at: postAt, thread_ts: threadTs, reply_broadcast: broadcast || undefined }),
+  );
   if (!result) return false;
   toast(S.att.schedule.scheduled(whenText(postAt)));
   return true;

@@ -317,6 +317,9 @@ export const koCore = {
     code: '코드',
     codeBlock: '코드 블록',
     quote: '인용',
+    bulletList: '글머리 기호 목록',
+    orderedList: '번호 목록',
+    formatting: '서식',
     attach: '파일 첨부',
     emoji: '이모지',
     mention: '멘션하기',
@@ -485,6 +488,9 @@ export const koCore = {
     sidebarThemes: { harbor: '항구', forest: '숲', plum: '자두', ink: '먹', clay: '흙', mist: '안개', custom: '직접 고르기' } as Record<string, string>,
     sidebarColor: '사이드바 색',
     sidebarContrast: (ratio: string) => `글자는 이 색에서 가장 잘 읽히는 색으로 표시돼요(명암비 ${ratio}:1).`,
+    composing: '메시지 쓰기',
+    markup: '마크업으로 메시지 서식 지정',
+    markupHint: '쓰는 동안 서식을 바로 보여 주는 대신 *굵게*, _기울임_, `코드` 같은 기호를 글자 그대로 입력해요.',
   },
 
   dialogs: {

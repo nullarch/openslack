@@ -323,6 +323,9 @@ const en = {
     code: 'Code',
     codeBlock: 'Code block',
     quote: 'Quote',
+    bulletList: 'Bulleted list',
+    orderedList: 'Numbered list',
+    formatting: 'Formatting',
     attach: 'Attach files',
     emoji: 'Emoji',
     mention: 'Mention someone',
@@ -491,6 +494,9 @@ const en = {
     sidebarThemes: { harbor: 'Harbor', forest: 'Forest', plum: 'Plum', ink: 'Ink', clay: 'Clay', mist: 'Mist', custom: 'Custom' } as Record<string, string>,
     sidebarColor: 'Sidebar color',
     sidebarContrast: (ratio: string) => `Text is drawn in the color that reads best on it (contrast ${ratio}:1).`,
+    composing: 'Writing messages',
+    markup: 'Format messages with markup',
+    markupHint: 'Type *bold*, _italic_, `code` and the rest as plain text instead of seeing the formatting as you write.',
   },
 
   dialogs: {

@@ -14,6 +14,7 @@ import {
   attach,
   browserName,
   composer,
+  composerText,
   errors,
   modifier,
   openChannel,
@@ -423,7 +424,7 @@ async function main(browser) {
       await maya.evaluate(() => navigator.clipboard.writeText('plain words'));
       await composer(maya).click();
       await maya.keyboard.press(`${modifier}+v`);
-      assert.equal(await composer(maya).inputValue(), 'plain words');
+      assert.equal(await composerText(composer(maya)), 'plain words');
       assert.equal(await maya.locator('.upload-chip').count(), 0);
       await composer(maya).fill('');
     }
