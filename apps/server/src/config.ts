@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BRAND } from '@app/shared';
+import { scannerFromEnv } from './core/scanner.ts';
 import type { S3Config } from './core/storage.ts';
 import type { Config } from './ctx.ts';
 import { liveKitFromEnv } from './huddles/livekit.ts';
@@ -60,6 +61,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     maxUploadBytes: Number(env.MAX_UPLOAD_MB ?? 100) * 1024 * 1024,
     s3: s3FromEnv(env),
     livekit: liveKitFromEnv(env),
+    scanner: scannerFromEnv(env),
     cookieSecure: publicUrl.startsWith('https://'),
     version: VERSION,
     quiet: env.QUIET === '1',
