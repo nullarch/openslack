@@ -162,6 +162,7 @@ async function main(): Promise<void> {
     `| OAuth v2 installation flow (\`/oauth/v2/authorize\`, \`oauth.v2.access\`; bot and user scopes) | Supported; installs with a bot need an admin's approval | ${runKeys.filter((key) => key.includes('oauth')).map((key) => `\`${key}\``).join(', ')}, server tests |`,
     `| Token rotation (\`settings.token_rotation_enabled\`: twelve-hour \`xoxe.\` tokens, \`grant_type=refresh_token\`) | Supported; \`oauth.v2.exchange\` for older long-lived tokens is not | \`web-api-manifest\`, server tests |`,
     `| App manifests (\`apps.manifest.*\` with an app configuration token, \`tooling.tokens.rotate\`) | Supported, including \`functions\` with \`function_runtime: remote\`. Slack-hosted parts (\`workflows\`, \`datastores\`, \`function_runtime: slack\`) and scopes this server does not grant are refused with a pointer | \`web-api-manifest\`, server tests |`,
+    `| Sign in with this workspace (OpenID Connect: \`/openid/connect/authorize\`, \`openid.connect.token\`, \`openid.connect.userInfo\`, discovery and keys) | Supported; Slack's claim names, ID tokens signed RS256. \`email_verified\` is false because addresses are not confirmed by mail | \`openid-connect\` (openid-client), server tests |`,
     `| RTM (\`rtm.connect\`, \`rtm.start\`; \`message\`, \`typing\`, \`ping\`, \`presence_sub\` over the socket) | Supported, for older bots | ${runKeys.filter((key) => key.startsWith('rtm')).map((key) => `\`${key}\``).join(', ')}, server tests |`,
     '| Outgoing webhooks | Not supported | Use the Events API |',
     '',

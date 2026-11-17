@@ -19,6 +19,9 @@ await build({
   config: {
     appId: `dev.${slug}.desktop`,
     productName: name,
+    // The workspace package name (@app/desktop) is not a usable file name: binaries and caches use the slug.
+    executableName: slug,
+    extraMetadata: { name: slug },
     artifactName: `${slug}-\${version}-\${os}-\${arch}.\${ext}`,
     directories: { output: 'release', buildResources: 'build' },
     icon: 'build/icon.png',

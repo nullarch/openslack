@@ -16,6 +16,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
 | `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
+| `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
 | `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
 
@@ -43,6 +44,7 @@ App(client=WebClient(token=bot_token, base_url="http://localhost:3000/api/"))
 | OAuth v2 installation flow (`/oauth/v2/authorize`, `oauth.v2.access`; bot and user scopes) | Supported; installs with a bot need an admin's approval | `bolt-js-oauth`, server tests |
 | Token rotation (`settings.token_rotation_enabled`: twelve-hour `xoxe.` tokens, `grant_type=refresh_token`) | Supported; `oauth.v2.exchange` for older long-lived tokens is not | `web-api-manifest`, server tests |
 | App manifests (`apps.manifest.*` with an app configuration token, `tooling.tokens.rotate`) | Supported, including `functions` with `function_runtime: remote`. Slack-hosted parts (`workflows`, `datastores`, `function_runtime: slack`) and scopes this server does not grant are refused with a pointer | `web-api-manifest`, server tests |
+| Sign in with this workspace (OpenID Connect: `/openid/connect/authorize`, `openid.connect.token`, `openid.connect.userInfo`, discovery and keys) | Supported; Slack's claim names, ID tokens signed RS256. `email_verified` is false because addresses are not confirmed by mail | `openid-connect` (openid-client), server tests |
 | RTM (`rtm.connect`, `rtm.start`; `message`, `typing`, `ping`, `presence_sub` over the socket) | Supported, for older bots | `rtm-node`, server tests |
 | Outgoing webhooks | Not supported | Use the Events API |
 
@@ -90,7 +92,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **98 supported**, 199 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -161,6 +163,8 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **98 supported**, 199 n
 | `functions.completeError` | ✓ | ✓ | Fails the workflow run with the app's message. |
 | `functions.completeSuccess` | ✓ | ✓ | Finishes a workflow step the app implements; outputs it did not declare are dropped. Only the app that received the `function_executed` event may finish it. |
 | `oauth.v2.access` | ✓ |  |  |
+| `openid.connect.token` | ✓ |  |  |
+| `openid.connect.userInfo` | ✓ |  |  |
 | `pins.add` | ✓ | ✓ |  |
 | `pins.list` | ✓ | ✓ |  |
 | `pins.remove` | ✓ |  |  |
@@ -212,7 +216,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **98 supported**, 199 n
 | `files` | 7 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update` |
 | `migration` | 1 | `migration.exchange` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
-| `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
 | `reactions` | 1 | `reactions.list` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
 | `slackLists` | 12 | `slackLists.access.delete`, `slackLists.access.set`, `slackLists.create`, `slackLists.download.get`, `slackLists.download.start`, `slackLists.items.create`, `slackLists.items.delete`, `slackLists.items.deleteMultiple`, `slackLists.items.info`, `slackLists.items.list`, `slackLists.items.update`, `slackLists.update` |

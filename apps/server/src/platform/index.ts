@@ -9,6 +9,7 @@ import { setPlatformServices } from './local-apps.ts';
 import { installManifest } from './manifest.ts';
 import { platformOptions } from './options.ts';
 import { installOauth } from './oauth.ts';
+import { installOpenId } from './openid.ts';
 import { RtmHub } from './rtm.ts';
 import { EphemeralStore, ResponseHooks } from './responses.ts';
 import { installShortcuts } from './shortcuts.ts';
@@ -61,4 +62,5 @@ export function installPlatform(kernel: Kernel): void {
   installManifest(kernel, sockets, http);
   new RtmHub(ctx).install(kernel);
   installOauth(kernel);
+  installOpenId(kernel);
 }

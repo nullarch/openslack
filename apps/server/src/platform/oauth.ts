@@ -50,11 +50,11 @@ function scopeList(value: string | null | undefined): string[] {
   return [...new Set((value ?? '').split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean))];
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 }
 
-function page(res: ServerResponse, status: number, title: string, body: string): void {
+export function page(res: ServerResponse, status: number, title: string, body: string): void {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} · ${escapeHtml(BRAND.name)}</title>
 <style>
@@ -84,17 +84,17 @@ function errorPage(res: ServerResponse, message: string): void {
 }
 
 /** A token tying the approval form to the browser session that loaded it. */
-function formToken(sessionToken: string): string {
+export function formToken(sessionToken: string): string {
   return createHash('sha256').update(`oauth-form:${sessionToken}`).digest('hex');
 }
 
-function sameToken(a: string, b: string): boolean {
+export function sameToken(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function redirectTo(res: ServerResponse, target: string, extra: Record<string, string> = {}): void {
+export function redirectTo(res: ServerResponse, target: string, extra: Record<string, string> = {}): void {
   res.writeHead(302, { location: target, 'cache-control': 'no-store', ...extra });
   res.end();
 }

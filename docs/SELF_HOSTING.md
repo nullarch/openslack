@@ -136,6 +136,18 @@ Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "
 
 The Agents view (workspace menu → Agents) needs no model. It lists apps acting as agents — connected over Socket Mode, or using assistant status, titles or streamed replies — with their recent threads and current status, limited to threads the viewer can read.
 
+## Sign in with this workspace
+
+Other tools can let people sign in with their account here (OpenID Connect, the same flow as Slack's Sign in with Slack). Create an app under **Administration → Apps**, add the tool's callback address as a redirect URL, and give the tool:
+
+| Setting | Value |
+|---|---|
+| Issuer / discovery | `https://chat.example.com` (`/.well-known/openid-configuration`) |
+| Client ID and secret | the app's, from its page under Administration → Apps |
+| Scopes | `openid profile email` |
+
+Tools that support Sign in with Slack can instead be pointed at `https://chat.example.com/openid/connect/authorize` and `https://chat.example.com/api/`. The signing key is created on first use as `oidc-signing-key.pem` in the data directory; keep it with your backups, or tools will have to fetch the new key after a restore.
+
 ## Kubernetes
 
 A Helm chart is in `deploy/helm/chat`. It runs one replica (the server owns its database file and the realtime connections) with its data on a persistent volume:
