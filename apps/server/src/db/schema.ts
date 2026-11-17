@@ -869,4 +869,13 @@ export const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+
+  /* 18: email notifications — when each person was last mailed about unread mentions and direct messages */ `
+  CREATE TABLE email_digests (
+    user_id TEXT PRIMARY KEY,
+    last_sent INTEGER NOT NULL DEFAULT 0,
+    -- the newest message already mailed about, so nothing is mailed twice
+    watermark TEXT NOT NULL DEFAULT '0000000000.000000'
+  ) WITHOUT ROWID;
+  `,
 ];
