@@ -20,6 +20,7 @@ export interface FileRow {
   alt_txt: string | null;
   upload_secret: string | null;
   created: number;
+  mode?: string;
 }
 
 interface TypeInfo {
@@ -137,7 +138,7 @@ export function fileToApi(ctx: Ctx, row: FileRow): FileObject {
     user_team: ctx.requireTeam().id,
     editable: false,
     size: row.size,
-    mode: 'hosted',
+    mode: row.mode === 'snippet' ? 'snippet' : 'hosted',
     is_external: false,
     external_type: '',
     is_public: channels.length > 0,
