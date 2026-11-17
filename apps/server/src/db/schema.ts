@@ -478,4 +478,121 @@ export const MIGRATIONS: string[] = [
   ) WITHOUT ROWID;
   CREATE INDEX agent_threads_recent ON agent_threads(app_id, last_activity);
   `,
+
+  /* canvases and lists — documents and trackers with their own access lists (position set at merge; SQL does not depend on it) */ `
+  CREATE TABLE docs (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('canvas', 'list')),
+    title TEXT NOT NULL DEFAULT '',
+    owner TEXT NOT NULL,
+    -- The channel or DM whose tab shows this document, if any.
+    conversation_id TEXT,
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL,
+    updated_by TEXT NOT NULL DEFAULT '',
+    deleted INTEGER NOT NULL DEFAULT 0,
+    -- Searchable text: a canvas's words, or a list's titles and cells.
+    plain TEXT NOT NULL DEFAULT '',
+    -- Lists: schema, views, description, todo mode.
+    extra TEXT NOT NULL DEFAULT '{}'
+  );
+  CREATE INDEX docs_conversation ON docs(conversation_id) WHERE conversation_id IS NOT NULL;
+  CREATE INDEX docs_owner ON docs(owner, updated);
+
+  CREATE VIRTUAL TABLE docs_fts USING fts5(search, tokenize = 'trigram', content = '', contentless_delete = 1);
+
+  -- Who may open a document besides its owner: a person, or the members of a conversation.
+  CREATE TABLE doc_access (
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    principal TEXT NOT NULL,
+    level TEXT NOT NULL CHECK (level IN ('read', 'write')),
+    PRIMARY KEY (doc_id, principal)
+  ) WITHOUT ROWID;
+  CREATE INDEX doc_access_principal ON doc_access(principal);
+
+  -- A canvas is a Yjs document stored as its updates, compacted from time to time.
+  CREATE TABLE canvas_updates (
+    id INTEGER PRIMARY KEY,
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    data BLOB NOT NULL,
+    user_id TEXT NOT NULL DEFAULT '',
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX canvas_updates_doc ON canvas_updates(doc_id, id);
+
+  CREATE TABLE canvas_versions (
+    id TEXT PRIMARY KEY,
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    state BLOB NOT NULL,
+    created INTEGER NOT NULL,
+    created_by TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX canvas_versions_doc ON canvas_versions(doc_id, created);
+
+  CREATE TABLE canvas_comments (
+    id TEXT PRIMARY KEY,
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    -- Replies point at the comment that started the thread.
+    root_id TEXT,
+    user_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    quote TEXT NOT NULL DEFAULT '',
+    -- Yjs relative positions of the commented range, as JSON.
+    anchor TEXT,
+    created INTEGER NOT NULL,
+    resolved INTEGER NOT NULL DEFAULT 0,
+    resolved_by TEXT
+  );
+  CREATE INDEX canvas_comments_doc ON canvas_comments(doc_id, created);
+
+  -- People already told they were mentioned in a canvas.
+  CREATE TABLE canvas_mentions (
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    PRIMARY KEY (doc_id, user_id)
+  ) WITHOUT ROWID;
+
+  CREATE TABLE list_items (
+    id TEXT PRIMARY KEY,
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    parent_id TEXT,
+    position REAL NOT NULL,
+    fields TEXT NOT NULL DEFAULT '{}',
+    archived INTEGER NOT NULL DEFAULT 0,
+    created INTEGER NOT NULL,
+    created_by TEXT NOT NULL,
+    updated INTEGER NOT NULL,
+    updated_by TEXT NOT NULL
+  );
+  CREATE INDEX list_items_doc ON list_items(doc_id, archived, position);
+
+  CREATE TABLE list_comments (
+    id TEXT PRIMARY KEY,
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX list_comments_item ON list_comments(doc_id, item_id, created);
+
+  -- Due-date reminders already sent, so each is sent once per item and date.
+  CREATE TABLE list_due_sent (
+    item_id TEXT NOT NULL,
+    due TEXT NOT NULL,
+    PRIMARY KEY (item_id, due)
+  ) WITHOUT ROWID;
+
+  CREATE TABLE doc_templates (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('canvas', 'list')),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created INTEGER NOT NULL
+  );
+  `,
 ];

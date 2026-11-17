@@ -11,7 +11,18 @@ import type { Ctx } from '../ctx.ts';
  * message, being added to a channel, a keyword) and read back newest first.
  */
 
-export type ActivityKind = 'mention' | 'thread_reply' | 'reaction' | 'invite' | 'keyword';
+export type ActivityKind = 'mention' | 'thread_reply' | 'reaction' | 'invite' | 'keyword' | (string & {});
+
+/**
+ * Activity about something other than a message (a canvas mention, a list
+ * assignment) registers how to check who may see it and how to show it.
+ * For such rows `conversation_id` holds the document id and `ts` an item id.
+ */
+export interface ActivityResolver {
+  canSee(ctx: Ctx, row: { conversation_id: string; ts: string; detail: string }, userId: string): boolean;
+  toApi(ctx: Ctx, row: { conversation_id: string; ts: string; detail: string; actor: string }): Record<string, unknown>;
+}
+export const activityResolvers = new Map<string, ActivityResolver>();
 
 interface ActivityRow {
   id: number;
@@ -52,6 +63,8 @@ function activityToApi(ctx: Ctx, row: ActivityRow): Record<string, unknown> {
   if (row.kind === 'reaction') item.reaction = row.detail;
   if (row.kind === 'keyword') item.keyword = row.detail;
   if (row.kind === 'mention' && row.detail === 'broadcast') item.broadcast = true;
+  const resolver = activityResolvers.get(row.kind);
+  if (resolver) return { ...item, ...resolver.toApi(ctx, row) };
   const message = getMessage(ctx, row.conversation_id, row.ts);
   if (message) item.message = messageToApi(ctx, message);
   return item;
@@ -161,7 +174,7 @@ export function registerActivity(registry: Registry): void {
     const limit = args.int('limit', 30, { min: 1, max: 100 });
     const before = args.str('cursor') ? Number(args.str('cursor')) : Number.MAX_SAFE_INTEGER;
     if (!Number.isFinite(before)) fail('invalid_cursor');
-    const types = args.list('types').filter((type) => ['mention', 'thread_reply', 'reaction', 'invite', 'keyword'].includes(type));
+    const types = args.list('types').filter((type) => ['mention', 'thread_reply', 'reaction', 'invite', 'keyword', ...activityResolvers.keys()].includes(type));
     const unreadOnly = args.bool('unread_only');
     const items: Record<string, unknown>[] = [];
     let cursor = before;
@@ -181,8 +194,13 @@ export function registerActivity(registry: Registry): void {
       if (rows.length < limit * 2) exhausted = true;
       for (const row of rows) {
         cursor = row.id;
-        const conv = getConv(ctx, row.conversation_id);
-        if (!conv || !canSee(ctx, conv, actor.userId)) continue;
+        const resolver = activityResolvers.get(row.kind);
+        if (resolver) {
+          if (!resolver.canSee(ctx, row, actor.userId)) continue;
+        } else {
+          const conv = getConv(ctx, row.conversation_id);
+          if (!conv || !canSee(ctx, conv, actor.userId)) continue;
+        }
         items.push(activityToApi(ctx, row));
         if (items.length === limit) break;
       }
