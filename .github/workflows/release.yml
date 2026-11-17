@@ -1,9 +1,15 @@
 # Publishes the npm package and the container image when a version tag is pushed.
-# Needs the NPM_TOKEN repository secret. Not yet exercised: the first tag is the test.
+# Needs the NPM_TOKEN repository secret.
+#
+# Run by hand (Actions → Release → Run workflow) it does everything up to
+# publishing and publishes nothing: tests, the npm package checked with
+# `npm publish --dry-run`, the image built for both platforms, and the image
+# started and asked to answer.
 name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,7 +29,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck && pnpm test
       - run: pnpm release
-      - run: npm publish --access public
+      - run: npm publish --access public ${{ github.event_name == 'push' && ' ' || '--dry-run' }}
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -34,7 +40,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+      # Before anything is pushed: the image for this runner starts, sets up its
+      # data directory and answers.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: release-check
+      - name: The image starts and answers
+        run: |
+          docker run -d --name release-check -p 3999:3000 release-check
+          for attempt in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:3999/api/api.test; then
+              echo
+              docker inspect --format '{{.Config.User}} {{json .Config.Volumes}}' release-check
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs release-check
+          exit 1
       - uses: docker/login-action@v3
+        if: github.event_name == 'push'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -42,7 +69,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
