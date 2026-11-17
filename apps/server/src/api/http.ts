@@ -7,6 +7,7 @@ import type { Actor, Ctx } from '../ctx.ts';
 import { authenticate } from '../core/auth.ts';
 import { ApiError } from '../core/errors.ts';
 import { isAdmin } from '../core/users.ts';
+import { discardMultipart, readMultipart } from './methods/legacy-files.ts';
 import { Args, type MethodDef, type Registry } from './registry.ts';
 
 export interface RouteCall {
@@ -184,12 +185,13 @@ async function handleApi(
   url: URL,
 ): Promise<void> {
   const name = url.pathname.slice('/api/'.length);
+  const raw: Record<string, unknown> = {};
   try {
-    const raw: Record<string, unknown> = {};
     for (const [key, value] of url.searchParams) raw[key] = value;
     if (req.method === 'POST') {
       const contentType = String(req.headers['content-type'] ?? '');
-      Object.assign(raw, parseBody(contentType, await readBody(req)));
+      if (contentType.startsWith('multipart/form-data')) Object.assign(raw, await readMultipart(ctx, req));
+      else Object.assign(raw, parseBody(contentType, await readBody(req)));
     }
     const args = new Args(raw);
 
@@ -221,9 +223,11 @@ async function handleApi(
     }
 
     const result = await def.handler({ ctx, actor: actor as never, args, req, res });
+    await discardMultipart(raw);
     if (res.writableEnded) return;
     sendJson(res, 200, { ok: true, ...(result ?? {}) });
   } catch (error) {
+    await discardMultipart(raw);
     if (res.writableEnded) return;
     if (error instanceof ApiError) {
       sendJson(res, error.status, { ok: false, error: error.code, ...error.extra });
@@ -231,6 +235,9 @@ async function handleApi(
     }
     console.error(`[api] ${name} failed`, error);
     sendJson(res, 500, { ok: false, error: 'internal_error' });
+  } finally {
+    // A multipart upload is spooled to a temporary file; it never outlives the call.
+    await discardMultipart(raw);
   }
 }
 

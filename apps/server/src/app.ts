@@ -8,6 +8,7 @@ import { registerClient } from './api/methods/client.ts';
 import { registerConversations } from './api/methods/conversations.ts';
 import { registerEmoji } from './api/methods/emoji.ts';
 import { registerFileRoutes, registerFiles } from './api/methods/files.ts';
+import { registerLegacyFiles } from './api/methods/legacy-files.ts';
 import { registerSearch } from './api/methods/search.ts';
 import { registerSearchFiles } from './api/methods/search-files.ts';
 import { registerUsers } from './api/methods/users.ts';
@@ -80,6 +81,7 @@ export function createApp(config: Config): App {
   registerConversations(registry);
   registerChat(registry);
   registerFiles(registry);
+  registerLegacyFiles(registry);
   registerEmoji(registry);
   registerSearch(registry);
   registerSearchFiles(registry);

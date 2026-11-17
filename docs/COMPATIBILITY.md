@@ -14,6 +14,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
 | `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
+| `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
 
 "SDK" in the tables below means at least one of these runs called the method, or received the payload, through an official SDK. "Server tests" means the server’s own tests exercise it over HTTP. A supported method with neither mark is implemented but not yet covered here.
 
@@ -37,7 +38,8 @@ App(client=WebClient(token=bot_token, base_url="http://localhost:3000/api/"))
 | `response_url` (five uses within thirty minutes) | Supported | SDK, server tests |
 | Incoming webhooks (`/services/<team>/<bot>/<secret>`) | Supported | Server tests |
 | OAuth installation flow (`oauth.v2.access`) | Not supported | Apps are created by a workspace admin, who receives the tokens directly |
-| RTM | Not supported | |
+| RTM (`rtm.connect`, `rtm.start`; `message`, `typing`, `ping`, `presence_sub` over the socket) | Supported, for older bots | `rtm-node`, server tests |
+| Outgoing webhooks | Not supported | Use the Events API |
 
 ## Events
 
@@ -82,7 +84,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **70 supported**, 227 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -128,7 +130,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **70 supported**, 227 n
 | `dnd.teamInfo` |  | ✓ | Reports Do Not Disturb as off unless the server implements Do Not Disturb. |
 | `emoji.list` | ✓ |  |  |
 | `files.completeUploadExternal` | ✓ | ✓ |  |
-| `files.delete` |  |  |  |
+| `files.delete` |  | ✓ |  |
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
@@ -138,6 +140,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **70 supported**, 227 n
 | `reactions.add` | ✓ | ✓ |  |
 | `reactions.get` | ✓ | ✓ |  |
 | `reactions.remove` | ✓ | ✓ |  |
+| `rtm.connect` | ✓ | ✓ |  |
 | `search.all` |  | ✓ | `posts` is always empty. |
 | `search.files` |  | ✓ | Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations). |
 | `search.messages` | ✓ | ✓ | Bot tokens may search (Slack: user tokens only): public channels plus the bot’s conversations. |
@@ -183,7 +186,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **70 supported**, 227 n
 | `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
 | `reactions` | 1 | `reactions.list` |
 | `reminders` | 5 | `reminders.add`, `reminders.complete`, `reminders.delete`, `reminders.info`, `reminders.list` |
-| `rtm` | 1 | `rtm.connect` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
 | `slackLists` | 12 | `slackLists.access.delete`, `slackLists.access.set`, `slackLists.create`, `slackLists.download.get`, `slackLists.download.start`, `slackLists.items.create`, `slackLists.items.delete`, `slackLists.items.deleteMultiple`, `slackLists.items.info`, `slackLists.items.list`, `slackLists.items.update`, `slackLists.update` |
 | `stars` | 3 | `stars.add`, `stars.list`, `stars.remove` |
@@ -207,5 +209,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **70 supported**, 227 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 44 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 46 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

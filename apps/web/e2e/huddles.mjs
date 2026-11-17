@@ -7,7 +7,7 @@
 // thread, and leave. Without a LiveKit binary the run is skipped, not failed.
 import assert from 'node:assert/strict';
 import { findLiveKit, startLiveKit } from './livekit.mjs';
-import { freePort, openChannel, run, shot, sideItem, signIn, skip, startServer, step, watch, wide } from './lib.mjs';
+import { browserName, freePort, openChannel, run, shot, sideItem, signIn, skip, startServer, step, watch, wide } from './lib.mjs';
 
 /** The LiveKit client's view of the call in this page. */
 const state = (page) => page.evaluate(() => (window.__huddleState ? window.__huddleState() : { connected: false }));
@@ -47,7 +47,8 @@ await run(
     });
 
     const context = (scheme) =>
-      browser.newContext({ ...wide, colorScheme: scheme, permissions: ['microphone', 'camera'] });
+      // Only Chromium takes camera and microphone permissions here; Firefox uses the prefs above.
+      browser.newContext({ ...wide, colorScheme: scheme, ...(browserName === 'chrome' ? { permissions: ['microphone', 'camera'] } : {}) });
     const mayaContext = await context('dark');
     let danielContext = await context('light');
     const maya = watch(await mayaContext.newPage(), /getDisplayMedia|NotAllowedError|Permission denied/);
@@ -192,11 +193,21 @@ await run(
     });
   },
   {
-    args: [
-      '--use-fake-ui-for-media-stream',
-      '--use-fake-device-for-media-stream',
-      '--auto-select-desktop-capture-source=Entire screen',
-      '--autoplay-policy=no-user-gesture-required',
-    ],
+    chrome: {
+      args: [
+        '--use-fake-ui-for-media-stream',
+        '--use-fake-device-for-media-stream',
+        '--auto-select-desktop-capture-source=Entire screen',
+        '--autoplay-policy=no-user-gesture-required',
+      ],
+    },
+    // Firefox's own fake camera and microphone, with no permission prompt.
+    firefox: {
+      firefoxUserPrefs: {
+        'media.navigator.streams.fake': true,
+        'media.navigator.permission.disabled': true,
+        'media.autoplay.default': 0,
+      },
+    },
   },
 );

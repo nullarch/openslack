@@ -289,7 +289,7 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX app_views_user ON app_views(user_id, type);
   `,
 
-  /* 4: huddles — calls inside a conversation; media through LiveKit */ `
+  /* 5: huddles — calls inside a conversation; media through LiveKit (4 is the messaging branch's) */ `
   CREATE TABLE huddles (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,

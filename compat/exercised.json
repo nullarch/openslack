@@ -172,5 +172,17 @@
       "slash_commands",
       "view_submission"
     ]
+  },
+  "rtm-node": {
+    "sdk": "@slack/rtm-api 7.0.4, @slack/web-api 8.4.0",
+    "methods": [
+      "files.upload",
+      "rtm.connect"
+    ],
+    "events": [
+      "hello",
+      "message",
+      null
+    ]
   }
 }
