@@ -288,7 +288,7 @@ export const MIGRATIONS: string[] = [
   CREATE UNIQUE INDEX app_views_external ON app_views(app_id, external_id) WHERE external_id IS NOT NULL;
   CREATE INDEX app_views_user ON app_views(user_id, type);
   `,
-  /* 4: AI features — model connection, daily recaps, agent activity */ `
+  /* AI features — model connection, daily recaps, agent activity (position set at merge; SQL does not depend on it) */ `
   CREATE TABLE ai_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     provider TEXT NOT NULL,

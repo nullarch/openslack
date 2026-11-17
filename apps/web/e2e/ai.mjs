@@ -210,6 +210,59 @@ async function main(browser) {
       await maya.locator('.panel .msg', { hasText: 'triage the checkout bug' }).first().waitFor();
     });
 
+    await step('dark theme and phone width: the sheet, the answer box, the dialog and the Agents view fit', async () => {
+      const ids = {
+        engineering: (await api(maya, 'conversations.info', { channel: '#engineering' })).channel.id,
+      };
+      const layouts = [
+        { name: 'dark', options: { ...wide, colorScheme: 'dark' } },
+        { name: 'phone', options: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: 'light' } },
+      ];
+      for (const layout of layouts) {
+        const context = await browser.newContext(layout.options);
+        const page = watch(await context.newPage());
+        await signIn(page, server.base, 'maya@example.com');
+        await page.goto(`${server.base}/c/${ids.engineering}`);
+        await page.locator('.conv-head .ai-btn').click();
+        await page.locator('.menu-item', { hasText: 'Summarize today' }).click();
+        const sheet = page.locator('.ai-sheet');
+        await sheet.locator('.ai-citations li').first().waitFor();
+        const box = await sheet.boundingBox();
+        const viewport = page.viewportSize();
+        assert.ok(box.x >= 0 && box.x + box.width <= viewport.width, `${layout.name}: the sheet fits the width`);
+        assert.ok(box.y >= 0 && box.y + box.height <= viewport.height, `${layout.name}: the sheet fits the height`);
+        await shot(page, `ai-${layout.name}-summary`);
+        await sheet.getByRole('button', { name: 'Close' }).click();
+
+        await page.goto(`${server.base}/search?q=freeze`);
+        await page.getByRole('button', { name: 'Answer with AI' }).click();
+        await page.locator('.ai-answer .ai-citations li').first().waitFor();
+        await shot(page, `ai-${layout.name}-answer`);
+
+        await page.goto(`${server.base}/agents`);
+        await page.locator('.agent-card', { hasText: 'Triage Agent' }).waitFor();
+        await shot(page, `ai-${layout.name}-agents`);
+        assert.ok(
+          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+          `${layout.name}: no sideways scroll on the Agents view`,
+        );
+
+        await page.goto(`${server.base}/c/${ids.engineering}`);
+        await page.locator('.conv-head').waitFor();
+        if (layout.name === 'phone') {
+          await page.locator('.conv-head .only-narrow').click();
+        }
+        await page.locator('.team-btn').click();
+        await page.locator('.menu-item', { hasText: 'AI settings' }).click();
+        const dialog = page.locator('.modal.ai-settings');
+        await dialog.locator('.check-row').first().waitFor();
+        const dialogBox = await dialog.boundingBox();
+        assert.ok(dialogBox.x >= 0 && dialogBox.x + dialogBox.width <= viewport.width, `${layout.name}: the dialog fits the width`);
+        await shot(page, `ai-${layout.name}-settings`);
+        await context.close();
+      }
+    });
+
     await step('turning AI off removes the controls again', async () => {
       await teamMenu(maya, 'AI settings');
       const dialog = maya.locator('.modal.ai-settings');
