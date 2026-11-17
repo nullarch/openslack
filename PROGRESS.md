@@ -89,7 +89,7 @@ Run these to reproduce.
 
 In order. Details and owners are in `TODO.html`.
 
-1. Owner decisions: public demo server, when to make the repository public, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app.
-2. Run against real exports and real identity providers; try real third-party agents and document only what works.
-3. A real screen reader pass (VoiceOver, NVDA); a native speaker's review of the Japanese; more interface languages; server-side speech recognition for browsers without it.
-4. Then the larger items: several processes sharing one database, shared channels between servers, native mobile apps.
+1. Owner decisions: public demo server, when to make the repository public, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app, the Slack terms and trademark review.
+2. Run against real exports (a Slack Business+ export with private channels, a Mattermost export) and real identity providers (Okta, Entra); try real third-party agents, including a Slack Code agent, and document only what works.
+3. A real screen reader pass (VoiceOver, NVDA); a native speaker's review of the Japanese; real phones (iOS Safari as a home-screen app, Android Chrome) for push and the composer with Korean and Japanese input methods.
+4. Then the larger items, each several days: several processes sharing one database (in-memory state to move: the timestamp clock, live connections, Socket Mode routing, streams, co-editing documents, response URLs, triggers), organisations with several workspaces, shared channels and direct messages between servers, native mobile apps with a push relay.
