@@ -612,4 +612,11 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX audit_log_created ON audit_log(created);
   CREATE INDEX audit_log_action ON audit_log(action, created);
   `,
+
+  /* 15: text inside files, for search — one row per file looked at (empty when there was nothing to read) */ `
+  CREATE VIRTUAL TABLE file_text USING fts5(file_id UNINDEXED, body, tokenize = 'trigram');
+  CREATE TRIGGER files_text_delete AFTER DELETE ON files BEGIN
+    DELETE FROM file_text WHERE file_id = old.id;
+  END;
+  `,
 ];

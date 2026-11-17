@@ -5,7 +5,7 @@ import { parseQuery } from '../../core/search.ts';
 import type { Args, Registry } from '../registry.ts';
 
 /**
- * `search.files` and `search.all`. Files are found by name and title, within
+ * `search.files` and `search.all`. Files are found by name, title and the text inside them, within
  * the conversations the caller can see, with the same modifiers as messages
  * (`in:`, `from:`, `before:`, `after:`, `on:`).
  */
@@ -26,9 +26,10 @@ function fileSearch(ctx: Ctx, actor: Actor, args: Args): Record<string, unknown>
   const params: Param[] = [actor.userId];
   if (query.inConversation) params.push(query.inConversation);
   for (const term of query.terms) {
-    where.push("(f.name LIKE ? ESCAPE '\\' OR f.title LIKE ? ESCAPE '\\')");
+    // The name, the title, or the text inside the file (trigram index; shorter terms scan it).
+    where.push("(f.name LIKE ? ESCAPE '\\' OR f.title LIKE ? ESCAPE '\\' OR f.id IN (SELECT file_id FROM file_text WHERE body LIKE ? ESCAPE '\\'))");
     const like = `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
-    params.push(like, like);
+    params.push(like, like, like);
   }
   if (query.fromUser) {
     where.push('f.user_id = ?');

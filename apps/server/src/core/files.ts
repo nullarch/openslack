@@ -1,5 +1,6 @@
 import type { Readable } from 'node:stream';
 import { scanStream } from './scanner.ts';
+import { indexFileText } from './file-text.ts';
 import type { FileObject } from '@app/shared';
 import type { Ctx } from '../ctx.ts';
 import { canSee, getConv } from './conversations.ts';
@@ -324,6 +325,9 @@ export async function receiveUpload(ctx: Ctx, id: string, secret: string, body: 
     dimensions?.height ?? null,
     id,
   );
+  // Reading the text is slower than storing the bytes; it happens after the upload has answered.
+  const stored = getFile(ctx, id);
+  if (stored) setImmediate(() => void indexFileText(ctx, stored).catch(() => undefined));
   return size;
 }
 
