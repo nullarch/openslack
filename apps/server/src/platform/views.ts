@@ -9,6 +9,7 @@ import { getApp, requireApp, type AppRow } from './apps.ts';
 import { sendToApp, type Delivery } from './dispatch.ts';
 import { assignIds, locate, sanitizeState, type Json, type StateValues } from './elements.ts';
 import { buildAction, deliverInteractive, payloadUser, type Interactivity } from './interactivity.ts';
+import { localApp } from './local-apps.ts';
 
 /**
  * Views: modals and App Home tabs (`views.open`, `views.push`, `views.update`,
@@ -236,6 +237,21 @@ export class Views {
     return row;
   }
 
+  /**
+   * Open a modal for a person on behalf of a built-in app (no `trigger_id`:
+   * the server itself decided to ask). Replaces whatever modal was open.
+   */
+  openFor(appId: string, userId: string, raw: unknown): Json {
+    const app = requireApp(this.ctx, appId);
+    const view = readView(raw, ['modal']);
+    const row = this.ctx.db.tx(() => {
+      this.ctx.db.run("DELETE FROM app_views WHERE user_id = ? AND type = 'modal'", userId);
+      return this.insert(app, userId, view, { root: null, previous: null, depth: 0 });
+    });
+    this.emitStack(userId);
+    return this.toApi(row);
+  }
+
   install(kernel: Kernel): void {
     const { registry } = kernel;
     const ctx = this.ctx;
@@ -323,7 +339,11 @@ export class Views {
         is_enterprise_install: false,
         enterprise: null,
       };
-      const answer = await deliverInteractive(this.deps, app, 'interactive', payload, app.interactivity_url);
+      // A built-in app answers in-process.
+      const local = localApp(ctx, app.id);
+      const answer = local?.submitView
+        ? await local.submitView(actor.userId, this.toApi(fresh))
+        : await deliverInteractive(this.deps, app, 'interactive', payload, app.interactivity_url);
       return this.applyResponse(actor.userId, app, fresh, answer);
     });
 
@@ -338,6 +358,7 @@ export class Views {
       const stack = this.stack(actor.userId);
       const notified = clear ? stack[0]! : row;
       ctx.db.run(clear ? "DELETE FROM app_views WHERE user_id = ? AND type = 'modal'" : 'DELETE FROM app_views WHERE id = ?', clear ? actor.userId : row.id);
+      localApp(ctx, notified.app_id)?.closeView?.(actor.userId, this.toApi(notified));
       const notifyBody = parse<Json>(notified.body, {});
       if (notifyBody.notify_on_close === true) {
         const app = getApp(ctx, notified.app_id);
@@ -391,7 +412,7 @@ export class Views {
         view,
         actions: [buildAction(located, input, ctx.clock.eventTs())],
       };
-      await deliverInteractive(this.deps, app, 'interactive', payload, app.interactivity_url);
+      if (!localApp(ctx, app.id)) await deliverInteractive(this.deps, app, 'interactive', payload, app.interactivity_url);
       return {};
     });
 

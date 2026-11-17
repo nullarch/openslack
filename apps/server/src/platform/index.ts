@@ -5,6 +5,7 @@ import { installCommands } from './commands.ts';
 import { installDispatch, type Delivery } from './dispatch.ts';
 import { HttpDelivery } from './events-http.ts';
 import { installInteractivity } from './interactivity.ts';
+import { setPlatformServices } from './local-apps.ts';
 import { platformOptions } from './options.ts';
 import { installOauth } from './oauth.ts';
 import { RtmHub } from './rtm.ts';
@@ -48,7 +49,9 @@ export function installPlatform(kernel: Kernel): void {
   installInteractivity(kernel, interactivity);
   installCommands(kernel, interactivity);
   installShortcuts(kernel, interactivity);
-  new Views(interactivity, delivery).install(kernel);
+  const views = new Views(interactivity, delivery);
+  views.install(kernel);
+  setPlatformServices(ctx, { views, delivery });
   new Unfurls(delivery).install(kernel);
   installWebhooks(kernel);
   new Streams(ctx, options).install(kernel);

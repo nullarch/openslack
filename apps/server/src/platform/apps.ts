@@ -59,6 +59,67 @@ export interface AppConfig {
   unfurl_domains: string[];
   /** Where the OAuth install flow may send people back to (exact match). */
   redirect_urls: string[];
+  /** Workflow steps the app implements (`function_executed`, `functions.completeSuccess`). */
+  functions: AppFunction[];
+  /** Set on apps that are part of the server itself, e.g. `workflows`. */
+  builtin?: string;
+}
+
+export interface FunctionParameter {
+  name: string;
+  title: string;
+  /** `string`, `user_id`, `channel_id`, `number`, `boolean` (Slack's names, without the `slack#/types/` prefix). */
+  type: string;
+  required: boolean;
+}
+
+/** A custom step, as an app declares it (Slack's manifest `functions` entry). */
+export interface AppFunction {
+  callback_id: string;
+  title: string;
+  description: string;
+  input_parameters: FunctionParameter[];
+  output_parameters: FunctionParameter[];
+}
+
+const PARAMETER_TYPES = new Set(['string', 'user_id', 'channel_id', 'number', 'boolean']);
+
+function readParameters(value: unknown, where: string): FunctionParameter[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 20) fail('invalid_functions', { detail: where });
+  const seen = new Set<string>();
+  return value.map((entry) => {
+    const item = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>;
+    const name = String(item.name ?? '').trim();
+    if (!/^[a-z0-9_]{1,50}$/i.test(name) || seen.has(name)) fail('invalid_functions', { detail: `${where}: ${name || 'a parameter without a name'}` });
+    seen.add(name);
+    const type = String(item.type ?? 'string').replace(/^slack#\/types\//, '');
+    if (!PARAMETER_TYPES.has(type)) fail('invalid_functions', { detail: `${where}: unknown type ${type}` });
+    return { name, title: String(item.title ?? name).slice(0, 80), type, required: item.required === true || item.is_required === true };
+  });
+}
+
+/** Check custom steps sent by an admin. */
+export function readFunctions(value: unknown): AppFunction[] {
+  if (!Array.isArray(value) || value.length > 20) fail('invalid_functions');
+  const seen = new Set<string>();
+  return value.map((entry) => {
+    const item = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>;
+    const callbackId = String(item.callback_id ?? '').trim();
+    if (!/^[a-z0-9_-]{1,100}$/i.test(callbackId) || seen.has(callbackId)) fail('invalid_functions', { detail: callbackId || 'a step without a callback_id' });
+    seen.add(callbackId);
+    return {
+      callback_id: callbackId,
+      title: String(item.title ?? callbackId).slice(0, 80) || callbackId,
+      description: String(item.description ?? '').slice(0, 300),
+      input_parameters: readParameters(item.input_parameters, callbackId),
+      output_parameters: readParameters(item.output_parameters, callbackId),
+    };
+  });
+}
+
+export function isBuiltinApp(app: AppRow): boolean {
+  return Boolean(appConfig(app).builtin);
 }
 
 export function appConfig(app: AppRow): AppConfig {
@@ -72,7 +133,10 @@ export function appConfig(app: AppRow): AppConfig {
   const shortcuts = Array.isArray(raw.shortcuts) ? (raw.shortcuts as Shortcut[]) : [];
   const domains = Array.isArray(raw.unfurl_domains) ? raw.unfurl_domains.filter((entry): entry is string => typeof entry === 'string') : [];
   const redirects = Array.isArray(raw.redirect_urls) ? raw.redirect_urls.filter((entry): entry is string => typeof entry === 'string') : [];
-  return { shortcuts, unfurl_domains: domains, redirect_urls: redirects };
+  const functions = Array.isArray(raw.functions) ? (raw.functions as AppFunction[]) : [];
+  const config: AppConfig = { shortcuts, unfurl_domains: domains, redirect_urls: redirects, functions };
+  if (typeof raw.builtin === 'string') config.builtin = raw.builtin;
+  return config;
 }
 
 /** Check shortcuts sent by an admin: a known type, a name, a unique callback id. */

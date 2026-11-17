@@ -2,7 +2,7 @@ import { DEFAULT_API_RATE_LIMIT, TOKEN_LIMIT_RANGE, workspaceTokenLimit } from '
 import type { Kernel } from '../app.ts';
 import { fail } from '../core/errors.ts';
 import { nowSeconds } from '../core/ids.ts';
-import { announceBotUser, appConfig, appToApi, createAppRecord, deleteAppRecord, issueToken, listApps, readDomains, readShortcuts, requireApp, readRedirectUrls } from './apps.ts';
+import { announceBotUser, appConfig, appToApi, createAppRecord, deleteAppRecord, issueToken, listApps, readDomains, readShortcuts, requireApp, readRedirectUrls, readFunctions, isBuiltinApp } from './apps.ts';
 import { SUBSCRIBABLE_EVENTS } from './dispatch.ts';
 import type { HttpDelivery } from './events-http.ts';
 import { isHttpUrl } from './net.ts';
@@ -35,7 +35,10 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
   const info = (id: string) => appToApi(ctx, requireApp(ctx, id), sockets.isConnected(id));
 
   kernel.registry.add('client.apps.list', { auth: 'session' }, () => ({
-    apps: listApps(ctx).map((app) => appToApi(ctx, app, sockets.isConnected(app.id))),
+    // Built-in apps (the workflow builder) are part of the server, not something to configure.
+    apps: listApps(ctx)
+      .filter((app) => !isBuiltinApp(app))
+      .map((app) => appToApi(ctx, app, sockets.isConnected(app.id))),
   }));
 
   /** One app with its signing secret, which the admin needs again when configuring HTTP delivery. */
@@ -85,6 +88,7 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
     if (args.has('shortcuts')) config.shortcuts = readShortcuts(args.json('shortcuts'));
     if (args.has('unfurl_domains') || args.str('unfurl_domains') === '') config.unfurl_domains = readDomains(args.list('unfurl_domains'));
     if (args.has('redirect_urls') || args.str('redirect_urls') === '') config.redirect_urls = readRedirectUrls(args.list('redirect_urls'));
+    if (args.has('functions')) config.functions = readFunctions(args.json('functions'));
     // A new request URL must prove it belongs to the app before it receives anything.
     if (eventsUrl && eventsUrl !== app.events_url) await http.verifyUrl(app, eventsUrl);
 
