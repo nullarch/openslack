@@ -478,7 +478,23 @@ export const MIGRATIONS: string[] = [
   ) WITHOUT ROWID;
   CREATE INDEX agent_threads_recent ON agent_threads(app_id, last_activity);
   `,
-  /* automation — workflows, their runs, custom responses (position set at merge; SQL does not depend on it) */ `
+
+  /* 7: image thumbnails made by the uploading client — { w, h } of the stored thumbnail */ `
+  ALTER TABLE files ADD COLUMN thumb TEXT;
+  `,
+
+  /* 8: public file links — the secret in a file's public URL, while it is shared */ `
+  ALTER TABLE files ADD COLUMN public_secret TEXT;
+  CREATE UNIQUE INDEX files_public_secret ON files(public_secret) WHERE public_secret IS NOT NULL;
+  `,
+
+  /* 9: Discord import — which Discord ids were already brought in, so a second run adds only what is new */ `
+  CREATE TABLE import_discord_users (discord_id TEXT PRIMARY KEY, user_id TEXT NOT NULL);
+  CREATE TABLE import_discord_channels (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL);
+  CREATE TABLE import_discord_messages (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, ts TEXT NOT NULL);
+  `,
+
+  /* 10: automation — workflows, their runs, custom responses */ `
   CREATE TABLE workflows (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

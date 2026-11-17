@@ -1,0 +1,9 @@
+The server is starting with one replica and its data on a persistent volume.
+{{- if .Values.ingress.enabled }}
+Open https://{{ .Values.ingress.host }} and create the workspace; the first person becomes its owner.
+{{- else }}
+Reach it with: kubectl port-forward svc/{{ include "chat.fullname" . }} 3000:{{ .Values.service.port }}
+{{- end }}
+{{- if not .Values.publicUrl }}
+Set publicUrl to the address people use, or links handed to bots will point at localhost.
+{{- end }}

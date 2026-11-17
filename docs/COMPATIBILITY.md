@@ -87,7 +87,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **92 supported**, 205 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -127,7 +127,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `conversations.invite` | ✓ | ✓ |  |
 | `conversations.join` |  | ✓ |  |
 | `conversations.kick` |  | ✓ |  |
-| `conversations.leave` |  |  |  |
+| `conversations.leave` |  | ✓ |  |
 | `conversations.list` | ✓ | ✓ |  |
 | `conversations.mark` |  | ✓ |  |
 | `conversations.members` | ✓ |  |  |
@@ -148,6 +148,8 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
+| `files.revokePublicURL` |  | ✓ |  |
+| `files.sharedPublicURL` |  | ✓ |  |
 | `functions.completeError` | ✓ | ✓ | Fails the workflow run with the app's message. |
 | `functions.completeSuccess` | ✓ | ✓ | Finishes a workflow step the app implements; outputs it did not declare are dropped. Only the app that received the `function_executed` event may finish it. |
 | `oauth.v2.access` |  |  |  |
@@ -198,7 +200,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 | `conversations` | 10 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.canvases.create`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
-| `files` | 9 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update`, `files.revokePublicURL`, `files.sharedPublicURL` |
+| `files` | 7 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update` |
 | `migration` | 1 | `migration.exchange` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
 | `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
@@ -226,5 +228,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **90 supported**, 207 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 100 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 101 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

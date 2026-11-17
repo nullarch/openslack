@@ -3,5 +3,7 @@ packages:
   - apps/*
   - compat
   - examples/*
+  - docs
 onlyBuiltDependencies:
+  - electron
   - esbuild

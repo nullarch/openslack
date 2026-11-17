@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'">
+<title>Add a server</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f6f4; --ink: #1b1b19; --muted: #5d5c57; --line: #d9d7cf; --accent: #1a5bd6; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #18191d; --ink: #ececf0; --muted: #9a9ca6; --line: #33343c; --accent: #6d9cff; } }
+  body { margin: 0; padding: 28px; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 6px; } p { margin: 0 0 16px; color: var(--muted); }
+  input { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; font: inherit; }
+  button { margin-top: 14px; width: 100%; padding: 9px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.6; }
+  .error { color: #c2412d; margin-top: 10px; min-height: 1.5em; }
+</style>
+</head>
+<body>
+  <h1 id="title">Add a server</h1>
+  <p>The address you open in the browser, for example <code>chat.example.com</code>.</p>
+  <form id="form">
+    <input id="address" type="text" autocomplete="url" placeholder="chat.example.com" autofocus required>
+    <button id="submit" type="submit">Connect</button>
+    <div class="error" id="error" role="alert"></div>
+  </form>
+  <script src="add-server.js"></script>
+</body>
+</html>

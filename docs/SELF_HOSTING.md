@@ -136,6 +136,18 @@ Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "
 
 The Agents view (workspace menu → Agents) needs no model. It lists apps acting as agents — connected over Socket Mode, or using assistant status, titles or streamed replies — with their recent threads and current status, limited to threads the viewer can read.
 
+## Kubernetes
+
+A Helm chart is in `deploy/helm/chat`. It runs one replica (the server owns its database file and the realtime connections) with its data on a persistent volume:
+
+```bash
+helm install team deploy/helm/chat \
+  --set publicUrl=https://chat.example.com \
+  --set ingress.enabled=true --set ingress.host=chat.example.com --set ingress.tlsSecret=chat-tls
+```
+
+`env` sets any variable from the table above; `envFromSecret` names an existing Secret for keys (S3, LiveKit, mail). The ingress annotations keep WebSockets open and allow 100 MB uploads on ingress-nginx; other controllers need their own equivalents. The chart passes `helm lint` and renders; it has not yet been installed on a real cluster.
+
 ## Behind a reverse proxy
 
 Terminate HTTPS at the proxy and forward everything, including WebSocket upgrades, to the server.
