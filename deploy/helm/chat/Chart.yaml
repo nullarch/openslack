@@ -1,0 +1,6 @@
+apiVersion: v2
+name: chat
+description: Self-hosted team chat that speaks the Slack API. One container, one volume.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
