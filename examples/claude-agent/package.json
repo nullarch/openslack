@@ -1,0 +1,13 @@
+{
+  "name": "example-claude-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node app.mjs",
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
+    "@slack/bolt": "^5.1.0"
+  }
+}

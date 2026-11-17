@@ -49,7 +49,7 @@ app.event('app_mention', async ({ event, say }) => {
 await app.start();
 ```
 
-A complete example is in [`examples/hello-agent`](examples/hello-agent): mention it and it sets a status, reads the channel, streams a Markdown reply into the thread and ends with buttons.
+A Claude-backed teammate is in [`examples/claude-agent`](examples/claude-agent): mention it and it reads the thread and streams an answer. A smaller example with no model is in [`examples/hello-agent`](examples/hello-agent): mention it and it sets a status, reads the channel, streams a Markdown reply into the thread and ends with buttons.
 
 ![The example agent answering in a thread, with its reply confirmed by a button click](docs/assets/agent-thread.png)
 
