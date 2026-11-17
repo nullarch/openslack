@@ -3,6 +3,8 @@ import type { Kernel } from '../app.ts';
 import { recordAuditEvent } from '../audit/index.ts';
 import { fail } from '../core/errors.ts';
 import { contentChecks } from '../core/messages.ts';
+import { uploadChecks } from '../core/files.ts';
+import { extractorFor } from '../core/file-text.ts';
 import { getUser } from '../core/users.ts';
 import type { Ctx } from '../ctx.ts';
 import { regexProblem } from '../workflows/responses.ts';
@@ -137,6 +139,33 @@ export function installDlp(kernel: Kernel): void {
       user?.is_bot === 1 ? 'app' : 'user',
       user?.is_bot === 1 ? (user.app_id ?? userId) : userId,
       JSON.stringify({ rules: hits }),
+    );
+    fail('sensitive_information', { rules: hits });
+  });
+
+  // Text inside uploads (documents, PDFs, code) is held to the same rules.
+  uploadChecks.push(async (ctx2, row, size) => {
+    const policy = dlpPolicy(ctx2);
+    if (policy.detectors.length === 0 && policy.custom.length === 0) return;
+    const extractor = extractorFor(row.name, row.mimetype);
+    if (!extractor || size > 20 * 1024 * 1024) return;
+    const chunks: Buffer[] = [];
+    for await (const chunk of ctx2.storage.read(row.storage_key)) chunks.push(chunk as Buffer);
+    let text = '';
+    try {
+      text = extractor(Buffer.concat(chunks));
+    } catch {
+      return;
+    }
+    const hits = findSensitive(policy, `${row.name}\n${text}`);
+    if (hits.length === 0) return;
+    ctx2.db.run(
+      'INSERT INTO audit_log (created, action, actor_type, actor_id, entity_type, details) VALUES (unixepoch(), ?, ?, ?, ?, ?)',
+      'file_blocked_sensitive',
+      'user',
+      row.user_id,
+      'file',
+      JSON.stringify({ rules: hits, name: row.name }),
     );
     fail('sensitive_information', { rules: hits });
   });

@@ -210,7 +210,7 @@ Changes to people, roles, apps, channels and workspace settings, and every sign-
 
 ## Sensitive information
 
-Admins can refuse messages that contain payment card numbers (Luhn-checked), Korean resident registration numbers, US Social Security numbers, or API keys, tokens and private keys, plus patterns of their own (`client.admin.dlp.set`, preview with `client.admin.dlp.test`). Posts and edits from people and apps are checked, Block Kit text included; a refused message fails with `sensitive_information` and the attempt is written to the audit log without its text. Off until turned on.
+Admins can refuse messages that contain payment card numbers (Luhn-checked), Korean resident registration numbers, US Social Security numbers, or API keys, tokens and private keys, plus patterns of their own (`client.admin.dlp.set`, preview with `client.admin.dlp.test`). Posts and edits from people and apps are checked, Block Kit text included, and so is the text inside uploaded documents, PDFs and code files; a refused message fails with `sensitive_information` and the attempt is written to the audit log without its text. Off until turned on.
 
 ## Legal hold and eDiscovery
 

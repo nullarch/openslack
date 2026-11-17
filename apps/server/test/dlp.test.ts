@@ -54,6 +54,20 @@ describe('sensitive information', () => {
       assert.ok(!JSON.stringify(entries).includes('4111'), 'the audit log never holds the text');
     });
 
+    test('text inside uploaded files is checked too', async () => {
+      const upload = async (name: string, content: string): Promise<Json> => {
+        const form = new FormData();
+        form.set('channels', general);
+        form.set('file', new Blob([content]), name);
+        return fetch(`${t.base}/api/files.upload`, { method: 'POST', headers: { cookie: mia.cookie, origin: t.base }, body: form }).then((r) => r.json() as Promise<Json>);
+      };
+      const refused = await upload('payments.csv', 'name,card\nAna,4111111111111111\n');
+      assert.equal(refused.error, 'sensitive_information');
+      assert.ok(!t.app.ctx.db.get("SELECT 1 FROM files WHERE name = 'payments.csv'"), 'nothing is left behind');
+      assert.equal((await upload('notes.txt', 'nothing sensitive')).ok, true);
+      assert.equal((await upload('photo.png', 'not text 4111111111111111')).ok, true, 'files without readable text are not checked');
+    });
+
     test('dangerous patterns are refused; the test method previews a draft', async () => {
       assert.equal((await owner.call('client.admin.dlp.set', { custom: [{ name: 'bad', pattern: '(a+)+$' }] })).error, 'invalid_pattern');
       const preview = await owner.ok('client.admin.dlp.test', { text: 'SSN 123-45-6789', policy: { detectors: ['us_ssn'], custom: [] } });

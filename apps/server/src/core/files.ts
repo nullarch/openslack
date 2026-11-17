@@ -323,6 +323,16 @@ export async function receiveUpload(ctx: Ctx, id: string, secret: string, body: 
     throw error;
   }
   await scanUpload(ctx, row, size);
+  for (const check of uploadChecks) {
+    try {
+      await check(ctx, row, size);
+    } catch (error) {
+      // A refused upload leaves nothing behind.
+      await ctx.storage.remove(row.storage_key);
+      ctx.db.run('DELETE FROM files WHERE id = ?', row.id);
+      throw error;
+    }
+  }
   const dimensions = row.mimetype.startsWith('image/') ? await sniffImageSize(ctx, row.storage_key) : null;
   ctx.db.run(
     "UPDATE files SET state = 'uploaded', size = ?, width = ?, height = ?, upload_secret = NULL WHERE id = ?",
@@ -336,6 +346,9 @@ export async function receiveUpload(ctx: Ctx, id: string, secret: string, body: 
   if (stored) setImmediate(() => void indexFileText(ctx, stored).catch(() => undefined));
   return size;
 }
+
+/** Checks run on an upload's stored bytes before it is marked uploaded; one that throws refuses it. */
+export const uploadChecks: ((ctx: Ctx, row: FileRow, size: number) => Promise<void>)[] = [];
 
 /**
  * With a scanner configured, an upload is checked before it can be shared. An
