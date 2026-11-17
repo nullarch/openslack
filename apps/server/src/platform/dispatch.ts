@@ -43,6 +43,8 @@ export const SUBSCRIBABLE_EVENTS = [
   'emoji_changed',
   'file_deleted',
   'team_rename',
+  'app_home_opened',
+  'link_shared',
 ];
 
 /** Message subtypes that are ordinary posts, where a mention should notify the app. */
@@ -136,18 +138,31 @@ export function eventCallback(ctx: Ctx, app: AppRow, event: EventBody): Record<s
   };
 }
 
+export interface Delivery {
+  ctx: Ctx;
+  sockets: SocketHub;
+  http: HttpDelivery;
+}
+
+/**
+ * Send one event to one app, over Socket Mode or to its events URL, unless the
+ * app subscribed to a list of events that does not include it.
+ */
+export function sendToApp(delivery: Delivery, app: AppRow, subscription: string, event: EventBody): void {
+  const wanted = parseList(app.bot_events);
+  if (wanted.length > 0 && !wanted.includes(subscription)) return;
+  const envelope = eventCallback(delivery.ctx, app, event);
+  if (app.socket_mode === 1) delivery.sockets.sendEvent(app.id, envelope);
+  else if (app.events_url) delivery.http.enqueue(app, JSON.stringify(envelope));
+}
+
 /** Send every non-client-only bus event to the apps entitled to it. */
 export function installDispatch(ctx: Ctx, sockets: SocketHub, http: HttpDelivery): () => void {
+  const delivery: Delivery = { ctx, sockets, http };
   return ctx.bus.subscribe((busEvent) => {
     if (busEvent.clientOnly) return;
     for (const app of listApps(ctx)) {
-      const wanted = parseList(app.bot_events);
-      for (const { subscription, event } of selectEvents(ctx, app, busEvent)) {
-        if (wanted.length > 0 && !wanted.includes(subscription)) continue;
-        const envelope = eventCallback(ctx, app, event);
-        if (app.socket_mode === 1) sockets.sendEvent(app.id, envelope);
-        else if (app.events_url) http.enqueue(app, JSON.stringify(envelope));
-      }
+      for (const { subscription, event } of selectEvents(ctx, app, busEvent)) sendToApp(delivery, app, subscription, event);
     }
   });
 }

@@ -1,25 +1,20 @@
-import type { Block, Message } from '@app/shared';
+import type { Message } from '@app/shared';
 import type { Kernel } from '../app.ts';
 import type { Ctx } from '../ctx.ts';
 import { getConv, resolveConv, type ConvRow } from '../core/conversations.ts';
 import { ApiError, fail } from '../core/errors.ts';
-import { newHex } from '../core/ids.ts';
 import { getMessage, messageToApi } from '../core/messages.ts';
 import { requireUser } from '../core/users.ts';
 import { getApp, type AppRow } from './apps.ts';
+import { elementValue, locate, sanitizeState, withBlockIds, type Located } from './elements.ts';
 import { allowPrivateTargets, OutboundError, post } from './net.ts';
 import type { PlatformOptions } from './options.ts';
 import type { EphemeralStore, ResponseHooks } from './responses.ts';
 import { signedHeaders } from './signing.ts';
 import type { SocketHub } from './socket-mode.ts';
+import type { Triggers } from './triggers.ts';
 
 type Json = Record<string, unknown>;
-
-/** A `trigger_id` in Slack's three-part form. Nothing consumes it yet (modals are not implemented). */
-export function newTriggerId(): string {
-  const digits = (): string => String(Math.floor(1e11 + Math.random() * 9e11));
-  return `${digits()}.${digits()}.${newHex(16)}`;
-}
 
 /** The name Slack reports for a conversation in interaction payloads. */
 export function payloadChannelName(conv: ConvRow): string {
@@ -89,122 +84,33 @@ export async function deliverInteractive(
 
 // ── block_actions ───────────────────────────────────────────────────────────
 
-interface Located {
-  element: Json;
-  blockId: string;
-}
-
-/** Slack gives every block an id; blocks stored without one get a stable positional id. */
-function withBlockIds(blocks: Block[]): Block[] {
-  return blocks.map((block, index) => (typeof block.block_id === 'string' && block.block_id ? block : { ...block, block_id: `b${index}` }));
-}
-
-/** Find an interactive element by `action_id`, wherever a block can hold one. */
-function locate(blocks: Block[], actionId: string, blockId: string | undefined): Located | undefined {
-  for (const block of blocks) {
-    const id = block.block_id as string;
-    if (blockId !== undefined && blockId !== id) continue;
-    const candidates: unknown[] = [];
-    if (Array.isArray(block.elements)) candidates.push(...(block.elements as unknown[]));
-    if (block.accessory) candidates.push(block.accessory);
-    if (block.element) candidates.push(block.element);
-    for (const candidate of candidates) {
-      if (candidate && typeof candidate === 'object' && (candidate as Json).action_id === actionId) {
-        return { element: candidate as Json, blockId: id };
-      }
-    }
-  }
-  return undefined;
-}
-
-function optionsOf(element: Json): Json[] {
-  const options: Json[] = [];
-  if (Array.isArray(element.options)) options.push(...(element.options as Json[]));
-  if (Array.isArray(element.option_groups)) {
-    for (const group of element.option_groups as Json[]) {
-      if (Array.isArray(group.options)) options.push(...(group.options as Json[]));
-    }
-  }
-  return options;
-}
-
-/** An option the user picked, taken from the element as the app defined it. */
-function pickOption(element: Json, chosen: unknown): Json | null {
-  if (chosen === null || chosen === undefined) return null;
-  const value = typeof chosen === 'object' ? (chosen as Json).value : chosen;
-  const known = optionsOf(element).find((option) => option.value === value);
-  if (known) return known;
-  // Menus with external data sources have no static list to check against.
-  if (String(element.type).startsWith('external') || String(element.type).startsWith('multi_external')) {
-    return typeof chosen === 'object' ? (chosen as Json) : null;
-  }
-  return fail('invalid_action_value');
-}
-
 /**
  * Build the `actions[]` entry: what the element is comes from the stored
- * message, what the user chose comes from the client and is checked against it.
+ * message or view, what the person chose comes from the client and is checked against it.
  */
-function buildAction(located: Located, input: Json, actionTs: string): Json {
+export function buildAction(located: Located, input: Json, actionTs: string): Json {
   const { element, blockId } = located;
   const type = String(element.type);
   const action: Json = { action_id: element.action_id, block_id: blockId, type, action_ts: actionTs };
-  switch (type) {
-    case 'button':
-      if (element.text) action.text = element.text;
-      if (element.value !== undefined) action.value = element.value;
-      if (element.style !== undefined) action.style = element.style;
-      break;
-    case 'static_select':
-    case 'external_select':
-    case 'overflow':
-    case 'radio_buttons':
-      action.selected_option = pickOption(element, input.selected_option);
-      break;
-    case 'multi_static_select':
-    case 'multi_external_select':
-    case 'checkboxes':
-      action.selected_options = (Array.isArray(input.selected_options) ? input.selected_options : [])
-        .map((chosen) => pickOption(element, chosen))
-        .filter((option) => option !== null);
-      break;
-    case 'datepicker':
-      action.selected_date = typeof input.selected_date === 'string' ? input.selected_date : null;
-      break;
-    case 'timepicker':
-      action.selected_time = typeof input.selected_time === 'string' ? input.selected_time : null;
-      break;
-    case 'datetimepicker':
-      action.selected_date_time = typeof input.selected_date_time === 'number' ? input.selected_date_time : null;
-      break;
-    case 'users_select':
-      action.selected_user = typeof input.selected_user === 'string' ? input.selected_user : null;
-      break;
-    case 'conversations_select':
-      action.selected_conversation = typeof input.selected_conversation === 'string' ? input.selected_conversation : null;
-      break;
-    case 'channels_select':
-      action.selected_channel = typeof input.selected_channel === 'string' ? input.selected_channel : null;
-      break;
-    case 'multi_users_select':
-      action.selected_users = Array.isArray(input.selected_users) ? input.selected_users.map(String) : [];
-      break;
-    case 'multi_conversations_select':
-      action.selected_conversations = Array.isArray(input.selected_conversations) ? input.selected_conversations.map(String) : [];
-      break;
-    case 'multi_channels_select':
-      action.selected_channels = Array.isArray(input.selected_channels) ? input.selected_channels.map(String) : [];
-      break;
-    default:
-      // Text-like inputs that dispatch on enter or on each character.
-      if (typeof input.value === 'string') action.value = input.value.slice(0, 3000);
+  if (type === 'button' || type === 'workflow_button') {
+    if (element.text) action.text = element.text;
+    if (element.value !== undefined) action.value = element.value;
+    if (element.style !== undefined) action.style = element.style;
+    return action;
   }
-  return action;
+  return { ...action, ...elementValue(element, input) };
+}
+
+/** The `user` object of interaction payloads. */
+export function payloadUser(ctx: Ctx, userId: string): Json {
+  const user = requireUser(ctx, userId);
+  return { id: user.id, username: user.name, name: user.name, team_id: ctx.requireTeam().id };
 }
 
 export interface Interactivity extends Transport {
   hooks: ResponseHooks;
   ephemerals: EphemeralStore;
+  triggers: Triggers;
 }
 
 export function installInteractivity(kernel: Kernel, deps: Interactivity): void {
@@ -235,7 +141,6 @@ export function installInteractivity(kernel: Kernel, deps: Interactivity): void 
     const located = locate(blocks, input.action_id, typeof input.block_id === 'string' ? input.block_id : undefined);
     if (!located) fail('action_not_found');
 
-    const user = requireUser(ctx, actor.userId);
     const team = ctx.requireTeam();
     const container: Json = {
       type: 'message',
@@ -244,26 +149,26 @@ export function installInteractivity(kernel: Kernel, deps: Interactivity): void 
       is_ephemeral: ephemeral !== undefined,
     };
     if (message.thread_ts) container.thread_ts = message.thread_ts;
-    const state = args.json<Json>('state');
+    const sentState = args.json<Json>('state');
 
     const payload: Json = {
       type: 'block_actions',
-      user: { id: user.id, username: user.name, name: user.name, team_id: team.id },
+      user: payloadUser(ctx, actor.userId),
       api_app_id: app.id,
       token: app.verification_token,
       container,
-      trigger_id: newTriggerId(),
+      trigger_id: deps.triggers.issue(app.id, actor.userId),
       team: { id: team.id, domain: team.domain },
       enterprise: null,
       is_enterprise_install: false,
       channel: { id: conv.id, name: payloadChannelName(conv) },
       message: { ...message, blocks },
-      state: state && typeof state === 'object' && typeof state.values === 'object' ? state : { values: {} },
+      state: { values: sanitizeState(blocks, sentState && typeof sentState === 'object' ? sentState.values : undefined) },
       response_url: deps.hooks.create({
         app,
         kind: 'actions',
         conversationId: conv.id,
-        userId: user.id,
+        userId: actor.userId,
         sourceTs: messageTs,
         sourceEphemeral: ephemeral !== undefined,
       }),

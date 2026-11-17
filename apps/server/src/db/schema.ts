@@ -267,4 +267,25 @@ export const MIGRATIONS: string[] = [
     last_seen INTEGER NOT NULL
   );
   `,
+
+  /* 3: app platform — modal and App Home views */ `
+  CREATE TABLE app_views (
+    id TEXT PRIMARY KEY,
+    app_id TEXT NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('modal', 'home')),
+    root_view_id TEXT,
+    previous_view_id TEXT,
+    depth INTEGER NOT NULL DEFAULT 0,
+    external_id TEXT,
+    hash TEXT NOT NULL,
+    body TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT '{}',
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX app_views_home ON app_views(app_id, user_id) WHERE type = 'home';
+  CREATE UNIQUE INDEX app_views_external ON app_views(app_id, external_id) WHERE external_id IS NOT NULL;
+  CREATE INDEX app_views_user ON app_views(user_id, type);
+  `,
 ];

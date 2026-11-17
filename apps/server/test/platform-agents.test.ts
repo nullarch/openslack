@@ -240,8 +240,8 @@ describe('agent surfaces: streamed messages and thread status', () => {
   });
 
   test('calls to methods that do not exist are counted for the admin', async () => {
-    assert.equal((await asBot(t.base, agent, 'views.open', { trigger_id: 'x' })).error, 'unknown_method');
-    assert.equal((await asBot(t.base, agent, 'views.open', { trigger_id: 'x' })).error, 'unknown_method');
+    assert.equal((await asBot(t.base, agent, 'workflows.stepCompleted', { function_execution_id: 'x' })).error, 'unknown_method');
+    assert.equal((await asBot(t.base, agent, 'workflows.stepCompleted', { function_execution_id: 'x' })).error, 'unknown_method');
     assert.equal((await asBot(t.base, agent, 'canvases.create')).error, 'unknown_method');
     await fetch(`${t.base}/api/${'x'.repeat(300)}`, { method: 'POST' });
     assert.equal((await member.call('client.apps.unknownMethods')).error, 'not_allowed');
@@ -249,7 +249,7 @@ describe('agent surfaces: streamed messages and thread status', () => {
     assert.deepEqual(
       methods.map((entry: Json) => [entry.name, entry.calls]),
       [
-        ['views.open', 2],
+        ['workflows.stepCompleted', 2],
         ['canvases.create', 1],
       ],
     );
