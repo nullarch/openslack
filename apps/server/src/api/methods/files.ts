@@ -28,6 +28,12 @@ export function registerFiles(registry: Registry): void {
     const length = args.int('length', -1);
     if (length <= 0) fail('invalid_arguments', { needed: 'length' });
     const pending = createPendingFile(ctx, actor.userId, filename, length, args.str('alt_txt') ?? null);
+    // A snippet is a text file shown inline with syntax highlighting; `snippet_type` names the language.
+    const snippetType = args.str('snippet_type');
+    if (snippetType) {
+      if (!/^[a-z0-9_+#-]{1,30}$/i.test(snippetType)) fail('invalid_arguments', { needed: 'snippet_type' });
+      ctx.db.run("UPDATE files SET mode = 'snippet', filetype = ?, mimetype = 'text/plain' WHERE id = ?", snippetType.toLowerCase(), pending.row.id);
+    }
     return { upload_url: pending.uploadUrl, file_id: pending.row.id };
   });
 

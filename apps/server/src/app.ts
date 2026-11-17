@@ -19,6 +19,7 @@ import { fail } from './core/errors.ts';
 import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
+import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
 import { Gateway } from './realtime/gateway.ts';
@@ -86,6 +87,7 @@ export function createApp(config: Config): App {
   registerSearchFiles(registry);
   registerFileRoutes(ctx, router);
   installPlatform(kernel);
+  installAttention(kernel);
   installMcp(kernel);
   gateway.start(ctx);
 

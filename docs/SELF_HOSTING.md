@@ -21,8 +21,21 @@ Open the address it prints and create your workspace. The first person to do so 
 | `DATA_DIR` | `~/.openslack`, or `/data` in the container | Database and uploaded files |
 | `PUBLIC_URL` | `http://localhost:PORT` | The address people and bots use to reach the server |
 | `MAX_UPLOAD_MB` | `100` | Largest accepted upload |
+| `LINK_PREVIEWS` | on | `0` turns off link previews, which make the server fetch linked pages (see below) |
 
 Set `PUBLIC_URL` whenever the server is reached at anything other than `localhost`: links, file URLs handed to bots and invite links are built from it. When it starts with `https://`, the session cookie is marked `Secure`.
+
+## Link previews
+
+Link previews are on by default. When a person posts a message with links in it, the server itself fetches up to three of those links and attaches a preview: the page's title, description, site name and image, read from its Open Graph or Twitter tags or its `<title>`.
+
+- **What leaves the server.** A plain `GET` of each linked page from the server's own address, identifying itself as `openslack-preview/1.0`, and then a `GET` of the image the page names. No cookies, no credentials, nothing about who posted the link. Redirects are followed up to three times. Each request stops after 5 seconds, a page after 512 KB, an image after 3 MB.
+- **What is not fetched.** Links in messages from bots and apps; links in messages that already carry attachments; links to this server; and links under a domain an app registered for unfurling, which that app previews itself through `chat.unfurl`.
+- **Private addresses.** Pages at private, loopback or link-local addresses are refused, checked again after every redirect and DNS answer, unless the server itself runs on `localhost` (or `ALLOW_PRIVATE_APP_URLS=1` is set, the same switch apps use).
+- **Where it is kept.** Previews are cached in the database for a day (an unreachable page is retried after an hour). The image is stored with the uploaded files (in `DATA_DIR/files`, or the bucket) and served from this server to signed-in people, so readers' browsers never contact the linked site.
+- **Turning it off.** Set `LINK_PREVIEWS=0` and restart. Nothing is fetched from then on; previews already attached to messages stay until their authors remove them.
+
+Anyone can remove a preview from their own message, and admins from any message.
 
 ## Files in a bucket
 

@@ -84,7 +84,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **86 supported**, 211 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -97,13 +97,20 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 n
 | `assistant.threads.setSuggestedPrompts` |  | ✓ | Delivered to connected clients; not stored. |
 | `assistant.threads.setTitle` |  | ✓ | Delivered to connected clients; not stored. |
 | `auth.test` | ✓ | ✓ |  |
+| `bookmarks.add` |  | ✓ |  |
+| `bookmarks.edit` |  | ✓ |  |
+| `bookmarks.list` |  | ✓ |  |
+| `bookmarks.remove` |  | ✓ |  |
 | `bots.info` | ✓ |  |  |
 | `chat.appendStream` |  | ✓ |  |
 | `chat.delete` | ✓ | ✓ |  |
+| `chat.deleteScheduledMessage` |  | ✓ |  |
 | `chat.getPermalink` | ✓ |  |  |
 | `chat.meMessage` |  |  |  |
 | `chat.postEphemeral` | ✓ | ✓ |  |
 | `chat.postMessage` | ✓ | ✓ | A bot may post to any public channel without joining (as with `chat:write.public`). |
+| `chat.scheduleMessage` |  | ✓ |  |
+| `chat.scheduledMessages.list` |  | ✓ |  |
 | `chat.startStream` | ✓ | ✓ | Streams may also start outside a thread; recipient ids are accepted but not required. |
 | `chat.stopStream` | ✓ | ✓ | `session_status` is accepted and ignored. |
 | `chat.unfurl` | ✓ | ✓ | Links are offered once a message is posted; `source: composer` is not supported. The app must have registered the link’s domain. |
@@ -121,13 +128,16 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 n
 | `conversations.mark` |  | ✓ |  |
 | `conversations.members` | ✓ |  |  |
 | `conversations.open` | ✓ | ✓ |  |
-| `conversations.rename` |  |  |  |
+| `conversations.rename` |  | ✓ |  |
 | `conversations.replies` | ✓ | ✓ |  |
 | `conversations.setPurpose` |  |  |  |
 | `conversations.setTopic` | ✓ |  |  |
 | `conversations.unarchive` |  |  |  |
-| `dnd.info` |  | ✓ | Reports Do Not Disturb as off unless the server implements Do Not Disturb. |
-| `dnd.teamInfo` |  | ✓ | Reports Do Not Disturb as off unless the server implements Do Not Disturb. |
+| `dnd.endDnd` |  | ✓ |  |
+| `dnd.endSnooze` |  | ✓ |  |
+| `dnd.info` |  | ✓ | Also allowed with `users:read`, so apps with the default bot scopes can check before notifying. |
+| `dnd.setSnooze` |  | ✓ |  |
+| `dnd.teamInfo` |  | ✓ | Also allowed with `users:read`. Without `users`, reports everyone in the workspace. |
 | `emoji.list` | ✓ |  |  |
 | `files.completeUploadExternal` | ✓ | ✓ |  |
 | `files.delete` |  | ✓ |  |
@@ -140,6 +150,11 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 n
 | `reactions.add` | ✓ | ✓ |  |
 | `reactions.get` | ✓ | ✓ |  |
 | `reactions.remove` | ✓ | ✓ |  |
+| `reminders.add` |  | ✓ |  |
+| `reminders.complete` |  | ✓ |  |
+| `reminders.delete` |  | ✓ |  |
+| `reminders.info` |  | ✓ |  |
+| `reminders.list` |  | ✓ |  |
 | `rtm.connect` | ✓ | ✓ |  |
 | `search.all` |  | ✓ | `posts` is always empty. |
 | `search.files` |  | ✓ | Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations). |
@@ -171,13 +186,10 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 n
 | `apps` | 10 | `apps.event.authorizations.list`, `apps.manifest.create`, `apps.manifest.delete`, `apps.manifest.export`, `apps.manifest.update`, `apps.manifest.validate`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `auth` | 2 | `auth.revoke`, `auth.teams.list` |
 | `blocks` | 1 | `blocks.validate` |
-| `bookmarks` | 4 | `bookmarks.add`, `bookmarks.edit`, `bookmarks.list`, `bookmarks.remove` |
 | `calls` | 6 | `calls.add`, `calls.end`, `calls.info`, `calls.participants.add`, `calls.participants.remove`, `calls.update` |
 | `canvases` | 7 | `canvases.access.delete`, `canvases.access.set`, `canvases.create`, `canvases.delete`, `canvases.edit`, `canvases.getContent`, `canvases.sections.lookup` |
-| `chat` | 3 | `chat.deleteScheduledMessage`, `chat.scheduleMessage`, `chat.scheduledMessages.list` |
 | `conversations` | 10 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.canvases.create`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
-| `dnd` | 3 | `dnd.endDnd`, `dnd.endSnooze`, `dnd.setSnooze` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 9 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update`, `files.revokePublicURL`, `files.sharedPublicURL` |
 | `functions` | 2 | `functions.completeError`, `functions.completeSuccess` |
@@ -185,7 +197,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 n
 | `oauth` | 3 | `oauth.access`, `oauth.v2.access`, `oauth.v2.exchange` |
 | `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
 | `reactions` | 1 | `reactions.list` |
-| `reminders` | 5 | `reminders.add`, `reminders.complete`, `reminders.delete`, `reminders.info`, `reminders.list` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
 | `slackLists` | 12 | `slackLists.access.delete`, `slackLists.access.set`, `slackLists.create`, `slackLists.download.get`, `slackLists.download.start`, `slackLists.items.create`, `slackLists.items.delete`, `slackLists.items.deleteMultiple`, `slackLists.items.info`, `slackLists.items.list`, `slackLists.items.update`, `slackLists.update` |
 | `stars` | 3 | `stars.add`, `stars.list`, `stars.remove` |
@@ -209,5 +220,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **71 supported**, 226 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 46 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 71 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

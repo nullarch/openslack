@@ -3,7 +3,6 @@ import { installAdmin } from './admin.ts';
 import { AssistantThreads } from './assistant.ts';
 import { installCommands } from './commands.ts';
 import { installDispatch, type Delivery } from './dispatch.ts';
-import { installDndPlaceholder } from './dnd-placeholder.ts';
 import { HttpDelivery } from './events-http.ts';
 import { installInteractivity } from './interactivity.ts';
 import { platformOptions } from './options.ts';
@@ -50,7 +49,6 @@ export function installPlatform(kernel: Kernel): void {
   installShortcuts(kernel, interactivity);
   new Views(interactivity, delivery).install(kernel);
   new Unfurls(delivery).install(kernel);
-  installDndPlaceholder(kernel);
   installWebhooks(kernel);
   new Streams(ctx, options).install(kernel);
   new AssistantThreads(ctx, options).install(kernel);

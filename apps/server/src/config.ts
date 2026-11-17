@@ -61,5 +61,6 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     cookieSecure: publicUrl.startsWith('https://'),
     version: VERSION,
     quiet: env.QUIET === '1',
+    linkPreviews: env.LINK_PREVIEWS !== '0',
   };
 }

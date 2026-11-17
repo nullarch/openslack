@@ -1,7 +1,7 @@
 import { BRAND } from '@app/shared';
 import { Search, WifiOff } from 'lucide-react';
 import { useEffect } from 'react';
-import { closeModal, openModal, setPanel } from '../lib/actions';
+import { closeModal, go, openModal, setPanel } from '../lib/actions';
 import { enableNotifications } from '../lib/notify';
 import { conversation, conversationName, currentId, get, set, useStore } from '../lib/store';
 import { S } from '../strings';
@@ -15,6 +15,10 @@ import { DetailsPanel, ProfilePanel, ThreadPanel } from './panels';
 import { QuickSwitcher, SearchView } from './Search';
 import { Sidebar } from './Sidebar';
 import { Button, Mark, Modal } from './ui';
+import type { ViewName } from '../lib/router';
+import { BookmarkDialog, DndScheduleDialog, ForwardDialog, ScheduleDialog, ShareFileDialog, SnippetDialog } from './dialogs/attention';
+import { ActivityView, ThreadsView, UnreadsView } from './views/Activity';
+import { DraftsView, FilesView, LaterView } from './views/Later';
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -70,6 +74,35 @@ function ModalHost() {
           <ImageViewer file={modal.file} />
         </Modal>
       );
+    case 'forward':
+      return <ForwardDialog channel={modal.channel} ts={modal.ts} />;
+    case 'shareFile':
+      return <ShareFileDialog file={modal.file} />;
+    case 'schedule':
+      return <ScheduleDialog channel={modal.channel} threadTs={modal.threadTs} text={modal.text} broadcast={modal.broadcast} />;
+    case 'dndSchedule':
+      return <DndScheduleDialog />;
+    case 'snippet':
+      return <SnippetDialog channel={modal.channel} threadTs={modal.threadTs} />;
+    case 'bookmark':
+      return <BookmarkDialog channel={modal.channel} bookmark={modal.bookmark} />;
+  }
+}
+
+function WorkspaceView({ view }: { view: ViewName }) {
+  switch (view) {
+    case 'activity':
+      return <ActivityView />;
+    case 'threads':
+      return <ThreadsView />;
+    case 'unreads':
+      return <UnreadsView />;
+    case 'later':
+      return <LaterView />;
+    case 'drafts':
+      return <DraftsView />;
+    case 'files':
+      return <FilesView />;
   }
 }
 
@@ -97,7 +130,14 @@ function useTitle(): void {
     const mentions = Object.values(state.channels).reduce((sum, channel) => sum + (channel.is_muted ? 0 : (channel.mention_count ?? 0)), 0);
     const unread = Object.values(state.channels).some((channel) => !channel.is_muted && (channel.unread_count ?? 0) > 0);
     const conv = conversation(state, currentId(state));
-    const place = state.route.name === 'search' ? S.search.placeholder : conv ? `${conv.is_channel ? '#' : ''}${conversationName(state, conv)}` : '';
+    const place =
+      state.route.name === 'search'
+        ? S.search.placeholder
+        : state.route.name === 'view'
+          ? S.att.nav[state.route.view]
+          : conv
+            ? `${conv.is_channel ? '#' : ''}${conversationName(state, conv)}`
+            : '';
     const prefix = mentions > 0 ? `(${mentions}) ` : unread ? '• ' : '';
     return `${prefix}${[place, state.team?.name, BRAND.name].filter(Boolean).join(' | ')}`;
   });
@@ -114,6 +154,15 @@ function useShortcuts(): void {
         event.preventDefault();
         if (state.modal?.kind === 'switcher') closeModal();
         else openModal({ kind: 'switcher' });
+        return;
+      }
+      // Find in this conversation: a search scoped to it.
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'f' && state.route.name === 'conversation') {
+        const conv = conversation(state, state.route.id);
+        if (!conv) return;
+        event.preventDefault();
+        const scope = conv.is_channel ? `in:#${conv.name}` : conv.is_im ? `in:@${state.users[conv.user ?? '']?.name ?? ''}` : '';
+        if (scope) go({ name: 'search', query: `${scope} ` });
         return;
       }
       if (event.key !== 'Escape' || event.defaultPrevented) return;
@@ -143,7 +192,15 @@ export function Shell() {
         <main className="sheet">
           <NotifyPrompt />
           <div className="sheet-row">
-            {route.name === 'search' ? <SearchView query={route.query} /> : route.name === 'conversation' ? <ConversationView channel={route.id} /> : <section className="conversation" />}
+            {route.name === 'search' ? (
+              <SearchView query={route.query} />
+            ) : route.name === 'conversation' ? (
+              <ConversationView channel={route.id} />
+            ) : route.name === 'view' ? (
+              <WorkspaceView view={route.view} />
+            ) : (
+              <section className="conversation" />
+            )}
             {panel?.kind === 'thread' ? <ThreadPanel key={`${panel.channel}:${panel.ts}`} channel={panel.channel} ts={panel.ts} /> : null}
             {panel?.kind === 'profile' ? <ProfilePanel userId={panel.user} /> : null}
             {panel?.kind === 'details' ? <DetailsPanel channel={panel.channel} tab={panel.tab} /> : null}
