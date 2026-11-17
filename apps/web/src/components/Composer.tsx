@@ -1,8 +1,11 @@
 import type { User } from '@app/shared';
-import { AtSign, Bold, Code, Hash, Italic, Link2, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, X, FileText } from 'lucide-react';
+import { AtSign, Bold, CalendarClock, ChevronDown, Clock, Code, FileCode2, Hash, Italic, Link2, Moon, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, X, FileText } from 'lucide-react';
 import { ShortcutsButton } from './AppViews';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
-import { errorText, loadCommands, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
+import { useShallow } from 'zustand/react/shallow';
+import { errorText, loadCommands, openModal, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
+import { canPostIn, draftEvents, draftKey as serverDraftKey, notifyAnyway, saveDraft, scheduleMessage, serverDraft, userInDnd } from '../lib/attention';
+import { BUILT_INS, findBuiltIn } from '../lib/builtins';
 import { asset, uploadFile } from '../lib/api';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
 import { searchEmoji } from '../lib/emoji';
@@ -13,7 +16,7 @@ import { S } from '../strings';
 import { AiWriteButton } from './ai/AiControls';
 import { promptDialog } from './dialogs/confirm';
 import { composeLookup, PickerPopover } from './Message';
-import { Avatar, IconButton } from './ui';
+import { Avatar, IconButton, MenuItem, Popover } from './ui';
 
 interface Upload {
   key: string;
@@ -43,6 +46,14 @@ interface ComposerProps {
 
 function draftKey(channel: string, threadTs?: string): string {
   return `draft:${channel}${threadTs ? `:${threadTs}` : ''}`;
+}
+
+/** 9:00 in the morning, `days` from today, in seconds. */
+function atNine(days: number): number {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(9, 0, 0, 0);
+  return Math.floor(date.getTime() / 1000);
 }
 
 function matchesUser(user: User, query: string): number {
@@ -98,9 +109,16 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
     }));
     return { heading: S.composer.emojiHeading, items };
   }
+  // A built-in command wins over an app command of the same name; apps' own commands are listed first.
+  const builtIns = BUILT_INS.filter((command) => command.command.slice(1).startsWith(query)).map((command) => ({
+    key: command.command,
+    insert: `${command.command} `,
+    icon: <SquareSlash size={18} />,
+    label: `${command.command}${command.usage ? ` ${command.usage}` : ''}`,
+    sub: command.description,
+  }));
   const items = state.commands
-    .filter((command) => command.command.slice(1).startsWith(query))
-    .slice(0, 8)
+    .filter((command) => command.command.slice(1).startsWith(query) && !findBuiltIn(command.command))
     .map((command) => ({
       key: command.command,
       insert: `${command.command} `,
@@ -108,17 +126,19 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
       label: `${command.command}${command.usage_hint ? ` ${command.usage_hint}` : ''}`,
       sub: command.description || command.app_name,
     }));
-  return { heading: S.composer.commandsHeading, items };
+  return { heading: S.composer.commandsHeading, items: [...items, ...builtIns].slice(0, 10) };
 }
 
 export function Composer({ channel, threadTs, placeholder, autoFocus = false, broadcastLabel }: ComposerProps) {
   const storageKey = draftKey(channel, threadTs);
-  const [text, setTextState] = useState(() => localStorage.getItem(storageKey) ?? '');
+  const [text, setTextState] = useState(() => localStorage.getItem(storageKey) ?? serverDraft(channel, threadTs) ?? '');
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [broadcast, setBroadcast] = useState(false);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
   const [index, setIndex] = useState(0);
   const [picking, setPicking] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const scheduleButton = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -145,7 +165,36 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     setTextState(value);
     if (value) localStorage.setItem(storageKey, value);
     else localStorage.removeItem(storageKey);
+    // Slash commands are not drafts worth carrying to other devices.
+    if (!value.startsWith('/')) saveDraft(channel, threadTs, value);
   };
+
+  // A draft written on another device appears here unless something is already being typed.
+  useEffect(() => {
+    const onDraft = (event: Event): void => {
+      const detail = (event as CustomEvent<{ key: string; text: string }>).detail;
+      if (detail.key !== serverDraftKey(channel, threadTs)) return;
+      const node = input.current;
+      if (node && document.activeElement === node && node.value.trim() !== '') return;
+      setTextState(detail.text);
+      if (detail.text) localStorage.setItem(storageKey, detail.text);
+      else localStorage.removeItem(storageKey);
+    };
+    draftEvents.addEventListener('draft', onDraft);
+    return () => draftEvents.removeEventListener('draft', onDraft);
+  }, [channel, threadTs, storageKey]);
+
+  const conv = useStore((state) => state.channels[channel]);
+  const permissions = useStore(useShallow((state) => {
+    void state.att.tick;
+    return canPostIn(state.channels[channel] ?? state.others[channel]);
+  }));
+  const pausedName = useStore((state) => {
+    void state.att.tick;
+    const item = state.channels[channel];
+    if (!item?.is_im || item.user === state.self?.id || !userInDnd(item.user)) return null;
+    return displayName(state.users[item.user ?? '']);
+  });
 
   useEffect(() => {
     if (autoFocus) input.current?.focus();
@@ -326,6 +375,13 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
       return;
     }
     const command = /^(\/[a-z0-9_-]+)(?:\s+([\s\S]*))?$/i.exec(body);
+    const builtIn = command ? findBuiltIn(command[1]!) : undefined;
+    if (builtIn) {
+      const args = /^\/[a-z0-9_-]+\s*([\s\S]*)$/i.exec(encoded)?.[1] ?? '';
+      const ok = await builtIn.run({ channel, threadTs, args });
+      if (!ok) setText(body);
+      return;
+    }
     if (command) {
       const name = command[1]!.toLowerCase();
       const known = (): boolean => get().commands.some((item) => item.command === name);
@@ -339,6 +395,28 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     }
     void sendMessage({ channel, text: encoded, threadTs, broadcast: broadcast && Boolean(threadTs) });
     setBroadcast(false);
+  };
+
+  /** Send later instead of now. Text only: files are sent when they are attached. */
+  const schedule = async (postAt: number | 'custom'): Promise<void> => {
+    setScheduling(false);
+    const body = text.trim();
+    if (!body || uploads.length > 0) return;
+    const encoded = encodeMessage(body, composeLookup());
+    if (postAt === 'custom') {
+      openModal({ kind: 'schedule', channel, threadTs, text: encoded, broadcast: broadcast && Boolean(threadTs) });
+      setText('');
+      return;
+    }
+    setText('');
+    const ok = await scheduleMessage(channel, encoded, postAt, threadTs, broadcast && Boolean(threadTs));
+    if (!ok) setText(body);
+  };
+
+  const notifyLatest = (): void => {
+    const state = get();
+    const mine = [...(state.convs[channel]?.list ?? [])].reverse().find((message) => message.user === state.self?.id && !message.pending && !message.failed);
+    if (mine) void notifyAnyway(channel, mine.ts);
   };
 
   const editLast = (): boolean => {
@@ -394,8 +472,22 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
     }
   };
 
+  if (threadTs ? !permissions.thread : !permissions.top) {
+    return <div className="notice-bar">{S.att.posting.readOnly}</div>;
+  }
+
   return (
     <div className="composer-wrap" ref={root}>
+      {pausedName && !threadTs ? (
+        <div className="dnd-hint" role="status">
+          <Moon size={14} /> <span>{S.att.dnd.theyPaused(pausedName)}</span>
+          {conv?.latest_ts ? (
+            <button type="button" className="link-btn" onClick={notifyLatest}>
+              {S.att.dnd.notifyAnyway}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {open && suggestions ? (
         <div className="suggest" role="listbox">
           <div className="suggest-head">{suggestions.heading}</div>
@@ -516,18 +608,42 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
             <AtSign size={17} />
           </IconButton>
           <ShortcutsButton />
-          {threadTs && broadcastLabel ? (
+          {threadTs && broadcastLabel && permissions.top ? (
             <label className="composer-broadcast">
               <input type="checkbox" checked={broadcast} onChange={(event) => setBroadcast(event.target.checked)} />
               <span>{broadcastLabel}</span>
             </label>
           ) : null}
+          <IconButton label={S.att.snippet.action} onClick={() => openModal({ kind: 'snippet', channel, threadTs })}>
+            <FileCode2 size={17} />
+          </IconButton>
           <span className="composer-spacer" />
-          <button type="button" className="send-btn" disabled={!canSend} onClick={() => void submit()} aria-label={S.composer.send} title={S.composer.send}>
-            <SendHorizontal size={17} />
-          </button>
+          <span className={`send-group ${canSend ? 'is-ready' : ''}`}>
+            <button type="button" className="send-btn" disabled={!canSend} onClick={() => void submit()} aria-label={S.composer.send} title={S.composer.send}>
+              <SendHorizontal size={17} />
+            </button>
+            <button
+              ref={scheduleButton}
+              type="button"
+              className="send-more"
+              disabled={!canSend || uploads.length > 0 || text.trim().startsWith('/')}
+              onClick={() => setScheduling(true)}
+              aria-label={S.att.schedule.menu}
+              title={S.att.schedule.menu}
+            >
+              <ChevronDown size={15} />
+            </button>
+          </span>
         </div>
       </div>
+      {scheduling ? (
+        <Popover anchor={scheduleButton.current} onClose={() => setScheduling(false)} side="top" align="end" className="menu">
+          <div className="menu-heading">{S.att.schedule.menu}</div>
+          <MenuItem icon={<Clock size={16} />} label={S.att.schedule.tomorrow9} onSelect={() => void schedule(atNine(1))} />
+          <MenuItem icon={<Clock size={16} />} label={S.att.schedule.monday9} onSelect={() => void schedule(atNine(((8 - new Date().getDay()) % 7) || 7))} />
+          <MenuItem icon={<CalendarClock size={16} />} label={S.att.schedule.custom} onSelect={() => void schedule('custom')} />
+        </Popover>
+      ) : null}
       <div className="composer-status">
         <span className="typing-text" aria-live="polite">
           {typingText}

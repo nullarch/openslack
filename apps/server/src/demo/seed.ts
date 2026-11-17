@@ -250,6 +250,15 @@ export async function seedDemo(ctx: Ctx): Promise<boolean> {
   ctx.db.run(
     'UPDATE members SET last_read = (SELECT last_ts FROM conversations WHERE conversations.id = members.conversation_id)',
   );
+  // People follow the threads they started or replied in (the seed posts quietly, so nothing did this yet).
+  ctx.db.run(
+    `INSERT OR IGNORE INTO thread_subs (conversation_id, thread_ts, user_id, subscribed, last_read)
+     SELECT m.conversation_id, m.thread_ts, m.user_id, 1, p.latest_reply
+     FROM messages m
+       JOIN messages p ON p.conversation_id = m.conversation_id AND p.ts = m.thread_ts
+       JOIN users u ON u.id = m.user_id
+     WHERE m.thread_ts IS NOT NULL AND p.latest_reply IS NOT NULL AND u.is_bot = 0`,
+  );
   const unreadSince = (conv: ConvRow, minutes: number): void => {
     ctx.db.run('UPDATE members SET last_read = ? WHERE conversation_id = ? AND user_id = ?', tsAgo(minutes, 0), conv.id, maya.id);
   };

@@ -17,9 +17,10 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-export async function startApp(): Promise<TestApp> {
-  const dataDir = mkdtempSync(join(tmpdir(), 'chat-test-'));
+export async function startApp(options: { linkPreviews?: boolean; dataDir?: string; keepData?: boolean } = {}): Promise<TestApp> {
+  const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), 'chat-test-'));
   const app = createApp({
+    linkPreviews: options.linkPreviews ?? false,
     port: 0,
     host: '127.0.0.1',
     dataDir,
@@ -36,7 +37,7 @@ export async function startApp(): Promise<TestApp> {
     base: `http://127.0.0.1:${port}`,
     async close() {
       await app.close();
-      rmSync(dataDir, { recursive: true, force: true });
+      if (!options.keepData) rmSync(dataDir, { recursive: true, force: true });
     },
   };
 }

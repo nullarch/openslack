@@ -60,6 +60,9 @@ export function setOnBooted(hook: () => void): void {
   onBooted = hook;
 }
 
+/** Further work to start once the workspace is loaded, and again after a reconnect. */
+export const afterBoot: (() => void)[] = [];
+
 export async function start(): Promise<void> {
   window.addEventListener('popstate', () => void applyRoute(parseRoute(window.location)));
   try {
@@ -111,6 +114,7 @@ export async function boot(): Promise<void> {
   applyBoot(data as BootData);
   set((state) => ({ phase: 'ready', emojiVersion: state.emojiVersion + 1 }));
   onBooted?.();
+  for (const hook of afterBoot) hook();
   void loadCommands();
 
   const saved = sessionStorage.getItem('after-signin');
@@ -121,7 +125,7 @@ export async function boot(): Promise<void> {
     route = parseRoute(url);
     window.history.replaceState(null, '', saved);
   }
-  if (route.name === 'conversation' || route.name === 'search') await applyRoute(route);
+  if (route.name === 'conversation' || route.name === 'search' || route.name === 'view') await applyRoute(route);
   else goHome(true);
 }
 
@@ -283,6 +287,26 @@ export async function loadLatest(id: string): Promise<void> {
   } catch (error) {
     patchConv(id, { loading: false });
     toast(errorText(error), 'error');
+  }
+}
+
+/**
+ * How many messages a conversation keeps loaded. Beyond it the far end is
+ * dropped and loaded again when the reader scrolls back there, so a long
+ * session does not grow the page without bound.
+ */
+export const MAX_LOADED = 300;
+
+/** Drop messages from one end of a loaded list: `newest` keeps the newest, `oldest` keeps the oldest. */
+export function trimLoaded(id: string, keep: 'newest' | 'oldest'): void {
+  const conv = get().convs[id];
+  if (!conv || conv.list.length <= MAX_LOADED) return;
+  if (keep === 'newest') {
+    patchConv(id, { list: conv.list.slice(conv.list.length - MAX_LOADED), hasOlder: true });
+  } else {
+    // Rows still being sent live at the newest end; keep them by not trimming yet.
+    if (conv.list.some((message) => message.pending || message.failed)) return;
+    patchConv(id, { list: conv.list.slice(0, MAX_LOADED), hasNewer: true });
   }
 }
 

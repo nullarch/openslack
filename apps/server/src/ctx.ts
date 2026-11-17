@@ -19,6 +19,8 @@ export interface Config {
   cookieSecure: boolean;
   version: string;
   quiet: boolean;
+  /** Fetch titles and images for links in messages. Off unless set (`LINK_PREVIEWS=0` turns it off when run from the environment). */
+  linkPreviews?: boolean;
 }
 
 export interface TeamRow {

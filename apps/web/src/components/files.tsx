@@ -1,6 +1,6 @@
 import type { FileObject } from '@app/shared';
 import { Download, ExternalLink, FileText, File as FileIcon, FileCode, FileArchive, FileSpreadsheet } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { openModal } from '../lib/actions';
 import { asset } from '../lib/api';
 import { fileSize } from '../lib/time';
@@ -10,6 +10,8 @@ const TEXT_TYPES = new Set([
   'text', 'markdown', 'csv', 'json', 'yaml', 'xml', 'html', 'css', 'javascript', 'typescript', 'python', 'go', 'rust', 'shell', 'sql', 'diff',
 ]);
 const PREVIEW_BYTES = 20_000;
+
+const HighlightedCode = lazy(() => import('./Highlight'));
 
 function isText(file: FileObject): boolean {
   return TEXT_TYPES.has(file.filetype) || file.mimetype.startsWith('text/');
@@ -111,10 +113,51 @@ function FileCardHead({ file, extra }: { file: FileObject; extra?: React.ReactNo
   );
 }
 
-export function Files({ files }: { files: FileObject[] }) {
+/** A snippet: a text file shown open, with syntax highlighting once the highlighter has loaded. */
+function SnippetFile({ file }: { file: FileObject }) {
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetch(asset(file.url_private), { headers: { range: `bytes=0-${PREVIEW_BYTES - 1}` }, credentials: 'same-origin' })
+      .then((response) => (response.ok ? response.text() : Promise.reject(new Error('failed'))))
+      .then((body) => live && setText(body))
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [file.url_private]);
+  const lines = text ? text.replace(/\n$/, '').split('\n').length : 0;
+  return (
+    <div className="file-card is-text is-snippet">
+      <FileCardHead file={file} extra={text ? <span className="file-sub snippet-lines">{S.att.snippet.lines(lines)}</span> : undefined} />
+      {failed ? (
+        <div className="file-preview-note">{S.files.previewFailed}</div>
+      ) : (
+        <Suspense fallback={<pre className="code-block file-preview"><code>{text ?? S.loading}</code></pre>}>
+          {text !== null ? <HighlightedCode code={text} language={file.filetype} /> : <pre className="code-block file-preview"><code>{S.loading}</code></pre>}
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+export function Files({ files, collapsed = false }: { files: FileObject[]; collapsed?: boolean }) {
+  if (collapsed) {
+    return (
+      <div className="files">
+        {files.map((file) => (
+          <div key={file.id} className="file-card">
+            <FileCardHead file={file} />
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="files">
       {files.map((file) => {
+        if (file.mode === 'snippet') return <SnippetFile key={file.id} file={file} />;
         if (/^image\/(png|jpeg|gif|webp)$/.test(file.mimetype)) return <ImageFile key={file.id} file={file} />;
         if (file.mimetype.startsWith('video/')) {
           return (
