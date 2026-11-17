@@ -91,6 +91,12 @@ export function installWorkflows(kernel: Kernel): void {
   const ofType = (type: Trigger['type']): WorkflowRow[] =>
     ctx.db.all<WorkflowRow>("SELECT * FROM workflows WHERE status = 'published' AND json_extract(trigger, '$.type') = ?", type);
 
+  /** A channel trigger fires only while the workflow's creator can still see that channel. */
+  const creatorSees = (workflow: WorkflowRow, channel: string): boolean => {
+    const conv = getConv(ctx, channel);
+    return conv !== undefined && conv.is_archived !== 1 && canSee(ctx, conv, workflow.created_by);
+  };
+
   // Reactions and channel joins.
   const unsubscribe = ctx.bus.subscribe(({ event }) => {
     if (event.type === 'reaction_added') {
@@ -100,7 +106,7 @@ export function installWorkflows(kernel: Kernel): void {
       const reaction = String(event.reaction ?? '').replace(/::skin-tone-[2-6]$/, '');
       for (const workflow of ofType('reaction')) {
         const trigger = triggerOf(workflow);
-        if (trigger.channel !== item.channel || trigger.reaction !== reaction) continue;
+        if (trigger.channel !== item.channel || trigger.reaction !== reaction || !creatorSees(workflow, item.channel)) continue;
         const vars: Vars = {};
         put(vars, 'trigger.user', { value: user.id, kind: 'user' });
         put(vars, 'trigger.channel', { value: item.channel, kind: 'channel' });
@@ -115,7 +121,7 @@ export function installWorkflows(kernel: Kernel): void {
       const user = typeof event.user === 'string' ? getUser(ctx, event.user) : undefined;
       if (!user || user.is_bot === 1 || typeof event.channel !== 'string') return;
       for (const workflow of ofType('member_joined')) {
-        if (triggerOf(workflow).channel !== event.channel) continue;
+        if (triggerOf(workflow).channel !== event.channel || !creatorSees(workflow, event.channel)) continue;
         const vars: Vars = {};
         put(vars, 'trigger.user', { value: user.id, kind: 'user' });
         put(vars, 'trigger.channel', { value: event.channel, kind: 'channel' });
@@ -353,13 +359,13 @@ export function installWorkflows(kernel: Kernel): void {
   // ── Methods: running ──────────────────────────────────────────────────────
 
   registry.add('client.workflows.linkInfo', { auth: 'session' }, ({ args }) => {
-    const workflow = ctx.db.get<WorkflowRow>("SELECT * FROM workflows WHERE link_token = ? AND status = 'published'", args.req('token'));
+    const workflow = ctx.db.get<WorkflowRow>("SELECT * FROM workflows WHERE link_token = ? AND status = 'published'", args.req('link'));
     if (!workflow || triggerOf(workflow).type !== 'link') fail('workflow_not_found');
     return { workflow: { id: workflow.id, name: workflow.name, description: workflow.description } };
   });
 
   registry.add('client.workflows.startByLink', { auth: 'session' }, ({ actor, args }) => {
-    const workflow = ctx.db.get<WorkflowRow>("SELECT * FROM workflows WHERE link_token = ? AND status = 'published'", args.req('token'));
+    const workflow = ctx.db.get<WorkflowRow>("SELECT * FROM workflows WHERE link_token = ? AND status = 'published'", args.req('link'));
     if (!workflow || triggerOf(workflow).type !== 'link') fail('workflow_not_found');
     return { run_id: startByPerson(workflow, actor, args.str('channel')) };
   });

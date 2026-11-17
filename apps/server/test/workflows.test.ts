@@ -214,6 +214,23 @@ describe('workflows', () => {
     assert.equal((await runs(workflow.id)).length, 1);
   });
 
+  test('a reaction trigger in a private channel stops once its creator leaves the channel', async () => {
+    const { channel } = await member.ok('conversations.create', { name: 'members-room', is_private: true });
+    await member.ok('conversations.invite', { channel: channel.id, users: owner.userId });
+    const workflow = await build('Leak check', { type: 'reaction', channel: channel.id, reaction: 'fire' }, [
+      { id: 'copy', type: 'message', destination: { to: 'channel', channel: general }, text: 'Copied: {{trigger.message_text}}' },
+    ]);
+    const first = await member.ok('chat.postMessage', { channel: channel.id, text: 'first secret' });
+    await member.ok('reactions.add', { channel: channel.id, timestamp: first.ts, name: 'fire' });
+    await until(async () => (await runs(workflow.id))[0]?.status === 'completed');
+    await owner.ok('conversations.leave', { channel: channel.id });
+    const second = await member.ok('chat.postMessage', { channel: channel.id, text: 'second secret' });
+    await member.ok('reactions.add', { channel: channel.id, timestamp: second.ts, name: 'fire' });
+    await sleep(150);
+    assert.equal((await runs(workflow.id)).length, 1);
+    assert.notEqual(await latestText(general), 'Copied: second secret');
+  });
+
   test('a webhook trigger checks its secret and turns JSON keys into variables', async () => {
     const workflow = await build('Deploys', { type: 'webhook', variables: ['service', 'version'] }, [
       { id: 'say', type: 'message', destination: { to: 'channel', channel: general }, text: '{{webhook.service}} {{webhook.version}} is out <b>' },
@@ -308,6 +325,19 @@ describe('workflows', () => {
       return latest?.status === 'failed' ? latest : null;
     });
     assert.match(failed.error, /queue full/);
+  });
+
+  test('a link starts its workflow for whoever opens it, until it is turned off', async () => {
+    const workflow = await build('Link hello', { type: 'link' }, [{ id: 'say', type: 'message', destination: { to: 'trigger_channel' }, text: 'Linked by {{trigger.user}}' }]);
+    const full = (await owner.ok('client.workflows.get', { workflow: workflow.id })).workflow;
+    const link = full.link_url.split('/').pop();
+    assert.equal((await member.ok('client.workflows.linkInfo', { link })).workflow.name, 'Link hello');
+    await member.ok('client.workflows.startByLink', { link, channel: random });
+    await until(async () => (await runs(workflow.id))[0]?.status === 'completed');
+    assert.equal(await latestText(random), `Linked by <@${member.userId}>`);
+    await owner.ok('client.workflows.publish', { workflow: workflow.id, published: false });
+    assert.equal((await member.call('client.workflows.startByLink', { link })).error, 'workflow_not_found');
+    assert.equal((await member.call('client.workflows.linkInfo', { link: 'deadbeef' })).error, 'workflow_not_found');
   });
 
   test('custom responses: admins only, matching rules, channel scope, unsafe patterns refused', async () => {
