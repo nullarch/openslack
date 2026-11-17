@@ -269,6 +269,12 @@ function refreshLastTs(ctx: Ctx, conversationId: string): void {
 }
 
 /**
+ * Checks run before a message is stored (posting permissions). Each throws an
+ * API error to refuse. Imports and system lines skip them.
+ */
+export const messageGuards: ((ctx: Ctx, input: NewMessage) => void)[] = [];
+
+/**
  * Checks run before a person's message is stored or changed (not for imports).
  * A check throws to refuse it. Workspace policies register here.
  */
@@ -281,6 +287,7 @@ function runContentChecks(ctx: Ctx, userId: string | null, text: string, blocks:
 
 export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const { conv } = input;
+  if (!input.silent) for (const guard of messageGuards) guard(ctx, input);
   const text = input.text ?? '';
   // System lines (joins, topic changes) are written by the server, not composed by the person.
   const system = input.subtype?.startsWith('channel_') || input.subtype === 'pinned_item';

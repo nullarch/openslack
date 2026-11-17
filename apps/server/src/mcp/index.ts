@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { Readable } from 'node:stream';
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
+import { createMcpHandler, McpServer, type McpRequestContext } from '@modelcontextprotocol/server';
 import { BRAND } from '@app/shared';
 import { z } from 'zod';
 import { authorize, readBody, sendJson } from '../api/http.ts';
@@ -17,8 +18,11 @@ import type { Actor } from '../ctx.ts';
  * it presents. Every tool is a thin wrapper over an API method: the same
  * visibility and scope rules apply.
  *
- * The endpoint is stateless: each POST is handled on its own and answered with
- * JSON, so it works behind any proxy and needs no session storage.
+ * Built on the official SDK (v2), which speaks both protocol eras: the
+ * 2026-07-28 revision (per-request envelopes, `server/discover`) and 2025-era
+ * clients, which are served statelessly. Each POST is handled on its own and
+ * answered with JSON, so the endpoint works behind any proxy and needs no
+ * session storage.
  */
 
 type Loose = Record<string, unknown>;
@@ -275,9 +279,27 @@ function buildServer(tool: ToolContext): McpServer {
 }
 
 export function installMcp(kernel: Kernel): void {
-  kernel.router.add(null, /^\/mcp$/, async ({ req, res }) => {
+  // One handler for every request; the caller of each request travels in `authInfo.extra`.
+  const handler = createMcpHandler(
+    (context: McpRequestContext) => {
+      const tool = context.authInfo?.extra?.tool as ToolContext | undefined;
+      if (!tool) throw new Error('MCP request without a caller');
+      return buildServer(tool);
+    },
+    {
+      legacy: 'stateless',
+      responseMode: 'json',
+      onerror: (error) => {
+        if (!kernel.ctx.config.quiet) console.error('[mcp]', error.message);
+      },
+    },
+  );
+  kernel.onClose.push(() => handler.close());
+
+  kernel.router.add(null, /^\/mcp$/, async ({ req, res, url }) => {
     // API tokens only: a browser cookie must never authorise this endpoint.
-    const presentsToken = /^Bearer\s+\S/i.test(String(req.headers.authorization ?? ''));
+    const authorization = String(req.headers.authorization ?? '');
+    const presentsToken = /^Bearer\s+\S/i.test(authorization);
     const { actor } = presentsToken ? authenticate(kernel.ctx, req, undefined) : { actor: null };
     if (!actor || actor.kind === 'session' || actor.kind === 'app') {
       sendJson(res, 401, { jsonrpc: '2.0', error: { code: -32001, message: 'A bot or user API token is required.' }, id: null }, {
@@ -289,20 +311,29 @@ export function installMcp(kernel: Kernel): void {
       sendJson(res, 405, { jsonrpc: '2.0', error: { code: -32000, message: 'Use POST.' }, id: null }, { allow: 'POST' });
       return;
     }
-    let body: unknown;
-    try {
-      body = JSON.parse((await readBody(req)).toString('utf8'));
-    } catch {
-      sendJson(res, 400, { jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' }, id: null });
+    const body = await readBody(req);
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(req.headers)) {
+      if (typeof value === 'string') headers.set(name, value);
+      else if (Array.isArray(value)) headers.set(name, value.join(', '));
+    }
+    const request = new Request(new URL(url.pathname + url.search, `http://${req.headers.host ?? 'localhost'}`), {
+      method: 'POST',
+      headers,
+      body: new Uint8Array(body),
+    });
+    const response = await handler.fetch(request, {
+      authInfo: { token: authorization.replace(/^Bearer\s+/i, ''), clientId: actor.userId, scopes: [...(actor.scopes ?? [])], extra: { tool: { kernel, actor, req, res } } },
+    });
+    const outHeaders: Record<string, string> = {};
+    response.headers.forEach((value, name) => {
+      outHeaders[name] = value;
+    });
+    res.writeHead(response.status, outHeaders);
+    if (!response.body) {
+      res.end();
       return;
     }
-    const server = buildServer({ kernel, actor, req, res });
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-    res.on('close', () => {
-      void transport.close();
-      void server.close();
-    });
-    await server.connect(transport);
-    await transport.handleRequest(req, res, body);
+    Readable.fromWeb(response.body as unknown as WebReadableStream).pipe(res);
   });
 }

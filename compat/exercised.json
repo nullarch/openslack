@@ -11,6 +11,7 @@
       "chat.postMessage",
       "chat.startStream",
       "chat.stopStream",
+      "chat.unfurl",
       "chat.update",
       "conversations.archive",
       "conversations.create",
@@ -36,17 +37,26 @@
       "users.conversations",
       "users.info",
       "users.list",
-      "users.lookupByEmail"
+      "users.lookupByEmail",
+      "views.open",
+      "views.publish",
+      "views.push"
     ],
     "events": [
+      "app_home_opened",
       "app_mention",
       "block_actions",
+      "block_suggestion",
       "channel_created",
+      "link_shared",
       "member_joined_channel",
       "message.channels",
       "message.im",
+      "message_action",
       "reaction_added",
-      "slash_commands"
+      "shortcut",
+      "slash_commands",
+      "view_submission"
     ]
   },
   "bolt-js-socket": {
@@ -62,6 +72,7 @@
       "chat.postMessage",
       "chat.startStream",
       "chat.stopStream",
+      "chat.unfurl",
       "chat.update",
       "conversations.archive",
       "conversations.create",
@@ -87,17 +98,52 @@
       "users.conversations",
       "users.info",
       "users.list",
-      "users.lookupByEmail"
+      "users.lookupByEmail",
+      "views.open",
+      "views.publish",
+      "views.push"
     ],
     "events": [
+      "app_home_opened",
       "app_mention",
       "block_actions",
+      "block_suggestion",
       "channel_created",
+      "link_shared",
       "member_joined_channel",
       "message.channels",
       "message.im",
+      "message_action",
       "reaction_added",
-      "slash_commands"
+      "shortcut",
+      "slash_commands",
+      "view_submission"
+    ]
+  },
+  "bolt-python-http": {
+    "sdk": "slack_bolt 1.30.0, slack_sdk 3.47.0",
+    "methods": [
+      "assistant.threads.setStatus",
+      "auth.test",
+      "chat.postMessage",
+      "chat.startStream",
+      "chat.stopStream",
+      "conversations.history",
+      "files.completeUploadExternal",
+      "files.getUploadURLExternal",
+      "reactions.add",
+      "users.info",
+      "views.open",
+      "views.publish"
+    ],
+    "events": [
+      "app_home_opened",
+      "app_mention",
+      "block_actions",
+      "message.channels",
+      "shortcut",
+      "slash_commands",
+      "view_submission"
     ]
   },
   "bolt-python-socket": {
@@ -113,13 +159,30 @@
       "files.completeUploadExternal",
       "files.getUploadURLExternal",
       "reactions.add",
-      "users.info"
+      "users.info",
+      "views.open",
+      "views.publish"
     ],
     "events": [
+      "app_home_opened",
       "app_mention",
       "block_actions",
       "message.channels",
-      "slash_commands"
+      "shortcut",
+      "slash_commands",
+      "view_submission"
+    ]
+  },
+  "rtm-node": {
+    "sdk": "@slack/rtm-api 7.0.4, @slack/web-api 8.4.0",
+    "methods": [
+      "files.upload",
+      "rtm.connect"
+    ],
+    "events": [
+      "hello",
+      "message",
+      null
     ]
   }
 }

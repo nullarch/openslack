@@ -70,6 +70,30 @@ export function installGuestRules(kernel: Kernel): void {
     return { ...result, channels };
   });
 
+  // RTM's heavier start lists people; Do Not Disturb lists people too.
+  if (kernel.registry.get('rtm.start')) {
+    around(kernel, 'rtm.start', async (call, original) => {
+      const result = await run(original, call);
+      if (!guest(call)) return result;
+      const visible = visibleUserIds(ctx, call.actor.userId);
+      return { ...result, users: (result.users as { id: string }[]).filter((user) => visible.has(user.id)) };
+    });
+  }
+  if (kernel.registry.get('dnd.teamInfo')) {
+    around(kernel, 'dnd.teamInfo', async (call, original) => {
+      const result = await run(original, call);
+      if (!guest(call)) return result;
+      const visible = visibleUserIds(ctx, call.actor.userId);
+      return { ...result, users: Object.fromEntries(Object.entries(result.users as Record<string, unknown>).filter(([id]) => visible.has(id))) };
+    });
+  }
+  if (kernel.registry.get('dnd.info')) {
+    around(kernel, 'dnd.info', async (call, original) => {
+      if (guest(call)) mustSee(call, call.args.str('user'));
+      return run(original, call);
+    });
+  }
+
   // Guests are added to channels by admins only; a single-channel guest stays in one.
   around(kernel, 'conversations.invite', async (call, original) => {
     if (guest(call)) fail('restricted_action');

@@ -1,6 +1,6 @@
 import { Smile } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { attempt, closeModal, setPrefs } from '../../lib/actions';
+import { attempt, closeModal, openModal, setPrefs } from '../../lib/actions';
 import { call, uploadFile } from '../../lib/api';
 import { enableNotifications, notificationPermission } from '../../lib/notify';
 import { useStore } from '../../lib/store';
@@ -57,8 +57,41 @@ export function PreferencesDialog() {
             {S.prefs.notificationsEnable}
           </Button>
         )}
+        <button type="button" className="link-btn pref-link" onClick={() => openModal({ kind: 'dndSchedule' })}>
+          {S.att.dnd.schedule}
+        </button>
       </fieldset>
+      <KeywordsPref />
     </Modal>
+  );
+}
+
+/** Words that notify like a mention (Slack's `highlight_words` preference). */
+function KeywordsPref() {
+  const saved = useStore((state) => (typeof state.prefs.highlight_words === 'string' ? state.prefs.highlight_words : ''));
+  const [value, setValue] = useState(saved);
+  const normalized = value
+    .split(',')
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .join(', ');
+  return (
+    <fieldset className="pref-group">
+      <legend>{S.att.keywords.title}</legend>
+      <p className="muted">{S.att.keywords.body}</p>
+      <form
+        className="inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void setPrefs({ highlight_words: normalized });
+        }}
+      >
+        <input value={value} placeholder={S.att.keywords.placeholder} aria-label={S.att.keywords.title} onChange={(event) => setValue(event.target.value)} />
+        <Button type="submit" variant="primary" disabled={normalized === saved}>
+          {S.save}
+        </Button>
+      </form>
+    </fieldset>
   );
 }
 

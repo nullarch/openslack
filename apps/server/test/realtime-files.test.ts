@@ -120,6 +120,18 @@ describe('realtime and files', () => {
     witness.close();
   });
 
+  test('a reload does not show the person as away in the fresh boot data', async () => {
+    const first = await owner.connect();
+    await first.next((event) => event.type === 'hello');
+    first.close();
+    // The tab reloads: boot data is fetched before the new connection opens.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal((await owner.ok('client.boot')).presence[owner.userId], 'active');
+    assert.equal((await member.ok('client.boot')).presence[owner.userId], 'active');
+    const second = await owner.connect();
+    second.close();
+  });
+
   test('ephemeral messages reach one person and are not stored', async () => {
     const memberStream = await member.connect();
     const ownerStream = await owner.connect();

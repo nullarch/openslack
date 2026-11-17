@@ -7,6 +7,7 @@ import type { Actor, Ctx } from '../ctx.ts';
 import { authenticate } from '../core/auth.ts';
 import { ApiError } from '../core/errors.ts';
 import { isAdmin } from '../core/users.ts';
+import { discardMultipart, readMultipart } from './methods/legacy-files.ts';
 import { Args, type MethodDef, type Registry } from './registry.ts';
 
 export interface RouteCall {
@@ -135,6 +136,30 @@ export class RateLimiter {
   }
 }
 
+/** Calls per minute per caller when no workspace setting applies. */
+export const DEFAULT_API_RATE_LIMIT = 6000;
+
+/** Bounds of the per-token limit an admin may set (calls per minute). */
+export const TOKEN_LIMIT_RANGE = { min: 10, max: 100_000 } as const;
+
+let limitCache: { prefs: string; limit: number | undefined } | null = null;
+
+/** The per-token API rate limit from the workspace settings (`api_rate_limit_per_minute`), if one is set. */
+export function workspaceTokenLimit(ctx: Ctx): number | undefined {
+  const prefs = ctx.team()?.prefs ?? '{}';
+  if (limitCache?.prefs !== prefs) {
+    let limit: number | undefined;
+    try {
+      const value = (JSON.parse(prefs) as Record<string, unknown>).api_rate_limit_per_minute;
+      if (typeof value === 'number' && value >= TOKEN_LIMIT_RANGE.min && value <= TOKEN_LIMIT_RANGE.max) limit = value;
+    } catch {
+      // Unreadable settings: keep the default.
+    }
+    limitCache = { prefs, limit };
+  }
+  return limitCache.limit;
+}
+
 // ── API dispatch ────────────────────────────────────────────────────────────
 
 /** Check that an authenticated caller may use a method: credential type, role and token scopes. */
@@ -169,12 +194,13 @@ async function handleApi(
   url: URL,
 ): Promise<void> {
   const name = url.pathname.slice('/api/'.length);
+  const raw: Record<string, unknown> = {};
   try {
-    const raw: Record<string, unknown> = {};
     for (const [key, value] of url.searchParams) raw[key] = value;
     if (req.method === 'POST') {
       const contentType = String(req.headers['content-type'] ?? '');
-      Object.assign(raw, parseBody(contentType, await readBody(req)));
+      if (contentType.startsWith('multipart/form-data')) Object.assign(raw, await readMultipart(ctx, req));
+      else Object.assign(raw, parseBody(contentType, await readBody(req)));
     }
     const args = new Args(raw);
 
@@ -196,18 +222,22 @@ async function handleApi(
     }
 
     const ip = req.socket.remoteAddress ?? 'unknown';
+    // API tokens get the workspace's own limit when an admin set one; browser sessions keep the built-in one.
+    const tokenLimit = actor && actor.kind !== 'session' ? workspaceTokenLimit(ctx) : undefined;
     const wait = SIGN_IN_METHODS.has(name)
       ? limiter.check(`signin:${ip}:${name}`, 20)
-      : limiter.check(actor ? `actor:${actor.userId}:${actor.kind}` : `ip:${ip}`);
+      : limiter.check(actor ? `actor:${actor.userId}:${actor.kind}` : `ip:${ip}`, tokenLimit);
     if (wait > 0) {
       sendJson(res, 429, { ok: false, error: 'ratelimited' }, { 'retry-after': String(wait) });
       return;
     }
 
     const result = await def.handler({ ctx, actor: actor as never, args, req, res });
+    await discardMultipart(raw);
     if (res.writableEnded) return;
     sendJson(res, 200, { ok: true, ...(result ?? {}) });
   } catch (error) {
+    await discardMultipart(raw);
     if (res.writableEnded) return;
     if (error instanceof ApiError) {
       sendJson(res, error.status, { ok: false, error: error.code, ...error.extra });
@@ -215,6 +245,9 @@ async function handleApi(
     }
     console.error(`[api] ${name} failed`, error);
     sendJson(res, 500, { ok: false, error: 'internal_error' });
+  } finally {
+    // A multipart upload is spooled to a temporary file; it never outlives the call.
+    await discardMultipart(raw);
   }
 }
 

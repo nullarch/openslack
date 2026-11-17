@@ -17,6 +17,7 @@ import {
   touchConv,
   type ConvRow,
 } from '../../core/conversations.ts';
+import { viewerThreadFields } from '../../attention/threads.ts';
 import { fail } from '../../core/errors.ts';
 import { nowSeconds } from '../../core/ids.ts';
 import { history, messageToApi, postSystemMessage, replies } from '../../core/messages.ts';
@@ -131,8 +132,12 @@ export function registerConversations(registry: Registry): void {
       inclusive = false;
     }
     const page = replies(ctx, conv, threadTs, { latest: args.ts('latest'), oldest, inclusive, limit });
+    const messages = page.rows.map((row) => messageToApi(ctx, row));
+    // Slack tells the person asking whether they follow the thread and how far they have read.
+    const parent = messages[0];
+    if (parent && !actor.isBot && parent.thread_ts === parent.ts) Object.assign(parent, viewerThreadFields(ctx, conv.id, parent.ts, actor.userId));
     return {
-      messages: page.rows.map((row) => messageToApi(ctx, row)),
+      messages,
       has_more: page.hasMore,
       response_metadata: { next_cursor: page.hasMore ? encodeCursor(`after:${page.rows.at(-1)!.ts}`) : '' },
     };
@@ -194,7 +199,7 @@ export function registerConversations(registry: Registry): void {
     const userId = args.req('user', 'user_not_found');
     if (userId === actor.userId) fail('cant_kick_self');
     if (conv.is_general === 1) fail('cant_kick_from_general');
-    if (!canManage(conv, actor)) fail('restricted_action');
+    if (!canManage(conv, actor, ctx)) fail('restricted_action');
     if (!removeMember(ctx, conv, userId)) fail('not_in_channel');
   });
 
@@ -203,7 +208,7 @@ export function registerConversations(registry: Registry): void {
     requireChannel(conv);
     if (conv.is_general === 1) fail('cant_archive_general');
     if (conv.is_archived === 1) fail('already_archived');
-    if (!canManage(conv, actor)) fail('restricted_action');
+    if (!canManage(conv, actor, ctx)) fail('restricted_action');
     postSystemMessage(ctx, conv, actor.userId, 'channel_archive', `<@${actor.userId}> archived the channel`);
     ctx.db.run('UPDATE conversations SET is_archived = 1, updated = ? WHERE id = ?', nowSeconds(), conv.id);
     ctx.bus.emit({
@@ -216,7 +221,7 @@ export function registerConversations(registry: Registry): void {
     const conv = resolveConv(ctx, actor, args.req('channel', 'channel_not_found'));
     requireChannel(conv);
     if (conv.is_archived === 0) fail('not_archived');
-    if (!canManage(conv, actor)) fail('restricted_action');
+    if (!canManage(conv, actor, ctx)) fail('restricted_action');
     ctx.db.run('UPDATE conversations SET is_archived = 0, updated = ? WHERE id = ?', nowSeconds(), conv.id);
     ctx.bus.emit({
       event: { type: 'channel_unarchive', channel: conv.id, user: actor.userId, event_ts: ctx.clock.eventTs() },
@@ -227,7 +232,7 @@ export function registerConversations(registry: Registry): void {
   registry.add('conversations.rename', { scopes: MANAGE }, ({ ctx, actor, args }) => {
     const conv = resolveConv(ctx, actor, args.req('channel', 'channel_not_found'));
     requireChannel(conv);
-    if (!canManage(conv, actor)) fail('not_authorized');
+    if (!canManage(conv, actor, ctx)) fail('not_authorized');
     const name = normalizeChannelName(args.req('name', 'invalid_name_required'));
     const error = channelNameError(name);
     if (error) fail(error);

@@ -268,7 +268,164 @@ export const MIGRATIONS: string[] = [
   );
   `,
 
-  /* 3: accounts — mail codes, two-factor, external sign-in, guests, user groups, profile fields, push, public pages */ `
+  /* 3: app platform — modal and App Home views */ `
+  CREATE TABLE app_views (
+    id TEXT PRIMARY KEY,
+    app_id TEXT NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('modal', 'home')),
+    root_view_id TEXT,
+    previous_view_id TEXT,
+    depth INTEGER NOT NULL DEFAULT 0,
+    external_id TEXT,
+    hash TEXT NOT NULL,
+    body TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT '{}',
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX app_views_home ON app_views(app_id, user_id) WHERE type = 'home';
+  CREATE UNIQUE INDEX app_views_external ON app_views(app_id, external_id) WHERE external_id IS NOT NULL;
+  CREATE INDEX app_views_user ON app_views(user_id, type);
+  `,
+
+  /* 4: messaging and attention — activity, threads, notification levels, DND, scheduled messages,
+        reminders, saved items, bookmarks, posting permissions, drafts, link previews, snippets */ `
+  ALTER TABLE members ADD COLUMN notify_level TEXT NOT NULL DEFAULT 'default';
+
+  ALTER TABLE conversations ADD COLUMN post_policy TEXT NOT NULL DEFAULT '';
+  ALTER TABLE conversations ADD COLUMN thread_policy TEXT NOT NULL DEFAULT '';
+  ALTER TABLE conversations ADD COLUMN mention_policy TEXT NOT NULL DEFAULT '';
+  CREATE TABLE channel_managers (
+    conversation_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    PRIMARY KEY (conversation_id, user_id)
+  ) WITHOUT ROWID;
+
+  ALTER TABLE files ADD COLUMN mode TEXT NOT NULL DEFAULT 'hosted';
+
+  -- Built-in users that are not apps (the reminder bot).
+  CREATE TABLE system_users (
+    role TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL
+  );
+
+  CREATE TABLE thread_subs (
+    conversation_id TEXT NOT NULL,
+    thread_ts TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    subscribed INTEGER NOT NULL DEFAULT 1,
+    last_read TEXT NOT NULL DEFAULT '0000000000.000000',
+    PRIMARY KEY (conversation_id, thread_ts, user_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX thread_subs_user ON thread_subs(user_id, subscribed);
+
+  CREATE TABLE activity (
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    thread_ts TEXT,
+    actor TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
+    created INTEGER NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (user_id, kind, conversation_id, ts, actor, detail)
+  );
+  CREATE INDEX activity_user ON activity(user_id, id);
+  CREATE INDEX activity_message ON activity(conversation_id, ts);
+
+  CREATE TABLE dnd (
+    user_id TEXT PRIMARY KEY,
+    snooze_until INTEGER NOT NULL DEFAULT 0,
+    snooze_started INTEGER NOT NULL DEFAULT 0,
+    schedule_enabled INTEGER NOT NULL DEFAULT 0,
+    start_minute INTEGER NOT NULL DEFAULT 1320,
+    end_minute INTEGER NOT NULL DEFAULT 480,
+    days TEXT NOT NULL DEFAULT '0123456',
+    ended_until INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE scheduled_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    bot_id TEXT,
+    app_id TEXT,
+    post_at INTEGER NOT NULL,
+    text TEXT NOT NULL DEFAULT '',
+    blocks TEXT,
+    attachments TEXT,
+    metadata TEXT,
+    thread_ts TEXT,
+    reply_broadcast INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL DEFAULT 'pending',
+    posted_ts TEXT,
+    error TEXT,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX scheduled_due ON scheduled_messages(state, post_at);
+  CREATE INDEX scheduled_user ON scheduled_messages(user_id, state);
+
+  CREATE TABLE reminders (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    creator TEXT NOT NULL,
+    text TEXT NOT NULL,
+    time INTEGER NOT NULL,
+    recurrence TEXT,
+    complete_ts INTEGER NOT NULL DEFAULT 0,
+    fired INTEGER NOT NULL DEFAULT 0,
+    channel TEXT,
+    message_ts TEXT,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX reminders_due ON reminders(fired, time);
+  CREATE INDEX reminders_user ON reminders(user_id);
+
+  CREATE TABLE saved (
+    user_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'in_progress',
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL,
+    PRIMARY KEY (user_id, conversation_id, ts)
+  ) WITHOUT ROWID;
+
+  CREATE TABLE bookmarks (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    link TEXT NOT NULL,
+    emoji TEXT NOT NULL DEFAULT '',
+    rank TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created INTEGER NOT NULL,
+    updated INTEGER NOT NULL
+  );
+  CREATE INDEX bookmarks_conversation ON bookmarks(conversation_id, rank);
+
+  CREATE TABLE drafts (
+    user_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    thread_ts TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL,
+    updated INTEGER NOT NULL,
+    PRIMARY KEY (user_id, conversation_id, thread_ts)
+  ) WITHOUT ROWID;
+
+  CREATE TABLE link_previews (
+    url TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    data TEXT,
+    fetched INTEGER NOT NULL
+  );
+  `,
+
+  /* accounts — mail codes, two-factor, external sign-in, guests, user groups, profile fields, push, public pages */ `
   -- '' for members; 'multi' or 'single' for guests.
   ALTER TABLE users ADD COLUMN guest TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN guest_expires INTEGER NOT NULL DEFAULT 0;

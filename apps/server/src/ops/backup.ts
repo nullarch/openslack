@@ -8,7 +8,7 @@ import * as sqlite from 'node:sqlite';
  * uploaded files. Files added after the snapshot may be copied too; they are
  * simply unreferenced in the restored database.
  */
-export async function backupDataDir(dataDir: string, destination: string): Promise<{ database: string; files: boolean }> {
+export async function backupDataDir(dataDir: string, destination: string, options: { files?: boolean } = {}): Promise<{ database: string; files: boolean }> {
   const backup = (sqlite as { backup?: (db: sqlite.DatabaseSync, path: string) => Promise<number> }).backup;
   if (!backup) throw new Error('Backups need Node.js 22.16 or newer (node:sqlite backup).');
   const source = join(dataDir, 'app.db');
@@ -22,7 +22,7 @@ export async function backupDataDir(dataDir: string, destination: string): Promi
     db.close();
   }
   const files = join(dataDir, 'files');
-  const hasFiles = await stat(files).then(
+  const hasFiles = options.files !== false && await stat(files).then(
     () => true,
     () => false,
   );

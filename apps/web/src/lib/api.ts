@@ -65,7 +65,7 @@ export function isUnsupported(error: unknown): boolean {
   return error instanceof ApiError && error.code === 'unknown_method';
 }
 
-const SAME_ORIGIN_PATHS = /^\/(files-pri|avatars|emoji|team-icon|upload)\//;
+const SAME_ORIGIN_PATHS = /^\/(files-pri|avatars|emoji|team-icon|upload|previews)\//;
 
 /**
  * URLs in API objects are absolute and built from the server's configured
@@ -84,8 +84,8 @@ export function asset(url: string | undefined | null): string {
 }
 
 /** Upload one file in two steps and return its id, ready for `files.completeUploadExternal`. */
-export async function uploadFile(file: File, onProgress?: (fraction: number) => void): Promise<string> {
-  const reserved = await call('files.getUploadURLExternal', { filename: file.name || 'file', length: file.size || 1 });
+export async function uploadFile(file: File, onProgress?: (fraction: number) => void, options: { snippetType?: string } = {}): Promise<string> {
+  const reserved = await call('files.getUploadURLExternal', { filename: file.name || 'file', length: file.size || 1, snippet_type: options.snippetType });
   await new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('POST', asset(reserved.upload_url));

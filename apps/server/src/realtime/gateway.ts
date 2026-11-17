@@ -51,8 +51,13 @@ export class Gateway implements Presence {
     this.wss.close();
   }
 
+  /**
+   * Connected now, or disconnected so recently that "away" has not been
+   * announced yet (a reload). Reporting the same thing the announcements say
+   * keeps `client.boot` from showing someone away who never went away.
+   */
   isOnline(userId: string): boolean {
-    return (this.byUser.get(userId)?.size ?? 0) > 0;
+    return (this.byUser.get(userId)?.size ?? 0) > 0 || this.awayTimers.has(userId);
   }
 
   onlineUsers(): string[] {
@@ -105,6 +110,7 @@ export class Gateway implements Presence {
     if (!clients?.delete(client)) return;
     if (clients.size > 0) return;
     this.byUser.delete(client.userId);
+    if (this.awayTimers.has(client.userId)) return;
     // A reload reconnects within moments; do not flap to away in between.
     const timer = setTimeout(() => {
       this.awayTimers.delete(client.userId);

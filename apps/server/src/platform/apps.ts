@@ -40,6 +40,65 @@ export interface AppInfo {
   /** A Socket Mode connection is open right now. */
   connected: boolean;
   token_hints: { bot: string | null; app: string | null };
+  /** Global and message shortcuts the app offers. */
+  shortcuts: Shortcut[];
+  /** Domains whose links the app unfurls (`link_shared`, `chat.unfurl`). */
+  unfurl_domains: string[];
+}
+
+export interface Shortcut {
+  type: 'global' | 'message';
+  name: string;
+  callback_id: string;
+  description: string;
+}
+
+/** Settings kept in the `config` column: shortcuts and unfurl domains. */
+export interface AppConfig {
+  shortcuts: Shortcut[];
+  unfurl_domains: string[];
+}
+
+export function appConfig(app: AppRow): AppConfig {
+  let raw: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(app.config);
+    if (parsed && typeof parsed === 'object') raw = parsed as Record<string, unknown>;
+  } catch {
+    // An unreadable config is an empty one.
+  }
+  const shortcuts = Array.isArray(raw.shortcuts) ? (raw.shortcuts as Shortcut[]) : [];
+  const domains = Array.isArray(raw.unfurl_domains) ? raw.unfurl_domains.filter((entry): entry is string => typeof entry === 'string') : [];
+  return { shortcuts, unfurl_domains: domains };
+}
+
+/** Check shortcuts sent by an admin: a known type, a name, a unique callback id. */
+export function readShortcuts(value: unknown): Shortcut[] {
+  if (!Array.isArray(value) || value.length > 10) fail('invalid_shortcuts');
+  const seen = new Set<string>();
+  return value.map((entry) => {
+    const item = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>;
+    const type = item.type === 'message' ? 'message' : item.type === 'global' ? 'global' : fail('invalid_shortcuts');
+    const name = String(item.name ?? '').trim().slice(0, 30);
+    const callbackId = String(item.callback_id ?? '').trim();
+    if (!name || !/^[A-Za-z0-9_.-]{1,255}$/.test(callbackId) || seen.has(callbackId)) fail('invalid_shortcuts');
+    seen.add(callbackId);
+    return { type, name, callback_id: callbackId, description: String(item.description ?? '').trim().slice(0, 100) };
+  });
+}
+
+/** Unfurl domains: host names without scheme or path, at most five. */
+export function readDomains(values: string[]): string[] {
+  if (values.length > 5) fail('invalid_unfurl_domains');
+  return [
+    ...new Set(
+      values.map((value) => {
+        const domain = value.trim().toLowerCase().replace(/^\*\./, '');
+        if (!/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) fail('invalid_unfurl_domains');
+        return domain;
+      }),
+    ),
+  ];
 }
 
 /**
@@ -67,6 +126,8 @@ export const DEFAULT_BOT_SCOPES = [
   'im:read',
   'im:write',
   'incoming-webhook',
+  'links:read',
+  'links:write',
   'mpim:history',
   'mpim:read',
   'mpim:write',
@@ -182,6 +243,7 @@ export function appToApi(ctx: Ctx, app: AppRow, connected: boolean): AppInfo {
     created_by: app.created_by,
     connected,
     token_hints: { bot: tokenHint(ctx, app.id, 'bot'), app: tokenHint(ctx, app.id, 'app') },
+    ...appConfig(app),
   };
 }
 

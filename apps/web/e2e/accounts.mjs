@@ -31,6 +31,15 @@ async function openAdmin(page, tab) {
   await page.locator('.admin-modal .tabs button', { hasText: tab }).click();
 }
 
+/** Close every open dialog with its close button (focus may have left the dialog, so Escape is not enough). */
+async function closeDialogs(page) {
+  for (let i = 0; i < 3; i += 1) {
+    const close = page.locator('.modal-head button[aria-label="Close"]');
+    if ((await close.count()) === 0) return;
+    await close.last().click();
+  }
+}
+
 function modal(page, title) {
   return page.locator('.modal', { has: page.locator('.modal-head h2', { hasText: title }) });
 }
@@ -108,7 +117,7 @@ async function main(browser) {
     await shot(maya, 'accounts-two-factor-setup');
     const secret = await completeTwoFactorSetup(maya);
     await maya.locator('.security-on').waitFor();
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
 
     const again = await page();
     await again.goto(`${server.base}/signin`);
@@ -135,7 +144,7 @@ async function main(browser) {
     await settings.locator('.profile-fields-editor button', { hasText: 'Save changes' }).click();
     await maya.locator('.toast', { hasText: 'Saved' }).waitFor();
     await shot(maya, 'accounts-workspace-settings');
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
 
     // Daniel's open tab learns the new rule without a reload.
     await daniel.locator('.sidebar .section-head button[aria-label="Add channels"], .sidebar button[aria-label="Add channels"]').first().click();
@@ -144,7 +153,7 @@ async function main(browser) {
     await daniel.keyboard.press('Escape');
 
     await meMenu(daniel, 'Edit profile');
-    await daniel.locator('.field', { hasText: 'Team' }).locator('select').selectOption('Engineering');
+    await daniel.locator('.field', { has: daniel.locator('.field-label', { hasText: /^Team$/ }) }).locator('select').selectOption('Engineering');
     await modal(daniel, 'Edit profile').locator('button', { hasText: 'Save changes' }).click();
     await daniel.locator('.modal').waitFor({ state: 'detached' });
   });
@@ -166,23 +175,23 @@ async function main(browser) {
   await step('when only admins invite, a member asks and an admin approves', async () => {
     await openAdmin(maya, 'Workspace');
     await maya.locator('.permission-row', { hasText: 'Who can invite people' }).locator('select').selectOption('admins');
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
     await daniel.locator('.side-add', { hasText: 'Request an invite' }).click();
     const dialog = modal(daniel, 'Ask an admin to invite someone');
     await dialog.locator('input[type="email"]').fill('friend@example.com');
     await dialog.locator('button[type="submit"]').click();
     await dialog.locator('text=Request sent').waitFor();
-    await daniel.keyboard.press('Escape');
+    await closeDialogs(daniel);
 
     await maya.locator('.team-btn').click();
     await maya.locator('.menu-item', { hasText: 'Administration (1)' }).click();
     await maya.locator('.admin-section', { hasText: 'friend@example.com' }).locator('button', { hasText: 'Approve' }).click();
     const mail = await sink.next((item) => item.to.includes('friend@example.com'));
     assert.match(mail.text, /\/join\//);
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
     await openAdmin(maya, 'Workspace');
     await maya.locator('.permission-row', { hasText: 'Who can invite people' }).locator('select').selectOption('everyone');
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
   });
 
   await step('user groups: create one, mention it from the composer, members get the mention', async () => {
@@ -196,7 +205,7 @@ async function main(browser) {
     await form.locator('button[type="submit"]').click();
     await maya.locator('.group-list', { hasText: '@design' }).waitFor();
     await shot(maya, 'accounts-groups');
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
 
     await openChannel(maya, 'general');
     const box = maya.locator('.conversation .composer-input');
@@ -216,7 +225,7 @@ async function main(browser) {
     await dialog.locator('input[type="email"]').fill('guest@agency.example');
     await dialog.locator('button', { hasText: 'Create invite link' }).click();
     const mail = await sink.next((item) => item.to.includes('guest@agency.example'));
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
     const link = /(\/join\/[A-Za-z0-9_-]+)/.exec(mail.text)[1];
 
     const guest = await page();
@@ -259,20 +268,20 @@ async function main(browser) {
     const path = await download.path();
     const { statSync } = await import('node:fs');
     assert.ok(statSync(path).size > 2000);
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
   });
 
   await step('requiring two-factor sign-in sends members to set it up, then back in', async () => {
     await openAdmin(maya, 'Workspace');
     await maya.locator('.check-row', { hasText: 'Require two-factor sign-in' }).locator('input').check();
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
     await send(daniel, 'this needs the second factor now');
     await daniel.locator('.auth-card h1', { hasText: 'Set up two-factor sign-in' }).waitFor({ timeout: 15_000 });
     await completeTwoFactorSetup(daniel);
     await waitForApp(daniel);
     await openAdmin(maya, 'Workspace');
     await maya.locator('.check-row', { hasText: 'Require two-factor sign-in' }).locator('input').uncheck();
-    await maya.keyboard.press('Escape');
+    await closeDialogs(maya);
   });
 
   await step('installable: a manifest with the workspace name, a service worker, an offline shell', async () => {

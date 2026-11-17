@@ -2,22 +2,25 @@ import { mkdirSync } from 'node:fs';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import { createHttpServer, Router, type UpgradeHandler } from './api/http.ts';
+import { createHttpServer, DEFAULT_API_RATE_LIMIT, Router, type UpgradeHandler } from './api/http.ts';
 import { registerChat } from './api/methods/chat.ts';
 import { registerClient } from './api/methods/client.ts';
 import { registerConversations } from './api/methods/conversations.ts';
 import { registerEmoji } from './api/methods/emoji.ts';
 import { registerFileRoutes, registerFiles } from './api/methods/files.ts';
+import { registerLegacyFiles } from './api/methods/legacy-files.ts';
 import { registerSearch } from './api/methods/search.ts';
+import { registerSearchFiles } from './api/methods/search-files.ts';
 import { registerUsers } from './api/methods/users.ts';
 import { Registry } from './api/registry.ts';
 import { Bus } from './core/bus.ts';
 import { Clock } from './core/clock.ts';
 import { fail } from './core/errors.ts';
-import { Storage } from './core/storage.ts';
+import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installAccounts } from './accounts/index.ts';
+import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
 import { Gateway } from './realtime/gateway.ts';
@@ -51,7 +54,7 @@ export function createApp(config: Config): App {
     db,
     bus: new Bus(),
     clock: new Clock(db),
-    storage: new Storage(join(config.dataDir, 'files')),
+    storage: createStorage(config.dataDir, config.s3),
     presence: gateway,
     team() {
       if (!teamLoaded) {
@@ -79,15 +82,18 @@ export function createApp(config: Config): App {
   registerConversations(registry);
   registerChat(registry);
   registerFiles(registry);
+  registerLegacyFiles(registry);
   registerEmoji(registry);
   registerSearch(registry);
+  registerSearchFiles(registry);
   registerFileRoutes(ctx, router);
   installPlatform(kernel);
+  installAttention(kernel);
   installMcp(kernel);
   installAccounts(kernel);
   gateway.start(ctx);
 
-  const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: 6000 });
+  const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });
   const explicitPublicUrl = config.publicUrl !== '';
 
   return {

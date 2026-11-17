@@ -1,7 +1,7 @@
 import type { Role } from '@app/shared';
 import type { Bus } from './core/bus.ts';
 import type { Clock } from './core/clock.ts';
-import type { Storage } from './core/storage.ts';
+import type { S3Config, Storage } from './core/storage.ts';
 import type { Db } from './db/db.ts';
 
 export interface Config {
@@ -14,9 +14,13 @@ export interface Config {
   /** Built web client to serve, or null when the client is served elsewhere (dev). */
   webDir: string | null;
   maxUploadBytes: number;
+  /** Keep uploaded files in an S3-compatible bucket instead of `dataDir/files`. */
+  s3?: S3Config | null;
   cookieSecure: boolean;
   version: string;
   quiet: boolean;
+  /** Fetch titles and images for links in messages. Off unless set (`LINK_PREVIEWS=0` turns it off when run from the environment). */
+  linkPreviews?: boolean;
   /** Outgoing mail (`smtp://` or `smtps://` URL); null or absent turns mail off. */
   smtpUrl?: string | null;
   /** Sender address for outgoing mail. */

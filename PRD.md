@@ -85,7 +85,7 @@ Adoption targets (stars, installs) are the owner's to set and are not fixed here
 2. **One API.** The web client, bots and agents call the same endpoints and receive the same events. A feature is not done until it is reachable through the API.
 3. **Nothing held back.** No feature flags tied to a license key. Limits (file size, rate limits) are configuration the admin owns.
 4. **Boring to operate.** One application process and one data directory holding a database file and the uploaded files. Everything else (calls, external search, object storage, mail) is optional and off by default.
-5. **Off by default for anything that leaves the server.** AI features, link previews to third parties and telemetry do nothing until an admin turns them on. There is no phone-home.
+5. **Nothing leaves the server without a reason the operator can see and switch off.** AI features and anything sending workspace content to a third party stay off until an admin turns them on; there is no telemetry and no phone-home. Link previews are the one exception that is on by default, because people expect them: the server fetches the linked page's title, description and image (never with workspace content attached, private-network addresses refused), and `LINK_PREVIEWS=0` turns them off.
 6. **Familiar layout, own identity.** Reuse the interaction patterns people know; do not reuse Slack's brand assets, sounds, illustrations or documentation text.
 
 ## 6. Release phases

@@ -98,11 +98,18 @@ describe('interactivity and slash commands over Socket Mode', () => {
 
   test('a menu choice is checked against the options the app defined', async () => {
     const posted = await postButtons();
-    await click(posted.ts, { action_id: 'environment', selected_option: { value: 'production' } }, { state: { values: { deploy: { environment: { type: 'static_select' } } } } });
+    await click(
+      posted.ts,
+      { action_id: 'environment', selected_option: { value: 'production' } },
+      { state: { values: { deploy: { environment: { type: 'static_select', selected_option: { value: 'production' } } }, nowhere: { x: { value: 'dropped' } } } } },
+    );
     const payload = (await interaction(posted.ts)).payload;
     assert.equal(payload.actions[0].type, 'static_select');
     assert.deepEqual(payload.actions[0].selected_option, { text: { type: 'plain_text', text: 'Production' }, value: 'production' });
-    assert.deepEqual(payload.state, { values: { deploy: { environment: { type: 'static_select' } } } });
+    // State is rebuilt from the message: the option as the app defined it, and nothing the message does not have.
+    assert.deepEqual(payload.state, {
+      values: { deploy: { environment: { type: 'static_select', selected_option: { text: { type: 'plain_text', text: 'Production' }, value: 'production' } } } },
+    });
 
     assert.equal((await click(posted.ts, { action_id: 'environment', selected_option: { value: 'moon' } })).error, 'invalid_action_value');
     assert.equal((await click(posted.ts, { action_id: 'missing' })).error, 'action_not_found');

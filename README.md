@@ -2,10 +2,7 @@
 
 **Open-source Slack. One command. Your Slack bots and agents already speak it.**
 
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshot-light.png">
-  <img src="docs/assets/screenshot-dark.png" alt="A channel with a thread in which an AI agent explains a failing test and offers buttons">
-</picture>
+![One command, a familiar screen, one changed line in a Bolt app, and the agent answering in a thread](docs/assets/demo.gif)
 
 OpenSlack is a self-hosted team chat that implements the Slack API: the Web API, Events API, Socket Mode and Block Kit. Apps built with Bolt or any Slack SDK connect by changing one address. The database is built in, so there is nothing else to install.
 
@@ -25,6 +22,7 @@ docker run -p 3000:3000 -v openslack:/data ghcr.io/nullarch/openslack
 ## Why
 
 - **Your Slack apps keep working.** Point an existing Bolt app at OpenSlack and it receives events, posts Block Kit messages, handles button clicks and slash commands. [What is supported](docs/COMPATIBILITY.md) is generated from what the official SDKs actually exercised.
+- **Agents you already run can move over.** [OpenClaw](https://github.com/openclaw/openclaw)'s official Slack plugin connects with one environment variable, `SLACK_API_URL` ([how it was checked](compat/openclaw/README.md)).
 - **Agents are first-class.** Rate limits are yours to set, message streaming works, and there is a built-in [MCP](https://modelcontextprotocol.io) endpoint at `/mcp` with search, read and post tools that respect each token's permissions.
 - **Bring your history.** A Slack export imports with users, channels, threads, reactions and pins, keeping the original ids so mentions and links still resolve.
 - **One process, one folder.** Node.js and a data directory holding a SQLite file and your uploads. Back up the folder and you have backed up everything.
@@ -32,7 +30,7 @@ docker run -p 3000:3000 -v openslack:/data ghcr.io/nullarch/openslack
 
 ## Point a Slack app at it
 
-Create an app under **Apps** in the sidebar, copy the tokens, and change one option:
+Create an app under **Administration → Apps**, copy the tokens, and change one option:
 
 ```js
 import { App } from '@slack/bolt';
@@ -51,7 +49,7 @@ app.event('app_mention', async ({ event, say }) => {
 await app.start();
 ```
 
-A complete example is in [`examples/hello-agent`](examples/hello-agent): mention it and it sets a status, reads the channel, streams a Markdown reply into the thread and ends with buttons.
+A Claude-backed teammate is in [`examples/claude-agent`](examples/claude-agent): mention it and it reads the thread and streams an answer. A smaller example with no model is in [`examples/hello-agent`](examples/hello-agent): mention it and it sets a status, reads the channel, streams a Markdown reply into the thread and ends with buttons.
 
 ![The example agent answering in a thread, with its reply confirmed by a button click](docs/assets/agent-thread.png)
 
@@ -109,10 +107,19 @@ Configuration is environment variables only:
 
 The others are mature products with years of production use and far more features. OpenSlack is new; its bet is drop-in Slack compatibility and a one-command start.
 
+## Screenshots
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshot-light.png">
+  <img src="docs/assets/screenshot-dark.png" alt="A channel with a thread in which an AI agent explains a failing test and offers buttons">
+</picture>
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md): layout, data model and contracts
 - [Compatibility](docs/COMPATIBILITY.md): supported methods and events
+- [Moving from Slack](docs/MIGRATING_FROM_SLACK.md): export, import, invite, repoint bots
+- [Self-hosting](docs/SELF_HOSTING.md): configuration, reverse proxy, backups
 - [Product requirements](PRD.md): scope and phases
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 

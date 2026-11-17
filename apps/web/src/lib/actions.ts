@@ -61,6 +61,9 @@ export function setOnBooted(hook: () => void): void {
   onBooted = hook;
 }
 
+/** Further work to start once the workspace is loaded, and again after a reconnect. */
+export const afterBoot: (() => void)[] = [];
+
 export async function start(): Promise<void> {
   window.addEventListener('popstate', () => void applyRoute(parseRoute(window.location)));
   try {
@@ -126,6 +129,7 @@ export async function boot(): Promise<void> {
   applyBoot(data as BootData);
   set((state) => ({ phase: 'ready', emojiVersion: state.emojiVersion + 1 }));
   onBooted?.();
+  for (const hook of afterBoot) hook();
   void loadCommands();
 
   const saved = sessionStorage.getItem('after-signin');
@@ -136,7 +140,7 @@ export async function boot(): Promise<void> {
     route = parseRoute(url);
     window.history.replaceState(null, '', saved);
   }
-  if (route.name === 'conversation' || route.name === 'search') await applyRoute(route);
+  if (route.name === 'conversation' || route.name === 'search' || route.name === 'view') await applyRoute(route);
   else goHome(true);
 }
 
@@ -298,6 +302,26 @@ export async function loadLatest(id: string): Promise<void> {
   } catch (error) {
     patchConv(id, { loading: false });
     toast(errorText(error), 'error');
+  }
+}
+
+/**
+ * How many messages a conversation keeps loaded. Beyond it the far end is
+ * dropped and loaded again when the reader scrolls back there, so a long
+ * session does not grow the page without bound.
+ */
+export const MAX_LOADED = 300;
+
+/** Drop messages from one end of a loaded list: `newest` keeps the newest, `oldest` keeps the oldest. */
+export function trimLoaded(id: string, keep: 'newest' | 'oldest'): void {
+  const conv = get().convs[id];
+  if (!conv || conv.list.length <= MAX_LOADED) return;
+  if (keep === 'newest') {
+    patchConv(id, { list: conv.list.slice(conv.list.length - MAX_LOADED), hasOlder: true });
+  } else {
+    // Rows still being sent live at the newest end; keep them by not trimming yet.
+    if (conv.list.some((message) => message.pending || message.failed)) return;
+    patchConv(id, { list: conv.list.slice(0, MAX_LOADED), hasNewer: true });
   }
 }
 
@@ -490,8 +514,33 @@ export interface Outgoing {
   broadcast?: boolean;
 }
 
+/**
+ * A placeholder timestamp for a message not yet confirmed. It ends in 999 so it
+ * does not equal the timestamp the server is about to give the real message:
+ * the server counts up from 000 within each millisecond, and on one machine
+ * both read the same clock.
+ */
 function localTs(): string {
-  return (Date.now() / 1000).toFixed(6);
+  return `${(Date.now() / 1000).toFixed(3)}999`;
+}
+
+/** Remove this tab's own row for a message (pending or failed), never a confirmed one. */
+function removeLocal(channel: string, localId: string | undefined): void {
+  if (!localId) return;
+  set((state) => {
+    const next: Partial<typeof state> = {};
+    const mine = (message: LocalMessage): boolean => message.local_id === localId && (message.pending === true || message.failed === true);
+    const conv = state.convs[channel];
+    if (conv?.list.some(mine)) next.convs = { ...state.convs, [channel]: { ...conv, list: conv.list.filter((message) => !mine(message)) } };
+    let threads = state.threads;
+    for (const [key, thread] of Object.entries(state.threads)) {
+      if (key.startsWith(`${channel}:`) && thread.replies.some(mine)) {
+        threads = { ...threads, [key]: { ...thread, replies: thread.replies.filter((message) => !mine(message)) } };
+      }
+    }
+    if (threads !== state.threads) next.threads = threads;
+    return next;
+  });
 }
 
 export async function sendMessage(out: Outgoing, retryOf?: LocalMessage): Promise<void> {
@@ -499,7 +548,7 @@ export async function sendMessage(out: Outgoing, retryOf?: LocalMessage): Promis
   const self = state.self;
   if (!self) return;
   if (state.convs[out.channel]?.hasNewer && !out.threadTs) await loadLatest(out.channel);
-  if (retryOf) removeMessage(out.channel, retryOf.ts);
+  if (retryOf) removeLocal(out.channel, retryOf.local_id);
   const localId = crypto.randomUUID();
   const pending: LocalMessage = {
     type: 'message',
@@ -519,12 +568,24 @@ export async function sendMessage(out: Outgoing, retryOf?: LocalMessage): Promis
       reply_broadcast: out.broadcast ? true : undefined,
       client_msg_id: localId,
     });
-    removeMessage(out.channel, pending.ts);
-    placeMessage(out.channel, result.message as Message);
+    removeLocal(out.channel, localId);
+    const confirmed = result.message as Message;
+    // The message may already be here from the realtime connection, and already changed since
+    // (an app attached a preview before this response arrived); that copy is the newer one.
+    if (!isPlaced(out.channel, confirmed.ts)) placeMessage(out.channel, confirmed);
   } catch (error) {
-    patchMessage(out.channel, pending.ts, (message) => ({ ...message, pending: false, failed: true }));
+    patchMessage(out.channel, pending.ts, (message) => (message.local_id === localId ? { ...message, pending: false, failed: true } : message));
     toast(errorText(error), 'error');
   }
+}
+
+/** Whether a confirmed message with this `ts` is already in the conversation or its thread. */
+function isPlaced(channel: string, ts: string): boolean {
+  const state = get();
+  if (state.convs[channel]?.list.some((message) => message.ts === ts && !message.pending)) return true;
+  return Object.entries(state.threads).some(
+    ([key, thread]) => key.startsWith(`${channel}:`) && thread.replies.some((message) => message.ts === ts && !message.pending),
+  );
 }
 
 export function retryMessage(channel: string, message: LocalMessage): void {
@@ -532,7 +593,7 @@ export function retryMessage(channel: string, message: LocalMessage): void {
 }
 
 export function discardFailed(channel: string, message: LocalMessage): void {
-  removeMessage(channel, message.ts);
+  removeLocal(channel, message.local_id);
 }
 
 export async function sendFiles(out: Outgoing, fileIds: string[]): Promise<boolean> {
@@ -583,13 +644,14 @@ export async function setPinned(channel: string, ts: string, pinned: boolean): P
   await attempt(() => call(pinned ? 'pins.add' : 'pins.remove', { channel, timestamp: ts }));
 }
 
-export async function clickBlockAction(channel: string, message: Message, action: Record<string, unknown>): Promise<void> {
+export async function clickBlockAction(channel: string, message: Message, action: Record<string, unknown>, state?: Record<string, unknown>): Promise<void> {
   try {
     await call('client.interactions.blockAction', {
       channel,
       message_ts: message.ts,
       thread_ts: message.thread_ts,
       action,
+      state,
     });
   } catch (error) {
     toast(isUnsupported(error) ? S.blocks.actionsUnsupported : errorText(error), 'error');

@@ -28,6 +28,8 @@ describe('apps, tokens and Socket Mode', () => {
     assert.equal((await member.call('client.apps.create', { name: 'Nope' })).error, 'not_allowed');
     assert.match(app.botToken, /^xoxb-/);
     assert.match(app.appToken, /^xapp-/);
+    // Like Slack's, the app-level token names its app; some clients compare it with auth.test.
+    assert.equal(app.appToken.split('-')[2], app.id);
 
     const auth = await asBot(t.base, app, 'auth.test');
     assert.equal(auth.user_id, app.botUserId);

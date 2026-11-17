@@ -106,6 +106,28 @@ describe('guests', () => {
     assert.equal((await guest.call('client.inviteRequests.create', { email: 'x@y.test' })).error, 'not_allowed');
   });
 
+  test('newer lists follow the same rules: file search, RTM start, Do Not Disturb', async () => {
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+    const { upload_url, file_id } = await owner.ok('files.getUploadURLExternal', { filename: 'zebra-general.png', length: PNG.length });
+    await fetch(upload_url, { method: 'POST', body: PNG });
+    await owner.ok('files.completeUploadExternal', { files: [{ id: file_id }], channel_id: general });
+    assert.equal((await mina.ok('search.files', { query: 'zebra' })).files.total, 1);
+    assert.equal((await guest.ok('search.files', { query: 'zebra' })).files.total, 0);
+
+    const token = createToken(t.app.ctx, { kind: 'user', userId: guest.userId, scopes: ['rtm:stream', 'users:read', 'dnd:read'] });
+    const call = async (method: string, args: Record<string, string> = {}): Promise<Json> =>
+      (await fetch(`${t.base}/api/${method}`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(args) })).json();
+    const started = await call('rtm.start');
+    assert.equal(started.ok, true, JSON.stringify(started));
+    assert.ok(!started.users.some((user: Json) => user.id === mina.userId));
+    assert.ok(started.users.some((user: Json) => user.id === owner.userId));
+    const team = await call('dnd.teamInfo');
+    assert.equal(team.ok, true, JSON.stringify(team));
+    assert.ok(!Object.keys(team.users).includes(mina.userId));
+    const one = await call('dnd.info', { user: mina.userId });
+    assert.ok(!one.ok);
+  });
+
   test('a single-channel guest stays in one channel; only admins add guests', async () => {
     const single = await signupGuest(t, owner, 'sol@agency.test', 'single', [project]);
     const boot = await single.ok('client.boot');

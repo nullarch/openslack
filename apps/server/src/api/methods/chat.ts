@@ -16,6 +16,7 @@ import {
 } from '../../core/messages.ts';
 import { getUser, isAdmin } from '../../core/users.ts';
 import type { Args, Registry } from '../registry.ts';
+import { checkDelete, checkEdit } from '../../attention/policy.ts';
 
 const WRITE = ['chat:write'];
 const MAX_BLOCKS = 50;
@@ -96,6 +97,7 @@ export function registerChat(registry: Registry): void {
     const row = requireMessage(ctx, conv.id, args.reqTs('ts'));
     if (row.user_id !== actor.userId) fail('cant_update_message');
     if (conv.is_archived === 1) fail('is_archived');
+    checkEdit(ctx, actor, row);
     const content = readContent(args);
     if (content.text === undefined && content.blocks === undefined && content.attachments === undefined) fail('no_text');
     const updated = updateMessage(
@@ -118,6 +120,7 @@ export function registerChat(registry: Registry): void {
     const conv = resolveConv(ctx, actor, args.req('channel', 'channel_not_found'));
     const row = requireMessage(ctx, conv.id, args.reqTs('ts'));
     if (row.user_id !== actor.userId && !isAdmin(actor)) fail('cant_delete_message');
+    checkDelete(ctx, actor, row);
     deleteMessage(ctx, conv, row);
     return { channel: conv.id, ts: row.ts };
   });

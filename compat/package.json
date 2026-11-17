@@ -13,6 +13,7 @@
     "@app/server": "workspace:*",
     "@app/shared": "workspace:*",
     "@slack/bolt": "latest",
+    "@slack/rtm-api": "7.0.4",
     "@slack/web-api": "latest"
   },
   "devDependencies": {
