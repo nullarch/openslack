@@ -35,7 +35,8 @@ run('npm', ['init', '-y']);
 run('npm', ['install', '--no-audit', '--no-fund', tarball]);
 
 const started = Date.now();
-const server = spawn('npx', [slug], { cwd: folder, shell: windows, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PUBLIC_URL: base, DATA_DIR: data } });
+// Its own process group, so stopping it stops the server npx started too (npx does not pass signals on everywhere).
+const server = spawn('npx', [slug], { cwd: folder, shell: windows, detached: !windows, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PUBLIC_URL: base, DATA_DIR: data } });
 let output = '';
 server.stdout.on('data', (chunk) => (output += chunk));
 server.stderr.on('data', (chunk) => (output += chunk));
@@ -66,10 +67,23 @@ try {
   const found = await call('search.messages', { query: '확인 메시지' }, setup.cookie);
   assert.equal(found.body.messages.total, 1);
   console.log(`ok on ${process.platform} ${process.arch}, Node ${process.version}`);
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
 } finally {
   if (windows) spawnSync('taskkill', ['/pid', String(server.pid), '/T', '/F']);
-  else server.kill();
+  else {
+    try {
+      process.kill(-server.pid, 'SIGTERM');
+    } catch {
+      server.kill();
+    }
+  }
+  server.stdout.destroy();
+  server.stderr.destroy();
   await sleep(500);
-  rmSync(folder, { recursive: true, force: true });
-  rmSync(data, { recursive: true, force: true });
+  rmSync(folder, { recursive: true, force: true, maxRetries: 5 });
+  rmSync(data, { recursive: true, force: true, maxRetries: 5 });
+  // Nothing of the server may keep this script alive.
+  process.exit(process.exitCode ?? 0);
 }
