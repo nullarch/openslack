@@ -10,7 +10,7 @@ import { newSecret, nowSeconds, sha256 } from '../core/ids.ts';
 import { mailEnabled, sendMail } from '../core/mail.ts';
 import { getUser, requireUser, type UserRow } from '../core/users.ts';
 import type { Ctx } from '../ctx.ts';
-import { guestExpired } from './guests.ts';
+import { guestExpired } from '../core/guests.ts';
 import { teamPrefs } from './prefs.ts';
 import { newTotpSecret, otpauthUrl, verifyTotp } from './totp.ts';
 

@@ -4,7 +4,9 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { isSameOrigin } from '../api/http.ts';
 import type { Ctx, Presence } from '../ctx.ts';
 import { authenticate } from '../core/auth.ts';
+import { twoFactorPending } from '../accounts/signin.ts';
 import type { BusEvent } from '../core/bus.ts';
+import { eventVisibleToGuest, guestExpired, guestIds } from '../core/guests.ts';
 import { getConv, getMember, memberIds } from '../core/conversations.ts';
 import { getUser, presenceOf } from '../core/users.ts';
 
@@ -61,7 +63,9 @@ export class Gateway implements Presence {
   handleUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer, url: URL): boolean => {
     if (url.pathname !== '/ws') return false;
     const { actor } = authenticate(this.ctx, req, undefined);
-    if (!isSameOrigin(req) || !actor || actor.kind !== 'session') {
+    const user = actor ? getUser(this.ctx, actor.userId) : undefined;
+    const refused = !user || guestExpired(user) || twoFactorPending(this.ctx, user.id);
+    if (!isSameOrigin(req) || !actor || actor.kind !== 'session' || refused) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       socket.destroy();
       return true;
@@ -149,10 +153,13 @@ export class Gateway implements Presence {
     else recipients = memberIds(this.ctx, audience.conversation);
 
     const payload = JSON.stringify(busEvent.event);
+    // Workspace-wide events reach guests only when they concern what a guest may see.
+    const guests = 'all' in audience ? guestIds(this.ctx) : null;
     for (const userId of recipients) {
       if (userId === busEvent.exceptUser) continue;
       const clients = this.byUser.get(userId);
       if (!clients) continue;
+      if (guests?.has(userId) && !eventVisibleToGuest(this.ctx, userId, busEvent.event)) continue;
       for (const client of clients) this.sendRaw(client, payload);
     }
 

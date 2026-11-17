@@ -5,7 +5,7 @@ import { fail } from '../core/errors.ts';
 import { newId, nowSeconds } from '../core/ids.ts';
 import { getUser } from '../core/users.ts';
 import type { Actor, Ctx } from '../ctx.ts';
-import { isGuest } from './guests.ts';
+import { isGuest } from '../core/guests.ts';
 import { allowedTo } from './prefs.ts';
 
 /**

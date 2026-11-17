@@ -1,6 +1,6 @@
 import type { Ctx } from '../ctx.ts';
-import { nowSeconds } from '../core/ids.ts';
-import { getUser, type UserRow } from '../core/users.ts';
+import { nowSeconds } from './ids.ts';
+import { emitUserChange, getUser, type UserRow } from './users.ts';
 
 /**
  * Guests see only what they were invited to: the conversations they belong
@@ -80,6 +80,30 @@ export function expireGuests(ctx: Ctx): string[] {
       ctx.db.run('DELETE FROM sessions WHERE user_id = ?', row.id);
       ctx.db.run('DELETE FROM tokens WHERE user_id = ?', row.id);
     });
+    // Open tabs hear it and are closed.
+    emitUserChange(ctx, row.id);
   }
   return rows.map((row) => row.id);
+}
+
+/** Whether a guest's tab may receive a workspace-wide event: only about their conversations and the people they see. */
+export function eventVisibleToGuest(ctx: Ctx, guestId: string, event: { type: string; [key: string]: unknown }): boolean {
+  if (event.type.startsWith('subteam_')) return false;
+  if (event.type.startsWith('channel_')) {
+    const channel = event.channel;
+    const id = typeof channel === 'string' ? channel : (channel as { id?: unknown } | undefined)?.id;
+    if (typeof id !== 'string') return true;
+    return ctx.db.get('SELECT 1 FROM members WHERE conversation_id = ? AND user_id = ?', id, guestId) !== undefined;
+  }
+  if (event.type === 'user_change' || event.type === 'team_join' || event.type === 'presence_change') {
+    const user = event.user;
+    const id = typeof user === 'string' ? user : (user as { id?: unknown } | undefined)?.id;
+    return typeof id !== 'string' || canSeeUser(ctx, guestId, id);
+  }
+  return true;
+}
+
+/** Ids of every guest, for filtering workspace-wide events. */
+export function guestIds(ctx: Ctx): Set<string> {
+  return new Set(ctx.db.all<{ id: string }>("SELECT id FROM users WHERE guest != ''").map((row) => row.id));
 }

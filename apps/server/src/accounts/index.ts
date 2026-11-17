@@ -3,7 +3,8 @@ import type { MethodDef } from '../api/registry.ts';
 import { ApiError } from '../core/errors.ts';
 import { mailEnabled } from '../core/mail.ts';
 import { getUser } from '../core/users.ts';
-import { expireGuests, guestExpired } from './guests.ts';
+import { expireGuests, guestExpired } from '../core/guests.ts';
+import { installGuestRules } from './guest-rules.ts';
 import { registerInvites } from './invites.ts';
 import { teamPrefs } from './prefs.ts';
 import { registerSignIn, TWO_FACTOR_SETUP_METHODS, twoFactorPending } from './signin.ts';
@@ -32,6 +33,7 @@ export function installAccounts(kernel: Kernel): void {
   registerInvites(registry);
   installWorkspace(kernel);
   installUsergroups(kernel);
+  installGuestRules(kernel);
 
   // Expired guests lose access the moment they next call, and in a sweep every minute.
   registry.guards.push((name, actor) => {
