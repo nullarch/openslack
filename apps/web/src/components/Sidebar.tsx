@@ -5,6 +5,7 @@ import { attempt, go, openModal, signOut } from '../lib/actions';
 import { asset, call } from '../lib/api';
 import { conversationName, currentId, useStore } from '../lib/store';
 import { S } from '../strings';
+import { SidebarHuddleBadge } from './Huddle';
 import { Emoji } from './text';
 import { Avatar, IconButton, MenuDivider, MenuItem, Popover } from './ui';
 
@@ -48,6 +49,7 @@ const SidebarItem = memo(function SidebarItem({ id }: { id: string }) {
         </span>
       ) : null}
       {conv.is_muted ? <BellOff size={13} className="side-muted" /> : null}
+      <SidebarHuddleBadge channel={id} />
       {mentions > 0 ? <span className="badge">{mentions > 99 ? '99+' : mentions}</span> : null}
     </a>
   );

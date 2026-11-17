@@ -48,8 +48,8 @@ export function track(child) {
 }
 
 /** Start a server of our own on a free port with a throwaway data directory. */
-export async function startServer({ seed }) {
-  const port = await freePort();
+export async function startServer({ seed, port: chosenPort, env = {} }) {
+  const port = chosenPort ?? (await freePort());
   const dataDir = mkdtempSync(join(tmpdir(), 'chat-e2e-'));
   dataDirs.push(dataDir);
   const base = `http://127.0.0.1:${port}`;
@@ -65,6 +65,7 @@ export async function startServer({ seed }) {
         DATA_DIR: dataDir,
         WEB_DIR: join(root, 'apps/web/dist'),
         SEED_DEMO: seed ? '1' : '',
+        ...env,
         QUIET: '1',
         NODE_NO_WARNINGS: '1',
       },
@@ -138,10 +139,10 @@ async function debugDump(browser) {
 }
 
 /** Launch Chrome, run `main(browser)`, then stop everything this run started. */
-export async function run(main) {
+export async function run(main, launchOptions = {}) {
   let browser;
   try {
-    browser = await chromium.launch({ channel: 'chrome', headless: process.env.HEADED !== '1' });
+    browser = await chromium.launch({ channel: 'chrome', headless: process.env.HEADED !== '1', ...launchOptions });
     await main(browser);
     assert.deepEqual(errors, [], 'no page errors or console errors');
     console.log(`\n${passed} steps passed. Screenshots: ${shots}`);

@@ -39,6 +39,68 @@ Uploaded files go to `DATA_DIR/files` unless an S3-compatible bucket is configur
 
 Requests are signed with AWS Signature Version 4; the signing is tested against botocore's output. It has not yet been run against a real AWS, R2 or MinIO bucket. Moving existing files from the directory to a bucket is not automated: copy `files/<xx>/<key>` to `<prefix><key>` in the bucket.
 
+## Huddles
+
+Huddles (audio, video and screen sharing inside a conversation) need a [LiveKit](https://github.com/livekit/livekit) media server, which is open source (Apache-2.0) and runs as one more process. Without it the huddle button is simply not shown.
+
+| Variable | Meaning |
+|---|---|
+| `LIVEKIT_URL` | The address browsers connect to, e.g. `wss://media.example.com`. Setting it turns huddles on |
+| `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | A key pair from LiveKit's `keys:` section; the secret should be at least 32 characters |
+| `LIVEKIT_API_URL` | Optional: where this server reaches LiveKit's API if not at `LIVEKIT_URL` (e.g. `http://livekit:7880` on an internal network) |
+
+Next to the app in `compose.yaml`:
+
+```yaml
+services:
+  app:
+    # … as above, plus:
+    environment:
+      LIVEKIT_URL: wss://media.example.com
+      LIVEKIT_API_URL: http://127.0.0.1:7880
+      LIVEKIT_API_KEY: chat
+      LIVEKIT_API_SECRET: change-me-to-at-least-32-random-characters
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    command: --config /etc/livekit.yaml
+    # Media travels over UDP on many ports; host networking is the simple way to expose them.
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+```
+
+`livekit.yaml`:
+
+```yaml
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+keys:
+  chat: change-me-to-at-least-32-random-characters
+webhook:
+  api_key: chat
+  urls:
+    - http://127.0.0.1:3000/livekit/webhook
+```
+
+Open TCP 7881 and UDP 50000–60000 in the firewall, and serve port 7880 over HTTPS at the `LIVEKIT_URL` host (browsers only allow microphones and cameras on secure pages, and a secure page can only open `wss://`). With Caddy:
+
+```
+media.example.com {
+    reverse_proxy 127.0.0.1:7880
+}
+```
+
+The webhook tells this server at once when someone's tab disappears without leaving. It is optional: the server also compares its participant list with LiveKit's every 20 seconds and drops anyone who has been gone for 30 seconds. Its requests are signed with the API secret and checked.
+
+Tokens for the media server are issued only to members of the conversation, for that conversation's room only, and expire after 10 minutes. LiveKit checks a token when someone connects and refreshes it for calls in progress.
+
+Checked: the server and the web client against LiveKit 1.13.11 run directly (`livekit-server --config-body …`), with two browsers exchanging audio, camera video, a screen share and reactions, and the webhook and the periodic comparison each removing someone who vanished. Not checked: the compose file above, calls longer than a few minutes, more than two people, and networks with NAT between browser and LiveKit.
+
 ## Behind a reverse proxy
 
 Terminate HTTPS at the proxy and forward everything, including WebSocket upgrades, to the server.
