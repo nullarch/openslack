@@ -23,6 +23,8 @@ export interface FileRow {
   mode?: string;
   /** JSON { w, h } of a thumbnail the uploading client made, stored under `<storage_key>_t`. */
   thumb?: string | null;
+  /** Set while the file has a public link: the secret part of that link. */
+  public_secret?: string | null;
 }
 
 interface TypeInfo {
@@ -144,7 +146,7 @@ export function fileToApi(ctx: Ctx, row: FileRow): FileObject {
     is_external: false,
     external_type: '',
     is_public: channels.length > 0,
-    public_url_shared: false,
+    public_url_shared: Boolean(row.public_secret),
     display_as_bot: false,
     username: '',
     url_private: fileUrl(ctx, row, false),
@@ -157,6 +159,7 @@ export function fileToApi(ctx: Ctx, row: FileRow): FileObject {
     file_access: 'visible',
   };
   if (row.alt_txt) file.alt_txt = row.alt_txt;
+  if (row.public_secret) file.permalink_public = `${ctx.config.publicUrl}/files-pub/${ctx.requireTeam().id}-${row.id}-${row.public_secret}`;
   if (row.width && row.height) {
     file.original_w = row.width;
     file.original_h = row.height;

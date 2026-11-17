@@ -352,6 +352,11 @@ export const S = {
     showMore: 'Show more',
     showLess: 'Show less',
     previewFailed: 'Preview unavailable.',
+    makePublic: 'Create a public link',
+    publicLink: 'Public link: anyone with it can download this file',
+    copied: 'Public link copied',
+    revoke: 'Turn off public link',
+    revoked: 'Public link turned off',
   },
 
   search: {
@@ -388,6 +393,8 @@ export const S = {
     unarchive: 'Unarchive channel',
     rename: 'Rename channel',
     closeDm: 'Close conversation',
+    convertToChannel: 'Change to a private channel',
+    convertName: 'Channel name',
     mute: 'Mute notifications',
     unmute: 'Unmute notifications',
     removeMember: 'Remove from channel',

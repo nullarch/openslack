@@ -2,6 +2,7 @@ import { BRAND } from '@app/shared';
 import { createApp } from './app.ts';
 import { configFromEnv } from './config.ts';
 import { DEMO_EMAIL, DEMO_PASSWORD, seedDemo } from './demo/seed.ts';
+import { importDiscord } from './importer/discord.ts';
 import { importMattermost } from './importer/mattermost.ts';
 import { importSlackExport } from './importer/slack-export.ts';
 import { backupDataDir } from './ops/backup.ts';
@@ -15,6 +16,8 @@ Usage:
       --download-files                     Also fetch files from the URLs in the export
       --token <token>                      Bearer token for those downloads, if needed
   ${BRAND.slug} import-mattermost <export>   Import a Mattermost bulk export (mmctl export create: .zip or .jsonl)
+  ${BRAND.slug} import-discord <export>      Import DiscordChatExporter JSON (a folder, a .json file or a .zip)
+      --download-files                     Also fetch attachments that are still Discord links
   ${BRAND.slug} backup <directory>          Copy the data directory while the server runs
   ${BRAND.slug} help
 
@@ -121,11 +124,40 @@ async function importFromMattermost(args: string[]): Promise<void> {
   }
 }
 
+async function importFromDiscord(args: string[]): Promise<void> {
+  const path = args.find((arg) => !arg.startsWith('--'));
+  if (!path) {
+    console.error(USAGE);
+    process.exit(2);
+  }
+  const app = createApp({ ...configFromEnv(), quiet: true });
+  try {
+    const report = await importDiscord(app.ctx, path, { downloadFiles: args.includes('--download-files'), log: (line) => console.log(`  ${line}`) });
+    console.log('\nImport finished');
+    console.log(`  files          ${report.files}`);
+    console.log(`  people         ${report.people.created} created (as former members), ${report.people.matched} already known`);
+    console.log(`  channels       ${report.channels.created} created, ${report.channels.matched} matched`);
+    console.log(`  messages       ${report.messages.imported} imported, ${report.messages.alreadyPresent} already present, ${report.messages.skipped} system messages skipped, ${report.messages.failed} failed`);
+    console.log(`  threads        ${report.threads}`);
+    console.log(`  reactions      ${report.reactions}`);
+    console.log(`  pins           ${report.pins}`);
+    console.log(`  attachments    ${report.attachments.stored} stored, ${report.attachments.linked} linked, ${report.attachments.failed} failed`);
+    if (report.problemCount > 0) {
+      console.log(`\n${report.problemCount} item(s) could not be carried over exactly:`);
+      for (const line of report.problems) console.log(`  - ${line}`);
+    }
+    console.log('\nDiscord exports have no email addresses, so authors are kept as former members; people join with new accounts.');
+  } finally {
+    await app.close();
+  }
+}
+
 const [command = 'serve', ...rest] = process.argv.slice(2);
 try {
   if (command === 'serve') await serve();
   else if (command === 'import-slack') await importSlack(rest);
   else if (command === 'import-mattermost') await importFromMattermost(rest);
+  else if (command === 'import-discord') await importFromDiscord(rest);
   else if (command === 'backup') {
     if (!rest[0]) {
       console.error(USAGE);

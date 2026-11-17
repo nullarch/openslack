@@ -139,6 +139,8 @@ export interface FileObject {
   external_type: string;
   is_public: boolean;
   public_url_shared: boolean;
+  /** Present while the file has a public link. */
+  permalink_public?: string;
   display_as_bot: boolean;
   username: string;
   url_private: string;

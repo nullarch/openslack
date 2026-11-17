@@ -1,0 +1,41 @@
+# The server is a single process with an embedded database: run exactly one replica.
+image:
+  repository: ghcr.io/nullarch/openslack
+  tag: ""            # defaults to the chart's appVersion
+  pullPolicy: IfNotPresent
+
+# The address people and bots use (https://chat.example.com). Required for correct links.
+publicUrl: ""
+
+# Extra environment: MAX_UPLOAD_MB, LINK_PREVIEWS, S3_*, LIVEKIT_*, SMTP_URL, …
+env: {}
+# Secret values (S3 keys, LiveKit secret, SMTP password) from an existing Secret.
+envFromSecret: ""
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  # Use an existing claim instead of creating one.
+  existingClaim: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: chat.example.com
+  annotations: {}
+  # Name of a TLS secret for the host; leave empty when TLS ends elsewhere.
+  tlsSecret: ""
+
+resources:
+  requests: { cpu: 100m, memory: 192Mi }
+  limits: { memory: 1Gi }
+
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000

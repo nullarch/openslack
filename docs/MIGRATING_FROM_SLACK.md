@@ -73,6 +73,19 @@ Teams fold into the one workspace; channels whose names collide across teams get
 
 The importer follows Mattermost's documented bulk format. It has been tested with a hand-written export in that format, not yet with a real `mmctl` export; the documentation does not describe where attachments sit inside the zip, so the importer looks for each path as written, under the export file's folder and under `data/`.
 
+## Coming from Discord
+
+Discord has no export of a whole server, so use [DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter) to export the channels you want as **JSON**, ideally with media downloaded alongside, then:
+
+```bash
+openslack import-discord ./exports/                    # a folder of .json files (or one file, or a .zip)
+openslack import-discord ./exports/ --download-files   # also fetch attachments that are still Discord links
+```
+
+Text channels come across as channels; threads become threads under the message that started them; forum posts become threads in a channel named after the forum; replies become messages that link to what they answer; reactions, pins and edits are kept. Discord's markdown and mentions are converted.
+
+Discord exports contain no email addresses, so the authors are kept as deactivated "former member" accounts that carry their names on the history; people join with new accounts. Direct messages are not imported. Running the import again adds only what is new.
+
 ## Running both for a while
 
 You can keep Slack running while the team tries the new workspace, and import again just before switching: the second import adds only what is new.

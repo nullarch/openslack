@@ -483,6 +483,17 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE files ADD COLUMN thumb TEXT;
   `,
 
+  /* 8: public file links — the secret in a file's public URL, while it is shared */ `
+  ALTER TABLE files ADD COLUMN public_secret TEXT;
+  CREATE UNIQUE INDEX files_public_secret ON files(public_secret) WHERE public_secret IS NOT NULL;
+  `,
+
+  /* 9: Discord import — which Discord ids were already brought in, so a second run adds only what is new */ `
+  CREATE TABLE import_discord_users (discord_id TEXT PRIMARY KEY, user_id TEXT NOT NULL);
+  CREATE TABLE import_discord_channels (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL);
+  CREATE TABLE import_discord_messages (discord_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, ts TEXT NOT NULL);
+  `,
+
   /* accounts — mail codes, two-factor, external sign-in, guests, user groups, profile fields, push, public pages */ `
   -- '' for members; 'multi' or 'single' for guests.
   ALTER TABLE users ADD COLUMN guest TEXT NOT NULL DEFAULT '';

@@ -355,6 +355,35 @@ export function registerConversations(registry: Registry): void {
     touchConv(ctx, conv.id);
   });
 
+  /**
+   * ext: turn a group DM into a private channel with the same people and its
+   * whole history (Slack offers this in its client; there is no public method).
+   */
+  registry.add('client.conversations.convertGroupDm', { auth: 'session' }, ({ ctx, actor, args }) => {
+    const conv = resolveConv(ctx, actor, args.req('channel', 'channel_not_found'));
+    if (conv.kind !== 'mpim') fail('method_not_supported_for_channel_type');
+    if (!getMember(ctx, conv.id, actor.userId)) fail('channel_not_found');
+    const name = normalizeChannelName(args.req('name', 'invalid_name_required'));
+    const error = channelNameError(name);
+    if (error) fail(error);
+    if (ctx.db.get("SELECT 1 FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name)) fail('name_taken');
+    const now = nowSeconds();
+    ctx.db.tx(() => {
+      ctx.db.run("UPDATE conversations SET kind = 'private', name = ?, im_key = NULL, creator = ?, updated = ? WHERE id = ?", name, actor.userId, now, conv.id);
+      ctx.db.run('UPDATE members SET is_open = 1 WHERE conversation_id = ?', conv.id);
+    });
+    const converted = getConv(ctx, conv.id)!;
+    for (const userId of memberIds(ctx, conv.id)) {
+      ctx.bus.emit({
+        event: { type: 'channel_joined', channel: convToApi(ctx, converted, userId, { readState: true, numMembers: true }) },
+        audience: { users: [userId] },
+        clientOnly: true,
+      });
+    }
+    postSystemMessage(ctx, converted, actor.userId, 'channel_convert', `<@${actor.userId}> turned this conversation into the private channel #${name}`, { name });
+    return { channel: convToApi(ctx, converted, actor.userId, { readState: true, numMembers: true }) };
+  });
+
   /** ext: public channels the caller could join, with member counts, for the channel browser. */
   registry.add('client.channels.browse', { auth: 'session' }, ({ ctx, actor, args }) => {
     const query = (args.str('query') ?? '').trim().toLowerCase();

@@ -21,6 +21,7 @@ import {
   run,
   send,
   shot,
+  sideItem,
   signIn,
   skip,
   startServer,
@@ -336,6 +337,31 @@ async function main(browser) {
     assert.deepEqual(readFileSync(await download.path()), bytes);
   });
 
+  await step('public link: the uploader turns one on, it works signed out, and turning it off ends it', async () => {
+    const mine = maya.locator('.message-scroll .file-card', { hasText: 'firmware.bin' }).last();
+    // Only the uploader sees the control.
+    assert.equal(await daniel.locator('.message-scroll .file-card', { hasText: 'firmware.bin' }).last().locator('button[title="Create a public link"]').count(), 0);
+    await mine.locator('button[title="Create a public link"]').click();
+    const on = mine.locator('.public-link');
+    await on.waitFor();
+    const fileId = await maya.evaluate(async () => {
+      const response = await fetch('/api/files.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const body = await response.json();
+      return body.files.find((file) => file.name === 'firmware.bin').id;
+    });
+    const info = await maya.evaluate(async (id) => {
+      const response = await fetch('/api/files.info', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ file: id }) });
+      return (await response.json()).file;
+    }, fileId);
+    const publicPath = new URL(info.permalink_public).pathname;
+    const signedOut = await fetch(`${server.base}${publicPath}`);
+    assert.equal(signedOut.status, 200);
+    assert.equal((await signedOut.arrayBuffer()).byteLength, 2048);
+    await on.locator('.link-btn').click();
+    await mine.locator('button[title="Create a public link"]').waitFor();
+    assert.equal((await fetch(`${server.base}${publicPath}`)).status, 404);
+  });
+
   await step('image: the thumbnail opens the full-size viewer', async () => {
     await attach(maya, { name: 'wide.png', mimeType: 'image/png', buffer: await png(maya, 640, 360, '#0e5f77') });
     await composer(maya).press('Enter');
@@ -401,6 +427,32 @@ async function main(browser) {
       assert.equal(await maya.locator('.upload-chip').count(), 0);
       await composer(maya).fill('');
     }
+  });
+
+  await step('group DM: it becomes a private channel for the same people, history included', async () => {
+    // Maya opens a group DM with Daniel and Sofia from the API, then converts it in the UI.
+    const mayaCookie = (await maya.context().cookies()).map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+    const call = async (method, args) => {
+      const response = await fetch(`${server.base}/api/${method}`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: mayaCookie }, body: JSON.stringify(args) });
+      return response.json();
+    };
+    const users = (await call('users.list', {})).members;
+    const ids = ['daniel', 'sofia'].map((name) => users.find((user) => user.name.startsWith(name)).id);
+    const group = (await call('conversations.open', { users: ids.join(',') })).channel;
+    await call('chat.postMessage', { channel: group.id, text: 'Offsite ideas?' });
+    await maya.goto(`${server.base}/c/${group.id}`);
+    await row(maya, 'Offsite ideas?').waitFor();
+    await maya.locator('.conversation button[aria-label="Details"], .conversation button[title="Details"]').first().click();
+    await maya.locator('.row-action', { hasText: 'Change to a private channel' }).click();
+    const dialog = maya.locator('.modal[role="dialog"]');
+    await dialog.locator('input').fill('offsite planning');
+    await dialog.locator('button', { hasText: 'Change to a private channel' }).click();
+    await maya.locator('.conv-name:text-is("offsite-planning")').waitFor();
+    await sideItem(daniel, 'offsite-planning').waitFor();
+    await sideItem(daniel, 'offsite-planning').click();
+    await row(daniel, 'Offsite ideas?').waitFor();
+    await openChannel(maya, 'random');
+    await openChannel(daniel, 'random');
   });
 
   await step('profile photo: an upload replaces the generated avatar for someone else, and removing it brings it back', async () => {
