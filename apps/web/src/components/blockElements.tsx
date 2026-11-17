@@ -43,10 +43,15 @@ function useElement({ element, blockId, block }: ElementProps) {
     if (!surface || !actionId) return;
     surface.state.set(blockId, actionId, { type, ...fields } as StateValue);
   };
+  /** A change the person made (not the starting value): the block's error no longer applies. */
+  const touch = (fields: Record<string, unknown>): void => {
+    record(fields);
+    surface?.changed?.(blockId);
+  };
 
   /** Record, then act (after confirmation). Resolves false when the person declined. */
   const send = async (fields: Record<string, unknown>, force = false): Promise<boolean> => {
-    record(fields);
+    touch(fields);
     if (!surface || !actionId || (!dispatches && !force)) return true;
     if (!(await confirmed(element))) return false;
     setBusy(true);
@@ -58,7 +63,7 @@ function useElement({ element, blockId, block }: ElementProps) {
     return true;
   };
 
-  return { surface, actionId, type, dispatches, busy, record, send, stored };
+  return { surface, actionId, type, dispatches, busy, record, touch, send, stored };
 }
 
 /** Record an element's starting value once, so it is part of the state even if never touched. */
@@ -187,7 +192,7 @@ export function Overflow(props: ElementProps) {
 
 function TextInput(props: ElementProps) {
   const { element } = props;
-  const { send, record, dispatches, type, stored } = useElement(props);
+  const { send, record, touch, dispatches, type, stored } = useElement(props);
   const [value, setValue] = useState<string>(() => {
     if (stored) return typeof stored.value === 'string' ? stored.value : '';
     return element.initial_value !== undefined ? String(element.initial_value) : '';
@@ -198,7 +203,7 @@ function TextInput(props: ElementProps) {
 
   const change = (next: string): void => {
     setValue(next);
-    record({ value: next === '' ? null : next });
+    touch({ value: next === '' ? null : next });
     if (dispatches && triggers.includes('on_character_entered')) {
       if (typing.current) window.clearTimeout(typing.current);
       typing.current = window.setTimeout(() => void send({ value: next }), 600);

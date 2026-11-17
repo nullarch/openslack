@@ -57,6 +57,8 @@ export interface Surface {
   state: StateBag;
   /** Messages from the app's `response_action: errors`, by block id. */
   errors: Record<string, string>;
+  /** Called when a value in a block changes, so an error shown for it can go. */
+  changed?: (blockId: string) => void;
 }
 
 export const SurfaceContext = createContext<Surface | null>(null);

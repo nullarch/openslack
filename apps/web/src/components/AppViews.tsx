@@ -37,11 +37,12 @@ function useBags(): (view: AppView) => StateBag {
   };
 }
 
-function viewSurface(view: AppView, kind: 'modal' | 'home', state: StateBag, errors: Record<string, string>): Surface {
+function viewSurface(view: AppView, kind: 'modal' | 'home', state: StateBag, errors: Record<string, string>, changed?: (blockId: string) => void): Surface {
   return {
     kind,
     state,
     errors,
+    changed,
     act: (action) => viewAction(view, action, state.toState()),
     suggest: (actionId, blockId, value) => viewSuggest(view, actionId, blockId, value),
   };
@@ -61,6 +62,11 @@ function missingInputs(view: AppView, state: StateBag): Record<string, string> {
   return errors;
 }
 
+function omit(record: Record<string, string>, key: string): Record<string, string> {
+  const { [key]: _gone, ...rest } = record;
+  return rest;
+}
+
 // ── The modal ───────────────────────────────────────────────────────────────
 
 /** The modal an app opened, if any: its top view, with Cancel and Submit. */
@@ -75,7 +81,18 @@ export function AppModalHost() {
 
   useEffect(() => setLocalErrors({}), [view?.id]);
   const errors = { ...serverErrors, ...localErrors };
-  const surface = useMemo(() => (view ? viewSurface(view, 'modal', bagFor(view), errors) : null), [view?.id, view?.hash, JSON.stringify(errors)]);
+  /** Once the person changes a block, the error shown for it goes. */
+  const changed = (blockId: string): void => {
+    setLocalErrors((current) => (blockId in current ? omit(current, blockId) : current));
+    const fromApp = usePlatform.getState().errors;
+    if (blockId in fromApp) usePlatform.setState({ errors: omit(fromApp, blockId) });
+  };
+  const surface = useMemo(
+    () => (view ? viewSurface(view, 'modal', bagFor(view), errors, changed) : null),
+    // `changed` only uses setters and the store; the view and its errors are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view?.id, view?.hash, JSON.stringify(errors)],
+  );
   if (!view || !surface) return null;
 
   const submit = async (): Promise<void> => {
