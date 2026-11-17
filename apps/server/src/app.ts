@@ -24,6 +24,9 @@ import { installHuddles } from './huddles/index.ts';
 import { installAi } from './ai/index.ts';
 import { installWorkflows } from './workflows/index.ts';
 import { installScim } from './scim/index.ts';
+import { installRetention } from './retention/index.ts';
+import { installStats } from './stats/index.ts';
+import { installModeration } from './moderation/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installDocs } from './docs/index.ts';
 import { installMcp } from './mcp/index.ts';
@@ -102,6 +105,9 @@ export function createApp(config: Config): App {
   installDocs(kernel);
   installWorkflows(kernel);
   installScim(kernel);
+  installRetention(kernel);
+  installStats(kernel);
+  installModeration(kernel);
   gateway.start(ctx);
 
   const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });

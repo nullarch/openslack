@@ -7,6 +7,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'Build on one runner only (macos-latest, windows-latest or ubuntu-latest); empty builds all'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -16,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: ${{ fromJSON(inputs.only && format('["{0}"]', inputs.only) || '["macos-latest", "windows-latest", "ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

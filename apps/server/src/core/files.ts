@@ -1,4 +1,5 @@
 import type { Readable } from 'node:stream';
+import { scanStream } from './scanner.ts';
 import type { FileObject } from '@app/shared';
 import type { Ctx } from '../ctx.ts';
 import { canSee, getConv } from './conversations.ts';
@@ -320,6 +321,7 @@ export async function receiveUpload(ctx: Ctx, id: string, secret: string, body: 
     if (error instanceof Error && error.message === 'too_large') fail('file_too_large');
     throw error;
   }
+  await scanUpload(ctx, row, size);
   const dimensions = row.mimetype.startsWith('image/') ? await sniffImageSize(ctx, row.storage_key) : null;
   ctx.db.run(
     "UPDATE files SET state = 'uploaded', size = ?, width = ?, height = ?, upload_secret = NULL WHERE id = ?",
@@ -329,6 +331,34 @@ export async function receiveUpload(ctx: Ctx, id: string, secret: string, body: 
     id,
   );
   return size;
+}
+
+/**
+ * With a scanner configured, an upload is checked before it can be shared. An
+ * infected file is removed and refused; when the scanner cannot answer, the
+ * upload is refused too unless CLAMAV_FAIL_OPEN=1.
+ */
+async function scanUpload(ctx: Ctx, row: FileRow, size: number): Promise<void> {
+  const scanner = ctx.config.scanner;
+  if (!scanner) return;
+  if (size > scanner.maxBytes) {
+    console.warn(`[scan] ${row.id} (${size} bytes) is larger than CLAMAV_MAX_MB and was not scanned`);
+    return;
+  }
+  const result = await scanStream(scanner, ctx.storage.read(row.storage_key));
+  if ('clean' in result && result.clean) return;
+  if ('signature' in result) {
+    await ctx.storage.remove(row.storage_key);
+    ctx.db.run('DELETE FROM files WHERE id = ?', row.id);
+    console.warn(`[scan] ${row.id} refused: ${result.signature}`);
+    fail('file_infected', { signature: result.signature });
+  }
+  console.error(`[scan] ${row.id} could not be scanned: ${result.error}`);
+  if (!scanner.failOpen) {
+    await ctx.storage.remove(row.storage_key);
+    ctx.db.run('DELETE FROM files WHERE id = ?', row.id);
+    fail('scan_unavailable');
+  }
 }
 
 export async function deleteFile(ctx: Ctx, row: FileRow): Promise<void> {

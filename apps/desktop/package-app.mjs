@@ -9,7 +9,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const brand = readFileSync(join(here, '../../packages/shared/src/brand.ts'), 'utf8');
 const name = /name: '([^']+)'/.exec(brand)[1];
 const slug = /slug: '([^']+)'/.exec(brand)[1];
-const [, owner, repo] = /github\.com\/([^/]+)\/([^/']+)/.exec(/repo: '([^']+)'/.exec(brand)[1]);
+const repoUrl = /repo: '([^']+)'/.exec(brand)[1];
+const [, owner, repo] = /github\.com\/([^/]+)\/([^/']+)/.exec(repoUrl);
 const dirOnly = process.argv.includes('--dir');
 
 await build({
@@ -21,7 +22,8 @@ await build({
     productName: name,
     // The workspace package name (@app/desktop) is not a usable file name: binaries and caches use the slug.
     executableName: slug,
-    extraMetadata: { name: slug },
+    // Linux packages need a homepage; the workspace package has none of its own.
+    extraMetadata: { name: slug, homepage: repoUrl },
     artifactName: `${slug}-\${version}-\${os}-\${arch}.\${ext}`,
     directories: { output: 'release', buildResources: 'build' },
     icon: 'build/icon.png',

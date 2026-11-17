@@ -1,3 +1,4 @@
+import type { ScannerConfig } from './core/scanner.ts';
 import type { Role } from '@app/shared';
 import type { Bus } from './core/bus.ts';
 import type { Clock } from './core/clock.ts';
@@ -19,6 +20,8 @@ export interface Config {
   s3?: S3Config | null;
   /** Media server for huddles; huddles are off without it. */
   livekit?: LiveKitConfig | null;
+  /** ClamAV daemon that checks every upload; uploads are not scanned without it. */
+  scanner?: ScannerConfig | null;
   cookieSecure: boolean;
   version: string;
   quiet: boolean;
