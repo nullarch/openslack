@@ -59,7 +59,7 @@ describe('app manifests', () => {
       manifest: JSON.stringify({
         display_information: { name: 'x'.repeat(40) },
         features: { slash_commands: [{ command: 'standup' }] },
-        oauth_config: { scopes: { bot: ['chat:write', 'remote_files:share'] } },
+        oauth_config: { scopes: { bot: ['chat:write', 'conversations.connect:manage'] } },
         settings: { event_subscriptions: { bot_events: ['message.channels'] }, interactivity: { is_enabled: true } },
         functions: {},
         workflows: {},

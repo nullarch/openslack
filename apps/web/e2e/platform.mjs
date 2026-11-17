@@ -265,7 +265,7 @@ async function main(browser) {
       settings: { socket_mode_enabled: true, interactivity: { is_enabled: true } },
     };
     // A scope the server does not grant is pointed out before anything is created.
-    await panel.locator('textarea').fill(JSON.stringify({ ...spec, oauth_config: { scopes: { bot: ['chat:write', 'remote_files:share'] } } }, null, 2));
+    await panel.locator('textarea').fill(JSON.stringify({ ...spec, oauth_config: { scopes: { bot: ['chat:write', 'conversations.connect:manage'] } } }, null, 2));
     await panel.locator('.btn-primary').click();
     await panel.locator('.manifest-problems', { hasText: '/oauth_config/scopes/bot/1' }).waitFor();
     await panel.locator('textarea').fill(JSON.stringify(spec, null, 2));

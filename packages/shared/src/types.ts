@@ -134,7 +134,7 @@ export interface FileObject {
   user_team: string;
   editable: boolean;
   size: number;
-  mode: 'hosted' | 'snippet';
+  mode: 'hosted' | 'snippet' | 'external';
   is_external: boolean;
   external_type: string;
   is_public: boolean;
@@ -144,7 +144,8 @@ export interface FileObject {
   display_as_bot: boolean;
   username: string;
   url_private: string;
-  url_private_download: string;
+  /** Absent for remote files, whose bytes are not here. */
+  url_private_download?: string;
   permalink: string;
   original_w?: number;
   original_h?: number;
@@ -156,6 +157,9 @@ export interface FileObject {
   thumb_720_h?: number;
   alt_txt?: string;
   /** Captions of a recording (clips), as Slack reports audio and video transcriptions; `vtt_url` serves them as WebVTT. */
+  /** Remote files (`files.remote.*`): the app's id for it and where it lives. */
+  external_id?: string;
+  external_url?: string;
   transcription?: { status: 'complete'; locale: string; preview: { content: string; has_more: boolean }; vtt_url: string };
   channels: string[];
   groups: string[];

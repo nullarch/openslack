@@ -74,6 +74,68 @@ function TextPreview({ file }: { file: FileObject }) {
   );
 }
 
+/** A Word, Excel or PowerPoint file, read as its text on request. */
+function OfficePreview({ file }: { file: FileObject }) {
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<{ text: string; truncated: boolean } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const toggle = (): void => {
+    const next = !open;
+    setOpen(next);
+    if (!next || preview) return;
+    call('client.files.textPreview', { file: file.id })
+      .then((result) => setPreview({ text: String(result.text), truncated: Boolean(result.truncated) }))
+      .catch(() => setFailed(true));
+  };
+  return (
+    <div className="file-card is-text">
+      <FileCardHead file={file} extra={<button type="button" className="link-btn" onClick={toggle} aria-expanded={open}>{open ? S.files.hidePreview : S.files.preview}</button>} />
+      {open ? (
+        failed ? (
+          <div className="file-preview-note">{S.files.previewFailed}</div>
+        ) : (
+          <div className="file-preview file-preview-doc">
+            {preview ? (preview.text || S.files.previewEmpty) : S.loading}
+            {preview?.truncated ? <p className="file-preview-note">{S.files.previewTruncated}</p> : null}
+          </div>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+/** A document kept elsewhere (files.remote.*): its preview image and title, opening at its own address. */
+function RemoteFile({ file }: { file: FileObject }) {
+  let url = '';
+  let host = '';
+  try {
+    const parsed = new URL(file.external_url ?? '');
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      url = parsed.toString();
+      host = parsed.host;
+    }
+  } catch {
+    // not a web address: shown without a link
+  }
+  const body = (
+    <>
+      {file.thumb_360 ? <img src={asset(file.thumb_360)} alt="" width={file.thumb_360_w} height={file.thumb_360_h} loading="lazy" /> : null}
+      <span className="file-remote-meta">
+        <span className="file-name">{file.title || file.name}</span>
+        <span className="file-sub">{host || S.files.remote}</span>
+      </span>
+      {url ? <ExternalLink size={16} aria-hidden="true" /> : null}
+    </>
+  );
+  return url ? (
+    <a className="file-card file-remote" href={url} target="_blank" rel="noopener noreferrer" title={S.files.openRemote(host)}>
+      {body}
+    </a>
+  ) : (
+    <div className="file-card file-remote">{body}</div>
+  );
+}
+
 /** A PDF opens in the browser's own viewer, on request: loading every PDF in a channel up front would be wasteful. */
 function PdfFile({ file }: { file: FileObject }) {
   const [open, setOpen] = useState(false);
@@ -109,9 +171,11 @@ function FileCardHead({ file, extra }: { file: FileObject; extra?: React.ReactNo
       <a className="icon-btn" href={asset(file.url_private)} target="_blank" rel="noopener noreferrer" title={S.files.open} aria-label={S.files.open}>
         <ExternalLink size={16} />
       </a>
-      <a className="icon-btn" href={asset(file.url_private_download)} title={S.files.download} aria-label={S.files.download}>
-        <Download size={16} />
-      </a>
+      {file.url_private_download ? (
+        <a className="icon-btn" href={asset(file.url_private_download)} title={S.files.download} aria-label={S.files.download}>
+          <Download size={16} />
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -223,6 +287,8 @@ export function Files({ files, collapsed = false }: { files: FileObject[]; colla
     <div className="files">
       {files.map((file) => {
         if (file.mode === 'snippet') return <SnippetFile key={file.id} file={file} />;
+        if (file.mode === 'external') return <RemoteFile key={file.id} file={file} />;
+        if (/^(docx|xlsx|pptx)$/.test(file.filetype)) return <OfficePreview key={file.id} file={file} />;
         if (/^image\/(png|jpeg|gif|webp)$/.test(file.mimetype)) return <ImageFile key={file.id} file={file} />;
         if (file.mimetype.startsWith('video/')) {
           return (

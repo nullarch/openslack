@@ -456,6 +456,7 @@ export const koRest = {
     action_not_found: '더 이상 쓸 수 없는 버튼이에요.',
     not_a_recording: '자막은 음성이나 영상에만 붙일 수 있어요.',
     invalid_transcript: '자막을 읽을 수 없어요.',
+    no_preview: '이 파일은 미리 볼 수 없어요.',
     too_many_memories: '비서는 이미 100개를 기억하고 있어요. 먼저 몇 개를 잊게 해 주세요.',
     invalid_action_value: '앱이 그 선택을 받지 않았어요.',
     command_not_found: '그 명령을 처리하는 앱이 없어요.',

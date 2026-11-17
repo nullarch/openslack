@@ -992,4 +992,12 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE files ADD COLUMN transcript TEXT;
   ALTER TABLE files ADD COLUMN transcript_locale TEXT;
   `,
+
+  /* 27: remote files — documents an app registers with files.remote.add; the bytes stay at external_url */ `
+  ALTER TABLE files ADD COLUMN external_id TEXT;
+  ALTER TABLE files ADD COLUMN external_url TEXT;
+  ALTER TABLE files ADD COLUMN app_id TEXT;
+  ALTER TABLE files ADD COLUMN remote_type TEXT;
+  CREATE UNIQUE INDEX files_external ON files (app_id, external_id) WHERE external_id IS NOT NULL;
+  `,
 ];

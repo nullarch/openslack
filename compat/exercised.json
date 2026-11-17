@@ -263,5 +263,17 @@
       "tooling.tokens.rotate"
     ],
     "events": []
+  },
+  "web-api-remote-files": {
+    "sdk": "@slack/web-api 8.4.0",
+    "methods": [
+      "files.remote.add",
+      "files.remote.info",
+      "files.remote.list",
+      "files.remote.remove",
+      "files.remote.share",
+      "files.remote.update"
+    ],
+    "events": []
   }
 }

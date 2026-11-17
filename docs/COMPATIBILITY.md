@@ -19,6 +19,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
 | `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
+| `web-api-remote-files` | @slack/web-api 8.4.0 | 6 | 0 |
 
 "SDK" in the tables below means at least one of these runs called the method, or received the payload, through an official SDK. "Server tests" means the server’s own tests exercise it over HTTP. A supported method with neither mark is implemented but not yet covered here.
 
@@ -96,7 +97,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **158 supported**, 139 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **164 supported**, 133 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -182,7 +183,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **158 supported**, 139 
 | `conversations.leave` |  | ✓ |  |
 | `conversations.list` | ✓ | ✓ |  |
 | `conversations.mark` |  | ✓ |  |
-| `conversations.members` | ✓ |  |  |
+| `conversations.members` | ✓ | ✓ |  |
 | `conversations.open` | ✓ | ✓ |  |
 | `conversations.rename` |  | ✓ |  |
 | `conversations.replies` | ✓ | ✓ |  |
@@ -200,6 +201,12 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **158 supported**, 139 
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
+| `files.remote.add` | ✓ | ✓ |  |
+| `files.remote.info` | ✓ | ✓ |  |
+| `files.remote.list` | ✓ | ✓ |  |
+| `files.remote.remove` | ✓ | ✓ |  |
+| `files.remote.share` | ✓ | ✓ |  |
+| `files.remote.update` | ✓ | ✓ |  |
 | `files.revokePublicURL` |  | ✓ |  |
 | `files.sharedPublicURL` |  | ✓ |  |
 | `functions.completeError` | ✓ | ✓ | Fails the workflow run with the app's message. |
@@ -273,7 +280,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **158 supported**, 139 
 | `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
-| `files` | 7 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update` |
+| `files` | 1 | `files.comments.delete` |
 | `migration` | 1 | `migration.exchange` |
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
 | `reactions` | 1 | `reactions.list` |
@@ -297,5 +304,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **158 supported**, 139 
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 181 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 190 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

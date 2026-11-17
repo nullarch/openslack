@@ -21,6 +21,7 @@ import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installClips } from './clips/index.ts';
+import { installRemoteFiles } from './platform/remote-files.ts';
 import { installHuddleCaptions } from './huddles/captions.ts';
 import { installHuddles } from './huddles/index.ts';
 import { installAi } from './ai/index.ts';
@@ -127,6 +128,7 @@ export function createApp(config: Config): App {
   installCalls(kernel);
   installHuddleCaptions(kernel);
   installClips(kernel);
+  installRemoteFiles(kernel);
   installSessions(kernel);
   installInboundEmail(kernel);
   installChannelTemplates(kernel);

@@ -31,6 +31,11 @@ export interface FileRow {
   /** WebVTT captions of a recording, attached by the browser that made it. */
   transcript?: string | null;
   transcript_locale?: string | null;
+  /** Remote files: the app that added it, its id for it, where it lives, and the kind it said it is. */
+  external_id?: string | null;
+  external_url?: string | null;
+  app_id?: string | null;
+  remote_type?: string | null;
 }
 
 interface TypeInfo {
@@ -166,6 +171,19 @@ export function fileToApi(ctx: Ctx, row: FileRow): FileObject {
     file_access: 'visible',
   };
   if (row.alt_txt) file.alt_txt = row.alt_txt;
+  if (row.mode === 'external') {
+    // Remote files (files.remote.*): the bytes live at the app's address.
+    file.mode = 'external';
+    file.is_external = true;
+    file.external_type = 'app';
+    file.external_id = row.external_id ?? '';
+    file.external_url = row.external_url ?? '';
+    file.url_private = row.external_url ?? '';
+    file.permalink = row.external_url ?? '';
+    file.pretty_type = 'Remote';
+    delete file.url_private_download;
+    if (row.remote_type) file.filetype = row.remote_type;
+  }
   if (row.transcript) {
     const words = vttText(row.transcript);
     file.transcription = {

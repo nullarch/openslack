@@ -28,6 +28,13 @@ export interface MultipartUpload {
 
 /** Key under which a multipart request's file reaches the method's arguments. */
 export const UPLOAD_ARG = '__upload';
+/** Every file of a multipart request, by form field name (`files.remote.add` sends two). */
+export const UPLOADS_ARG = '__uploads';
+
+/** The file sent in the form field `field`, if any. */
+export function uploadNamed(raw: Record<string, unknown>, field: string): MultipartUpload | undefined {
+  return (raw[UPLOADS_ARG] as Record<string, MultipartUpload> | undefined)?.[field];
+}
 
 /**
  * Read a multipart/form-data request: fields become arguments; the first file
@@ -40,33 +47,40 @@ export async function readMultipart(ctx: Ctx, req: IncomingMessage): Promise<Rec
   return new Promise((resolve, reject) => {
     let parser: busboy.Busboy;
     try {
-      parser = busboy({ headers: req.headers, limits: { files: 1, fields: 50, fieldSize: 1024 * 1024, fileSize: ctx.config.maxUploadBytes } });
+      parser = busboy({ headers: req.headers, limits: { files: 3, fields: 50, fieldSize: 1024 * 1024, fileSize: ctx.config.maxUploadBytes } });
     } catch {
       reject(new ApiError('invalid_form_data'));
       return;
     }
-    let writing: Promise<void> | null = null;
+    const writing: Promise<void>[] = [];
+    const byField: Record<string, MultipartUpload> = {};
+    out[UPLOADS_ARG] = byField;
     let tooLarge = false;
     parser.on('field', (name, value) => {
       out[name] = value;
     });
-    parser.on('file', (_name, stream, info) => {
+    parser.on('file', (field, stream, info) => {
       const path = join(dir, `upload-${newHex(8)}`);
+      const first = writing.length === 0;
       stream.on('limit', () => {
         tooLarge = true;
       });
-      writing = pipeline(stream, createWriteStream(path)).then(async () => {
-        out[UPLOAD_ARG] = { path, filename: info.filename || 'file', size: (await stat(path)).size } satisfies MultipartUpload;
-      });
+      writing.push(
+        pipeline(stream, createWriteStream(path)).then(async () => {
+          const upload = { path, filename: info.filename || 'file', size: (await stat(path)).size } satisfies MultipartUpload;
+          byField[field] ??= upload;
+          // The first file is the one methods with a single upload read.
+          if (first) out[UPLOAD_ARG] = upload;
+        }),
+      );
     });
     parser.on('error', () => reject(new ApiError('invalid_form_data')));
     parser.on('close', () => {
       void (async () => {
         try {
-          if (writing) await writing;
-          const upload = out[UPLOAD_ARG] as MultipartUpload | undefined;
+          await Promise.all(writing);
           if (tooLarge) {
-            if (upload) await rm(upload.path, { force: true });
+            await discardMultipart(out);
             reject(new ApiError('file_too_large', { max_bytes: ctx.config.maxUploadBytes }));
             return;
           }
@@ -81,8 +95,11 @@ export async function readMultipart(ctx: Ctx, req: IncomingMessage): Promise<Rec
 }
 
 export async function discardMultipart(raw: Record<string, unknown>): Promise<void> {
+  const paths = new Set<string>();
   const upload = raw[UPLOAD_ARG] as MultipartUpload | undefined;
-  if (upload) await rm(upload.path, { force: true });
+  if (upload) paths.add(upload.path);
+  for (const item of Object.values((raw[UPLOADS_ARG] as Record<string, MultipartUpload> | undefined) ?? {})) paths.add(item.path);
+  for (const path of paths) await rm(path, { force: true });
 }
 
 export function registerLegacyFiles(registry: Registry): void {
