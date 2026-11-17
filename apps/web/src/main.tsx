@@ -8,10 +8,12 @@ import './styles/dialogs.css';
 import './styles/attention.css';
 import './styles/accounts.css';
 import './styles/prefs.css';
+import './styles/a11y.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { start } from './lib/actions';
+import { trackInputMode } from './lib/a11y';
 import './lib/realtime';
 import { registerServiceWorker } from './lib/push';
 
@@ -21,5 +23,6 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+trackInputMode();
 void start();
 registerServiceWorker();

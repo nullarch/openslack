@@ -778,7 +778,7 @@ function LiveEditor({
             </Button>
           ) : null}
           <span className="composer-spacer" />
-          <div className="canvas-presence" aria-label={T.here(people.map((person) => person.name).join(', '))}>
+          <div className="canvas-presence" role="group" aria-label={T.here(people.map((person) => person.name).join(', '))}>
             {people.map((person) => (
               <span key={person.id} className="presence-chip" style={{ borderColor: person.color }} title={person.name} data-present={person.id}>
                 <Avatar user={get().users[person.id]} size={22} />

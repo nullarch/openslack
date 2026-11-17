@@ -1,0 +1,155 @@
+/*
+ * Accessibility: what keyboard and screen-reader users need that the rest of
+ * the styles do not already give them. Loaded last so it can adjust them.
+ */
+
+/* Text only screen readers hear. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The first Tab stop on the page jumps past the frame to the messages. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  transform: translateY(-300%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+/* On the frame (top bar, sidebar, any sidebar theme) the ring takes the frame's strongest ink. */
+.topbar :focus-visible,
+.sidebar :focus-visible {
+  outline-color: var(--chrome-strong);
+}
+
+.sidebar .side-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The page's one level-one heading: the conversation's name, styled as before. */
+.conv-heading {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  max-width: 50%;
+  margin: 0;
+  font: inherit;
+}
+
+.conv-heading > .conv-title {
+  max-width: 100%;
+}
+
+@media (max-width: 760px) {
+  .conv-heading {
+    max-width: none;
+    flex: 1;
+  }
+}
+
+/* A message reached with the arrow keys shows its toolbar, as hover does. */
+.msg:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background: var(--bg-hover);
+}
+
+
+.toast-region {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Less motion: transitions and animations stop at their end state, and nothing scrolls by itself. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Forced colors (Windows contrast themes): backgrounds and shadows are dropped,
+ * so state that relied on them gets an outline or a border in system colors.
+ */
+@media (forced-colors: active) {
+  :focus-visible,
+  .topbar :focus-visible,
+  .sidebar :focus-visible {
+    outline: 2px solid Highlight;
+  }
+
+  .side-item.is-selected,
+  .side-item[aria-current='page'],
+  [role='tab'][aria-selected='true'],
+  [role='option'][aria-selected='true'],
+  .switcher-item.is-active,
+  .suggest-item.is-active,
+  .segmented button.is-on,
+  .seg button.is-on {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .popover,
+  .menu,
+  .modal,
+  .toast,
+  .msg-toolbar,
+  .composer,
+  .jump-latest {
+    border: 1px solid CanvasText;
+  }
+
+  .badge,
+  .tag,
+  .reaction,
+  .btn,
+  .icon-btn.is-active,
+  .icon-btn.is-on {
+    border: 1px solid ButtonText;
+  }
+
+  /* The drawn task box gives way to the system's own checkbox. */
+  .canvas-content ul[data-type='taskList'] li > label > input[type='checkbox'] {
+    appearance: auto;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .presence,
+  .avatar,
+  .emoji,
+  .viz-swatch,
+  .lk-video {
+    forced-color-adjust: none;
+  }
+}

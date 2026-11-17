@@ -2,8 +2,11 @@ import type { Conversation } from '@app/shared';
 import { ArrowDown, Hash, Lock } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { loadLatest, loadNewer, loadOlder, MAX_LOADED, maybeMarkRead, trimLoaded } from '../lib/actions';
+import { reducedMotion } from '../lib/a11y';
+import { messagePreview } from '../lib/notify';
 import { viewing } from '../lib/realtime';
-import { conversation, conversationName, EMPTY_CONV, set, useStore, type LocalMessage } from '../lib/store';
+import { useRoving } from '../lib/roving';
+import { conversation, conversationName, displayName, EMPTY_CONV, get, set, useStore, type LocalMessage } from '../lib/store';
 import { dayKey, dayLabel } from '../lib/time';
 import { S } from '../strings';
 import { isSystem, MessageRow } from './Message';
@@ -56,11 +59,57 @@ function Intro({ conv }: { conv: Conversation }) {
   );
 }
 
+/**
+ * What a screen reader hears when messages arrive in the open conversation:
+ * other people's new messages, and an agent's streamed reply once it is complete.
+ * Messages that were already there, or that load while scrolling, are not read.
+ */
+function useArrivals(channel: string, list: LocalMessage[], loaded: boolean, selfId: string | undefined): { text: string; n: number } {
+  const [said, setSaid] = useState({ text: '', n: 0 });
+  const seen = useRef<{ channel: string; after: string; read: Set<string> }>({ channel: '', after: '', read: new Set() });
+  useEffect(() => {
+    if (!loaded) return;
+    const mark = seen.current;
+    if (mark.channel !== channel) {
+      seen.current = { channel, after: list[list.length - 1]?.ts ?? '', read: new Set() };
+      setSaid({ text: '', n: 0 });
+      return;
+    }
+    const now = Date.now() / 1000;
+    const state = get();
+    const hidden = Array.isArray(state.prefs.hidden_users) ? (state.prefs.hidden_users as string[]) : [];
+    const fresh = list.filter(
+      (message) =>
+        message.ts > mark.after &&
+        !mark.read.has(message.ts) &&
+        now - Number(message.ts) < 120 &&
+        message.user !== selfId &&
+        !message.pending &&
+        !message.streaming &&
+        !isSystem(message) &&
+        !hidden.includes(message.user ?? ''),
+    );
+    if (fresh.length === 0) return;
+    for (const message of fresh) mark.read.add(message.ts);
+    if (mark.read.size > 200) mark.read = new Set([...mark.read].slice(-100));
+    const text =
+      fresh
+        .map((message) => {
+          const author = message.username || (message.user && state.users[message.user] ? displayName(state.users[message.user]) : (message.bot_profile?.name ?? ''));
+          return S.a11y.newMessage(author, messagePreview(message));
+        })
+        .join('\n');
+    setSaid((previous) => ({ text, n: previous.n + 1 }));
+  }, [channel, list, loaded, selfId]);
+  return said;
+}
+
 export function MessageList({ channel }: { channel: string }) {
   const conv = useStore((state) => state.convs[channel]) ?? EMPTY_CONV;
   const info = useStore((state) => conversation(state, channel));
   const highlight = useStore((state) => state.highlight);
   const selfId = useStore((state) => state.self?.id);
+  const place = useStore((state) => (info ? conversationName(state, info) : ''));
 
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -76,6 +125,9 @@ export function MessageList({ channel }: { channel: string }) {
   /** The first message on screen and its distance from the top of the pane, to keep it still when rows come or go above it. */
   const anchor = useRef<{ ts: string; offset: number } | null>(null);
   const [atBottom, setAtBottom] = useState(true);
+  // Messages are one Tab stop: Up and Down move between them, Tab goes into the one reached.
+  useRoving(scroller, { items: '.message-content > .msg[data-ts]', start: 'last', inner: true });
+  const arrivals = useArrivals(channel, conv.list, conv.loaded, selfId);
 
   const isNearBottom = (): boolean => {
     const node = scroller.current;
@@ -232,7 +284,7 @@ export function MessageList({ channel }: { channel: string }) {
       void loadLatest(channel);
       return;
     }
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: reducedMotion() ? 'auto' : 'smooth' });
   };
 
   const rows: ReactNode[] = [];
@@ -272,7 +324,7 @@ export function MessageList({ channel }: { channel: string }) {
 
   return (
     <div className="message-pane">
-      <div className="message-scroll" ref={scroller} onScroll={report}>
+      <div className="message-scroll" ref={scroller} onScroll={report} role="region" aria-label={S.a11y.messagesIn(place)} aria-busy={conv.loaded ? undefined : true}>
         <div className="message-content" ref={content}>
           {conv.loaded && conv.hasOlder ? (
             <div ref={topSentinel} className="list-edge">
@@ -292,6 +344,9 @@ export function MessageList({ channel }: { channel: string }) {
             </div>
           ) : null}
         </div>
+      </div>
+      <div className="sr-only" role="log" aria-live="polite" aria-atomic="false">
+        {arrivals.text ? <p key={arrivals.n}>{arrivals.text}</p> : null}
       </div>
       {(!atBottom || conv.hasNewer) && conv.loaded ? (
         <button type="button" className="jump-latest" onClick={jumpToLatest}>

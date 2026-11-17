@@ -35,7 +35,7 @@ Run these to reproduce.
 | Types, brand rule | `pnpm typecheck`, `pnpm check:brand` | clean |
 | Unit and integration tests | `pnpm test` | server 344, compat 62, shared 19, web 14, all passing |
 | Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases, lists and remote files, `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
-| Browser tests | `pnpm --filter @app/web e2e` | fourteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, agent round trip. Several also run in Playwright's WebKit and Firefox |
+| Browser tests | `pnpm --filter @app/web e2e` | fifteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, accessibility (axe on 108 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
 | Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
@@ -85,5 +85,5 @@ In order. Details and owners are in `TODO.html`.
 
 1. Owner decisions: public demo server, when to make the repository public, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app.
 2. Run against real exports and real identity providers; try real third-party agents and document only what works.
-3. Accessibility pass (in progress on a branch); more interface languages; server-side speech recognition for browsers without it.
+3. A real screen reader pass (VoiceOver, NVDA); more interface languages; server-side speech recognition for browsers without it.
 4. Then the larger items: several processes sharing one database, shared channels between servers, native mobile apps.

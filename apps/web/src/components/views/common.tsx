@@ -10,6 +10,7 @@ import { Blocks } from '../blocks';
 import { Files } from '../files';
 import { Mrkdwn } from '../text';
 import { Avatar, IconButton } from '../ui';
+import { useTabList } from '../../lib/roving';
 
 /** The frame every workspace-wide view shares: a header, optional tabs, a scrolling column. */
 export function ViewFrame({ title, actions, tabs, children, className = '' }: { title: string; actions?: ReactNode; tabs?: ReactNode; children: ReactNode; className?: string }) {
@@ -32,8 +33,9 @@ export function ViewFrame({ title, actions, tabs, children, className = '' }: { 
 }
 
 export function Tabs<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string; count?: number }[]; onChange: (value: T) => void }) {
+  const tabList = useTabList();
   return (
-    <div className="tabs" role="tablist">
+    <div ref={tabList} className="tabs" role="tablist">
       {options.map((option) => (
         <button key={option.id} type="button" role="tab" aria-selected={value === option.id} className={value === option.id ? 'is-active' : ''} onClick={() => onChange(option.id)}>
           {option.label}

@@ -109,7 +109,8 @@
 
 .divider-new span {
   padding-left: 8px;
-  color: var(--alert);
+  /* The line can be the brighter alert red (3:1 for a mark); the words need 4.5:1. */
+  color: var(--danger);
   font-size: 12px;
   font-weight: 800;
 }
@@ -225,6 +226,10 @@
 }
 
 .msg-author {
+  /* 24px tall to click (WCAG 2.5.8), the extra reaching up into the row's padding, not down over the text. */
+  display: inline-block;
+  padding-top: 4px;
+  margin-top: -4px;
   font-weight: 800;
   font-size: 15px;
 }
@@ -341,7 +346,7 @@
 
 .msg:hover > .msg-toolbar,
 .msg.is-menu-open > .msg-toolbar,
-.msg:has(:focus-visible) > .msg-toolbar {
+:root[data-input='keyboard'] .msg:focus-within > .msg-toolbar {
   display: flex;
 }
 
@@ -858,7 +863,7 @@ ol.rich-list {
 .task.is-error .task-mark {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-text);
 }
 
 .task.is-active .task-mark {
@@ -1490,6 +1495,12 @@ ol.rich-list {
   --presence-ring: var(--primary);
   background: var(--primary);
   color: var(--primary-text);
+}
+
+/* On the highlighted row the secondary text keeps full strength, or it falls under 4.5:1. */
+.suggest-item.is-active .suggest-sub,
+.switcher-item.is-active .suggest-sub {
+  opacity: 1;
 }
 
 .suggest-icon {

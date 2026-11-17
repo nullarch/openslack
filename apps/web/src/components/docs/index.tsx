@@ -9,6 +9,7 @@ import { relative } from '../../lib/time';
 import { S } from '../../strings';
 import { MenuItem, Popover, Spinner } from '../ui';
 import '../../styles/docs-lite.css';
+import { useTabList } from '../../lib/roving';
 
 // The editor, list views and browser load on first use; see ./DocPage.
 const DocPage = lazy(() => import('./DocPage'));
@@ -66,6 +67,7 @@ export function ChannelDocBody({ channel, doc }: { channel: string; doc: DocSumm
 
 /** "Messages" plus the conversation's canvases and lists, and a button to add one. */
 export function DocTabs({ channel, canAdd }: { channel: string; canAdd: boolean }) {
+  const tabList = useTabList();
   const docs = useDocs((state) => state.byChannel[channel]);
   const open = useDocs((state) => state.tab[channel]);
   const [menu, setMenu] = useState(false);
@@ -82,7 +84,8 @@ export function DocTabs({ channel, canAdd }: { channel: string; canAdd: boolean 
     void attempt(() => createDoc(kind, { channel }));
   };
   return (
-    <div className="doc-tabs" role="tablist" aria-label={S.docs.addTab}>
+    <div className="doc-tabs">
+      <div ref={tabList} className="doc-tab-list" role="tablist" aria-label={S.a11y.channelTabs}>
       <button type="button" role="tab" aria-selected={!open} className={`doc-tab ${!open ? 'is-on' : ''}`} onClick={() => setDocTab(channel, null)}>
         {S.docs.messages}
       </button>
@@ -100,6 +103,7 @@ export function DocTabs({ channel, canAdd }: { channel: string; canAdd: boolean 
           <span className="doc-tab-name">{doc.title || (doc.kind === 'canvas' ? S.docs.untitled : S.docs.untitledList)}</span>
         </button>
       ))}
+      </div>
       {canAdd ? (
         <button ref={button} type="button" className="doc-tab doc-tab-add" aria-label={S.docs.addTab} title={S.docs.addTab} onClick={() => setMenu(true)}>
           <Plus size={15} />

@@ -66,14 +66,25 @@ export function sidebarInk(background: string): string {
   return white >= contrast('#000000', background) ? '#ffffff' : '#000000';
 }
 
-/** The chrome variables for a sidebar background, every text color at 4.5:1 or better. */
-export function sidebarVars(background: string): Record<string, string> {
-  const ink = sidebarInk(background);
+/** The strongest wash of ink the sidebar paints under text (fields; hover and the bottom strip use less). */
+const WASH = 0.12;
+
+/**
+ * The chrome variables for a sidebar color, every text color at 4.5:1 or better
+ * on the background and on the washes drawn over it. A mid tone that cannot
+ * carry text on a wash (#0080cc, say) is moved a little away from its ink.
+ */
+export function sidebarVars(color: string): Record<string, string> {
+  const ink = sidebarInk(color);
+  const away = contrast(ink, '#ffffff') > contrast(ink, '#000000') ? '#ffffff' : '#000000';
+  let background = color;
+  for (let step = 0; step < 60 && contrast(ink, mix(background, ink, WASH)) < 4.5; step += 1) background = mix(background, away, 0.02);
+  const washed = mix(background, ink, WASH);
   // Start part of the way toward the background, then move back toward the ink until the contrast holds.
   const readable = (start: number): string => {
     for (let amount = start; amount > 0; amount -= 0.02) {
-      const color = mix(ink, background, amount);
-      if (contrast(color, background) >= 4.5) return color;
+      const text = mix(ink, background, amount);
+      if (contrast(text, background) >= 4.5 && contrast(text, washed) >= 4.5) return text;
     }
     return ink;
   };

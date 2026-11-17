@@ -42,6 +42,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
       <IconButton className="only-narrow" label={S.sidebar.openSidebar} onClick={() => set({ drawer: true })}>
         <Menu size={19} />
       </IconButton>
+      <h1 className="conv-heading">
       <button type="button" className="conv-title" onClick={() => openDetails('about')}>
         {conv.is_im ? (
           <Avatar user={other} size={24} presence />
@@ -57,6 +58,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
         {paused ? <Moon size={14} className="conv-dnd" aria-label={S.att.dnd.label} /> : null}
         {other?.profile.status_emoji ? <Emoji name={other.profile.status_emoji.replace(/:/g, '')} /> : null}
       </button>
+      </h1>
       {isMember ? (
         <IconButton
           className={`star-btn ${conv.is_starred ? 'is-on' : ''}`}

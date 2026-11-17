@@ -4,12 +4,28 @@ import { contrast, isHexColor, SIDEBAR_PRESETS, sidebarBackground, sidebarInk, s
 
 const TEXT = ['--chrome-text', '--chrome-dim', '--chrome-strong'];
 
+/** The background with 12% of the ink over it: the strongest wash under sidebar text (fields, hover, the bottom strip). */
+function washed(vars: Record<string, string>): string {
+  const channels = (hex: string): number[] => [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16));
+  const [base, ink] = [channels(vars['--chrome']!), channels(vars['--chrome-strong']!)];
+  return `#${base.map((value, index) => Math.round(value + (ink[index]! - value) * 0.12).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Every text color reads on the sidebar's background and on its washes. */
+function readable(vars: Record<string, string>, label: string): void {
+  for (const key of TEXT) {
+    assert.ok(contrast(vars[key]!, vars['--chrome']!) >= 4.5, `${label} ${key} ${vars[key]} on ${vars['--chrome']}`);
+    assert.ok(contrast(vars[key]!, washed(vars)) >= 4.5, `${label} ${key} ${vars[key]} on the wash ${washed(vars)}`);
+  }
+}
+
 describe('sidebar colors', () => {
   test('every preset keeps all sidebar text at 4.5:1 or better', () => {
     for (const [name, background] of Object.entries(SIDEBAR_PRESETS)) {
       if (!background) continue;
       const vars = sidebarVars(background);
-      for (const key of TEXT) assert.ok(contrast(vars[key]!, background) >= 4.5, `${name} ${key} ${vars[key]} on ${background}`);
+      readable(vars, name);
+      assert.equal(vars['--chrome'], background, `${name} keeps its color`);
     }
   });
 
@@ -21,7 +37,9 @@ describe('sidebar colors', () => {
         for (const b of steps) {
           const background = `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
           const vars = sidebarVars(background);
-          for (const key of TEXT) assert.ok(contrast(vars[key]!, background) >= 4.5, `${key} ${vars[key]} on ${background}`);
+          readable(vars, background);
+          // A mid tone may move, but only a little.
+          assert.ok(contrast(vars['--chrome']!, background) < 1.6, `${background} stays close to what was chosen (${vars['--chrome']})`);
         }
       }
     }

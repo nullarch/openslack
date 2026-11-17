@@ -9,6 +9,7 @@ import { S } from '../../strings';
 import { T } from './text';
 import { confirmDialog } from '../dialogs/confirm';
 import { Avatar, Button, Field, IconButton, MenuDivider, MenuItem, Modal, Popover, Spinner } from '../ui';
+import { useTabList } from '../../lib/roving';
 
 /** Lists: a table (sort, filter, group) and a board (drag cards between a select column's options). */
 
@@ -136,18 +137,20 @@ function PeoplePicker({ value, onChange, anchor, onClose }: { value: string[]; o
     .filter((user) => !user.deleted && !user.is_bot && `${user.name} ${user.real_name} ${user.profile.display_name}`.toLowerCase().includes(query.toLowerCase()))
     .slice(0, 12);
   return (
-    <Popover anchor={anchor} onClose={onClose} className="menu people-picker">
+    <Popover anchor={anchor} onClose={onClose} className="menu people-picker" role="dialog" label={T.searchPeople}>
       <input className="input" autoFocus placeholder={T.searchPeople} value={query} onChange={(event) => setQuery(event.target.value)} aria-label={T.searchPeople} />
-      {matches.map((user) => {
-        const on = value.includes(user.id);
-        return (
-          <button key={user.id} type="button" role="menuitemcheckbox" aria-checked={on} className={`menu-item ${on ? 'is-checked' : ''}`} onClick={() => onChange(on ? value.filter((id) => id !== user.id) : [...value, user.id])}>
-            <Avatar user={user} size={20} />
-            <span className="menu-label">{displayName(user)}</span>
-            {on ? <span className="menu-hint">✓</span> : null}
-          </button>
-        );
-      })}
+      <div role="listbox" aria-multiselectable="true" aria-label={T.searchPeople}>
+        {matches.map((user) => {
+          const on = value.includes(user.id);
+          return (
+            <button key={user.id} type="button" role="option" aria-selected={on} className={`menu-item ${on ? 'is-checked' : ''}`} onClick={() => onChange(on ? value.filter((id) => id !== user.id) : [...value, user.id])}>
+              <Avatar user={user} size={20} />
+              <span className="menu-label">{displayName(user)}</span>
+              {on ? <span className="menu-hint">✓</span> : null}
+            </button>
+          );
+        })}
+      </div>
     </Popover>
   );
 }
@@ -293,7 +296,8 @@ function Cell({ column, value, editable, onChange }: { column: Column; value: un
     case 'user':
       return (
         <>
-          <button ref={ref} type="button" className="cell-button" aria-label={column.name} onClick={() => setOpen(true)}>
+          {/* Named by what it shows; an empty cell by its column. */}
+          <button ref={ref} type="button" className="cell-button" aria-label={((value as string[] | undefined) ?? []).length === 0 ? column.name : undefined} onClick={() => setOpen(true)}>
             {column.type === 'select' ? (
               <Chips column={column} value={value} />
             ) : (
@@ -518,7 +522,7 @@ function Board({ items, schema, laneColumn, editable, onMove, onOpen }: { items:
     if (item) onMove(item, lane);
   });
   return (
-    <div className="board" role="list">
+    <div className="board">
       {lanes.map((lane) => {
         const cards = items.filter((item) => (((item.values[laneColumn.id] as string[] | undefined) ?? [])[0] ?? '') === lane.id);
         return (
@@ -570,6 +574,7 @@ function Board({ items, schema, laneColumn, editable, onMove, onOpen }: { items:
 // ── The list ────────────────────────────────────────────────────────────────
 
 export default function ListView({ id }: { id: string }) {
+  const viewTabs = useTabList();
   const version = useDocs((state) => state.version[id] ?? 0);
   const [list, setList] = useState<ListInfo | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -679,7 +684,7 @@ export default function ListView({ id }: { id: string }) {
     <div className={`canvas-layout list-layout ${item ? 'has-side' : ''}`}>
       <div className="canvas-main">
         <div className="list-bar">
-          <div className="seg" role="tablist" aria-label={T.table}>
+          <div ref={viewTabs} className="seg" role="tablist" aria-label={T.table}>
             <button type="button" role="tab" aria-selected={prefs.view === 'table'} className={prefs.view === 'table' ? 'is-on' : ''} onClick={() => setPrefs({ view: 'table' })}>
               <Table2 size={15} /> {T.table}
             </button>

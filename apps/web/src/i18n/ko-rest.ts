@@ -605,6 +605,17 @@ export const koRest = {
     confirmResetAll: '모든 사람을 모든 기기에서 로그아웃할까요? 이 기기에서 나는 로그인한 채로 남아요.',
     resetDone: (n: number) => `세션 ${n}개를 로그아웃했어요`,
   },
+  a11y: {
+    skipToMessages: '메시지로 건너뛰기',
+    skipToContent: '본문으로 건너뛰기',
+    messagesIn: (place: string) => `${place}의 메시지`,
+    newMessage: (author: string, text: string) => `${author}: ${text}`,
+    emojiCategories: '이모지 분류',
+    channelTabs: '메시지, 캔버스, 리스트',
+    reactWith: (emoji: string) => `${emoji} 반응 남기기`,
+    emojiResults: '이모지',
+    workspaceMenu: (team: string) => `${team}, 워크스페이스 메뉴`,
+  },
   network: {
     title: '허용 네트워크 주소',
     hint: '이 주소에서만 브라우저로 로그인하고 워크스페이스를 쓸 수 있어요. 비워 두면 어디서나 쓸 수 있어요.',

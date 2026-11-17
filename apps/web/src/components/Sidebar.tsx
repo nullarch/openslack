@@ -46,6 +46,7 @@ import { openAccountsModal, useAccounts } from '../lib/accounts';
 import { asset, call } from '../lib/api';
 import { resumeNotifications, selfDndUntil, setNotifyLevel, snooze, userInDnd, whenText, type NotifyLevel } from '../lib/attention';
 import type { ViewName } from '../lib/router';
+import { useRoving } from '../lib/roving';
 import { conversationName, currentId, get, useStore } from '../lib/store';
 import { S } from '../strings';
 import { SidebarHuddleBadge } from './Huddle';
@@ -191,6 +192,13 @@ const SidebarItem = memo(function SidebarItem({ id }: { id: string }) {
           go({ name: 'conversation', id });
         }}
         onContextMenu={openMenu}
+        onKeyDown={(event) => {
+          // The context-menu key and Shift+F10 open the same menu as a right click.
+          if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+            event.preventDefault();
+            setMenu(true);
+          }
+        }}
       >
         <span className="side-icon">{icon}</span>
         <span className="side-name">{name}</span>
@@ -350,7 +358,7 @@ function TeamMenu() {
   };
   return (
     <>
-      <button ref={anchor} type="button" className="team-btn" onClick={() => setOpen(true)} aria-label={S.sidebar.menu} aria-haspopup="menu">
+      <button ref={anchor} type="button" className="team-btn" onClick={() => setOpen(true)} aria-label={S.a11y.workspaceMenu(team?.name ?? '')} aria-haspopup="menu">
         {team ? <img className="team-icon" src={asset(team.icon.image_68)} alt="" width={26} height={26} /> : null}
         <span className="team-name">{team?.name}</span>
         <ChevronDown size={15} />
@@ -550,6 +558,14 @@ export function Sidebar() {
   const starred = order('starred', all.filter((conv) => conv.is_starred && !placed.has(conv.id)));
   const regular = order('channels', all.filter((conv) => conv.is_channel && !conv.is_starred && !placed.has(conv.id)));
   const direct = order('direct', all.filter((conv) => (conv.is_im || conv.is_mpim) && !conv.is_starred && !placed.has(conv.id)));
+  // One Tab stop for the whole list: arrows move through it, Right reaches a row's own buttons.
+  const scroll = useRef<HTMLDivElement>(null);
+  useRoving(scroll, {
+    items: '.side-item, .side-section-toggle',
+    current: '.side-item[aria-current="page"]',
+    row: '.side-item, .side-section-head',
+    extras: '.side-more, .side-section-actions button',
+  });
 
   return (
     <nav className="sidebar" aria-label={S.sidebar.channels}>
@@ -564,7 +580,7 @@ export function Sidebar() {
         <Search size={15} />
         <span>{S.topbar.searchShort}</span>
       </button>
-      <div className="side-scroll">
+      <div className="side-scroll" ref={scroll}>
         <SideNav />
         {starred.length > 0 ? (
           <Section id="starred" title={S.sidebar.starred}>
