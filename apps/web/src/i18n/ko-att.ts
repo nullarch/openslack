@@ -165,6 +165,8 @@ export const koAtt = {
       action: '메시지 전달',
       title: '메시지 전달',
       fileTitle: '파일 공유',
+      incomingTitle: '공유하기',
+      message: '메시지',
       to: '받는 곳',
       toPlaceholder: '채널이나 사람 검색',
       comment: '메시지 덧붙이기(선택)',

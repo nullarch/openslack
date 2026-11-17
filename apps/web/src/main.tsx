@@ -13,7 +13,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { start } from './lib/actions';
-import { trackInputMode } from './lib/a11y';
+import { keepPageInPlace, trackInputMode } from './lib/a11y';
+import { useStore } from './lib/store';
 import './lib/realtime';
 import { registerServiceWorker } from './lib/push';
 import { installNative } from './lib/native';
@@ -25,6 +26,11 @@ createRoot(document.getElementById('root')!).render(
 );
 
 trackInputMode();
+keepPageInPlace((listener) => {
+  useStore.subscribe((state, previous) => {
+    if (state.phase !== previous.phase) listener();
+  });
+});
 void start();
 registerServiceWorker();
 installNative();

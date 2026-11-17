@@ -166,6 +166,8 @@ export const jaAtt = {
       action: 'メッセージを転送',
       title: 'メッセージを転送',
       fileTitle: 'ファイルを共有',
+      incomingTitle: '共有先を選ぶ',
+      message: 'メッセージ',
       to: '送信先',
       toPlaceholder: 'チャンネルまたはメンバーを検索',
       comment: 'メッセージを追加（任意）',

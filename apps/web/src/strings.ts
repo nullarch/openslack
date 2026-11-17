@@ -1123,6 +1123,8 @@ const en = {
       action: 'Forward message',
       title: 'Forward message',
       fileTitle: 'Share file',
+      incomingTitle: 'Share to…',
+      message: 'Message',
       to: 'To',
       toPlaceholder: 'Search for a channel or person',
       comment: 'Add a message, if you’d like',

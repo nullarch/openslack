@@ -1,7 +1,7 @@
 import type { Block, FileObject } from '@app/shared';
 import { Hash, Lock, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { closeModal, errorText, toast } from '../../lib/actions';
+import { closeModal, errorText, go, sendFiles, sendMessage, toast } from '../../lib/actions';
 import { call, uploadFile } from '../../lib/api';
 import { forwardMessage, saveBookmark, saveDndSchedule, scheduleMessage, shareFile } from '../../lib/attention';
 import { conversation, conversationName, displayName, get, useStore, type Bookmark } from '../../lib/store';
@@ -164,6 +164,55 @@ export function ShareFileDialog({ file }: { file: FileObject }) {
       <DestinationPicker selected={to} onChange={setTo} />
       <Field label={S.att.forward.comment}>
         <textarea rows={2} value={text} onChange={(event) => setText(event.target.value)} />
+      </Field>
+    </Modal>
+  );
+}
+
+/** What another app shared to the mobile app: pick where it goes, then it is sent there. */
+export function IncomingShareDialog({ text: initial, files }: { text: string; files: { name: string; type: string; data: string }[] }) {
+  const [to, setTo] = useState<string[]>([]);
+  const [text, setText] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const send = async (): Promise<void> => {
+    setBusy(true);
+    let ok = true;
+    for (const channel of to) {
+      if (files.length) {
+        const ids: string[] = [];
+        for (const entry of files) {
+          const bytes = Uint8Array.from(atob(entry.data), (char) => char.charCodeAt(0));
+          ids.push(await uploadFile(new File([bytes], entry.name, { type: entry.type || 'application/octet-stream' })));
+        }
+        ok = (await sendFiles({ channel, text: text.trim() }, ids)) && ok;
+      } else if (text.trim()) {
+        await sendMessage({ channel, text: text.trim() });
+      }
+    }
+    setBusy(false);
+    if (ok) {
+      closeModal();
+      if (to.length === 1) go({ name: 'conversation', id: to[0]! });
+    }
+  };
+  return (
+    <Modal
+      title={S.att.forward.incomingTitle}
+      onClose={closeModal}
+      width={560}
+      footer={
+        <>
+          <Button onClick={closeModal}>{S.cancel}</Button>
+          <Button variant="primary" busy={busy} disabled={to.length === 0 || (!text.trim() && files.length === 0)} onClick={() => void send()}>
+            {S.att.forward.share}
+          </Button>
+        </>
+      }
+    >
+      {files.length ? <p className="dialog-lead">{files.map((entry) => entry.name).join(', ')}</p> : null}
+      <DestinationPicker selected={to} onChange={setTo} />
+      <Field label={S.att.forward.message}>
+        <textarea rows={3} value={text} onChange={(event) => setText(event.target.value)} />
       </Field>
     </Modal>
   );

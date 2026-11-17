@@ -22,7 +22,7 @@ import { Sidebar } from './Sidebar';
 import { focusInto } from '../lib/roving';
 import { Button, Mark, Modal } from './ui';
 import type { ViewName } from '../lib/router';
-import { BookmarkDialog, DndScheduleDialog, ForwardDialog, ScheduleDialog, ShareFileDialog, SnippetDialog } from './dialogs/attention';
+import { BookmarkDialog, DndScheduleDialog, ForwardDialog, IncomingShareDialog, ScheduleDialog, ShareFileDialog, SnippetDialog } from './dialogs/attention';
 import { ActivityView, ThreadsView, UnreadsView } from './views/Activity';
 import { DraftsView, FilesView, LaterView } from './views/Later';
 import { DocRouteView, DocsView } from './docs';
@@ -85,6 +85,8 @@ function ModalHost() {
       return <ForwardDialog channel={modal.channel} ts={modal.ts} />;
     case 'shareFile':
       return <ShareFileDialog file={modal.file} />;
+    case 'incomingShare':
+      return <IncomingShareDialog text={modal.text} files={modal.files} />;
     case 'schedule':
       return <ScheduleDialog channel={modal.channel} threadTs={modal.threadTs} text={modal.text} blocks={modal.blocks} draft={modal.draft} broadcast={modal.broadcast} />;
     case 'dndSchedule':

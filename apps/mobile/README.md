@@ -5,7 +5,9 @@ Capacitor 8 shells. The app ships one small page (`www/`): the list of servers t
 - registers the phone for notifications (`client.push.registerDevice`) instead of Web Push, when the server has a push relay (`PUSH_RELAY_URL`, see `apps/push-relay`);
 - opens the message a tapped notification is about, or that notification's server;
 - offers **Switch server** in the workspace menu, back to the list;
-- does not focus the composer on its own, so the keyboard does not come up whenever a conversation opens.
+- does not focus the composer on its own, so the keyboard does not come up whenever a conversation opens;
+- keeps the last messages of the ten conversations looked at most recently in the app's own storage (`@capacitor/preferences`). When the server cannot be reached the app shows its own page (`www/offline.html`, Capacitor's `errorPath`) with a way to try again, the server list, and those messages to read: an iOS web view cannot open a server's page without the network;
+- on Android, receives text, links and files shared from other apps (the share sheet: `ShareTargetPlugin.java`, `ACTION_SEND`) and asks where to send them.
 
 A link `<slug>://open?server=https://chat.example.com` opens (and adds) a server; `<slug>` is the brand's slug, written into the native projects by `scripts/native-config.mjs`.
 
@@ -31,6 +33,8 @@ cd android && ./gradlew assembleDebug
 
 ## What was checked
 
-On the iOS 26.3 simulator: the server list, opening a server from a link, signing in, the web client inside the app (safe areas, status bar, no keyboard on open), and that the web client on the server's own page reaches the native plugins (the debug console shows `PushNotifications addListener` from that page). A push token cannot be obtained in an unsigned simulator build; the path server → relay → Apple is covered by tests (`apps/server/test/native-push.test.ts`). The Android project builds; it has not been run on an emulator or a phone. Not yet: receiving shares from other apps (the share sheet) and keeping conversations for offline reading.
+On the iOS 26.3 simulator: the server list, opening a server from a link, signing in, the web client inside the app (safe areas, status bar, no keyboard on open), that the web client on the server's own page reaches the native plugins (the debug console shows `PushNotifications addListener` from that page), and offline reading (the server stopped: the app's page lists the saved messages). A push token cannot be obtained in an unsigned simulator build; the path server → relay → Apple is covered by tests (`apps/server/test/native-push.test.ts`). The Android project builds, share sheet included; it has not been run: the Android emulator installed on this Mac is the x86_64 build, which cannot run there. Not yet: the share sheet on iOS (it needs a Share Extension target and an App Group).
+
+Open: in the simulator, after signing in with its hardware keyboard, the web view's top safe-area inset stayed zero (the workspace ran under the status bar) until the app was restarted; it did not happen after a restart, with or without the Keyboard plugin. Check on a phone.
 
 The simulator's WebKit draws Korean and Japanese as boxes under `system-ui` and cannot draw emoji at all; the web client names CJK fonts for CJK ranges first (`apps/web/src/styles/tokens.css`), and the emoji boxes are the simulator's alone.

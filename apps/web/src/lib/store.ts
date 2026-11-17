@@ -64,6 +64,8 @@ export type Modal =
   | { kind: 'addPeople'; channel: string }
   | { kind: 'forward'; channel: string; ts: string }
   | { kind: 'shareFile'; file: FileObject }
+  /** Text and files shared to the mobile app from another app. */
+  | { kind: 'incomingShare'; text: string; files: { name: string; type: string; data: string }[] }
   | { kind: 'schedule'; channel: string; threadTs?: string; text: string; blocks?: Block[]; draft?: string; broadcast?: boolean }
   | { kind: 'dndSchedule' }
   | { kind: 'snippet'; channel: string; threadTs?: string }

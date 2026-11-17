@@ -18,3 +18,33 @@ export function trackInputMode(): void {
   }, true);
   window.addEventListener('pointerdown', () => set('pointer'), true);
 }
+
+/**
+ * The app scrolls inside its panes; the page itself never should. iOS scrolls
+ * the whole page to keep a focused field above the keyboard and does not
+ * always scroll it back (after signing in, the form it scrolled for is gone),
+ * which left the app under the status bar. Put the page back when the
+ * workspace appears, and when editing ends with nothing left to type in.
+ */
+export function keepPageInPlace(onPhase: (listener: () => void) => void): void {
+  const reset = (): void => {
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+  };
+  const editing = (): boolean => {
+    const active = document.activeElement as HTMLElement | null;
+    return !!active && (active.isContentEditable || active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+  };
+  document.addEventListener('focusout', () => {
+    window.setTimeout(() => {
+      if (!editing()) reset();
+    }, 150);
+  });
+  onPhase(() => {
+    // The form that had the keyboard is gone: let the keyboard go too, then put the page back.
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body && !document.body.contains(active)) active.blur();
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) active.blur();
+    window.setTimeout(reset, 0);
+    window.setTimeout(reset, 400);
+  });
+}

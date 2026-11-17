@@ -24,6 +24,8 @@ const config: CapacitorConfig = {
     // Servers on a home or office network are often plain http; iOS allows local
     // addresses only (NSAllowsLocalNetworking), Android needs cleartext allowed.
     cleartext: true,
+    // A server that cannot be reached: try again, back to the list, and the messages saved for reading.
+    errorPath: 'offline.html',
   },
   ios: {
     backgroundColor: BG,
@@ -36,6 +38,10 @@ const config: CapacitorConfig = {
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    // The web view gets shorter while the keyboard is up, so the composer stays above it.
+    Keyboard: {
+      resize: 'native',
     },
   },
 };

@@ -175,3 +175,67 @@ button[disabled] {
     transition: border-color 0.15s;
   }
 }
+
+/* The page shown when a server cannot be reached */
+.offline .actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+.offline .actions button.primary {
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #1d1300;
+  font: inherit;
+  font-weight: 700;
+}
+.offline .actions a {
+  color: var(--text);
+}
+.offline h2 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+.saved-conversation {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 12px;
+  padding: 0 14px;
+}
+.saved-conversation summary {
+  padding: 12px 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.saved-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+}
+.saved-messages li {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+}
+.saved-head {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.saved-head strong {
+  color: var(--text);
+}
+.saved-text {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.saved-files {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Offline</title>
+    <link rel="stylesheet" href="shell.css" />
+  </head>
+  <body>
+    <main class="shell offline">
+      <header>
+        <img class="mark" src="icon.svg" alt="" width="40" height="40" />
+        <h1 id="title">Can't reach the server</h1>
+        <p id="lead" class="lead"></p>
+      </header>
+      <div class="actions">
+        <button id="retry" type="button" class="primary">Try again</button>
+        <a id="servers" href="index.html?switch=1">Servers</a>
+      </div>
+      <section id="saved" aria-labelledby="saved-title" hidden>
+        <h2 id="saved-title">Saved for reading</h2>
+        <p id="saved-when" class="lead"></p>
+        <div id="conversations"></div>
+      </section>
+    </main>
+    <script src="offline.js" charset="utf-8"></script>
+  </body>
+</html>
