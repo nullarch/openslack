@@ -43,6 +43,10 @@ export const SUBSCRIBABLE_EVENTS = [
   'emoji_changed',
   'file_deleted',
   'team_rename',
+  'subteam_created',
+  'subteam_updated',
+  'subteam_members_changed',
+  'team_profile_change',
 ];
 
 /** Message subtypes that are ordinary posts, where a mention should notify the app. */

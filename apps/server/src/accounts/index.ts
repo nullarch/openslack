@@ -7,6 +7,7 @@ import { expireGuests, guestExpired } from './guests.ts';
 import { registerInvites } from './invites.ts';
 import { teamPrefs } from './prefs.ts';
 import { registerSignIn, TWO_FACTOR_SETUP_METHODS, twoFactorPending } from './signin.ts';
+import { groupsForBoot, installUsergroups } from './usergroups.ts';
 import { installWorkspace, permissionsFor, profileFields } from './workspace.ts';
 
 type Loose = Record<string, unknown>;
@@ -30,6 +31,7 @@ export function installAccounts(kernel: Kernel): void {
   registerSignIn(registry);
   registerInvites(registry);
   installWorkspace(kernel);
+  installUsergroups(kernel);
 
   // Expired guests lose access the moment they next call, and in a sweep every minute.
   registry.guards.push((name, actor) => {
@@ -60,6 +62,7 @@ export function installAccounts(kernel: Kernel): void {
     mail_enabled: mailEnabled(ctx),
     permissions: permissionsFor(ctx, actor.userId),
     signup_domains: teamPrefs(ctx).signup_domains ?? [],
+    usergroups: groupsForBoot(ctx, actor.userId),
     profile_fields: profileFields(ctx, false).map((row) => ({ id: row.id, label: row.label, hint: row.hint, type: row.type, possible_values: row.possible_values ? JSON.parse(row.possible_values) : null })),
   }));
 }
