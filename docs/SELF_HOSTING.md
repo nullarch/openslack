@@ -132,6 +132,18 @@ Finished lines go to everyone in the huddle and are kept while it runs. When it 
 
 The composer's clip button records an audio clip, a video clip or the screen (with the microphone), up to five minutes, in the browser (MediaRecorder); nothing is sent until the person adds it to a message. Captions are made while recording, in the same way as huddle captions: by the browser's speech recognition, from the microphone. They are attached to the file as WebVTT (`client.files.setTranscript`, uploader only), shown on the video and as a transcript under the player, and searchable in **Files**. Sensitive-information rules apply to what was said. Chrome writes WebM files without a duration, so the player shows it only once played through.
 
+## Search with Meilisearch
+
+Search runs on the built-in SQLite index, which handles Korean, Japanese and Chinese and needs nothing else. For ranking by relevance, typo tolerance or a very large history, connect [Meilisearch](https://www.meilisearch.com) (open source, one binary):
+
+| Variable | Meaning |
+|---|---|
+| `MEILISEARCH_URL` | e.g. `http://127.0.0.1:7700` |
+| `MEILISEARCH_KEY` | its master key or an API key allowed to manage the index |
+| `MEILISEARCH_INDEX` | index name, default `messages` |
+
+On first start every message is copied over; from then on, changes are queued in the database by triggers and sent every second, so nothing is lost while either side is down (imports run from the command line included). Until the copy has caught up, and whenever Meilisearch cannot answer, searches use the built-in index. Every search is limited to the conversations the person may read, and the results are re-read from the database and checked again. `search.messages` with `sort=score` ranks by relevance; otherwise newest first. Searches for `has:pin` and `has:reaction` use the built-in index. Removing `MEILISEARCH_URL` stops the queue; connecting again copies everything afresh. Checked against Meilisearch 1.56.
+
 ## AI features
 
 Summaries, daily recaps, answers above search results, translation, writing help, a built-in assistant with memory, notes after a huddle, and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.

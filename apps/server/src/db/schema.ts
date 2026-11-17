@@ -1000,4 +1000,16 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE files ADD COLUMN remote_type TEXT;
   CREATE UNIQUE INDEX files_external ON files (app_id, external_id) WHERE external_id IS NOT NULL;
   `,
+
+  /* 28: external search — messages waiting to be sent to Meilisearch (filled by triggers only while it is connected), and server settings */ `
+  CREATE TABLE search_outbox (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER NOT NULL,
+    op TEXT NOT NULL
+  );
+  CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];

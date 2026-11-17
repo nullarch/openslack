@@ -3,7 +3,8 @@ import { getMember, resolveConv, type ConvRow } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
 import { nowSeconds } from '../core/ids.ts';
 import { history, replies, requireMessage, type MsgRow } from '../core/messages.ts';
-import { parseQuery, searchMessages } from '../core/search.ts';
+import { parseQuery } from '../core/search.ts';
+import { findMessages } from '../search/meilisearch.ts';
 import { requireUser } from '../core/users.ts';
 import { buildSources, DATA_RULES, type Source } from './context.ts';
 import { complete, startJob } from './jobs.ts';
@@ -160,11 +161,11 @@ export function installFeatures(kernel: Kernel): void {
 
   // ── Search answers (t158) ─────────────────────────────────────────────────
 
-  registry.add('client.ai.answer', { auth: 'session' }, ({ actor, args }) => {
+  registry.add('client.ai.answer', { auth: 'session' }, async ({ actor, args }) => {
     const { provider } = requireProvider(ctx, 'search_answers');
     const question = args.req('query', 'no_query').trim().slice(0, 500);
     // Only what this person's own search returns: the search applies their visibility.
-    const result = searchMessages(ctx, actor.userId, parseQuery(ctx, actor.userId, question), { limit: MAX_SEARCH_SOURCES, offset: 0 });
+    const result = await findMessages(ctx, actor.userId, parseQuery(ctx, actor.userId, question), { limit: MAX_SEARCH_SOURCES, offset: 0, relevance: true });
     if (result.hits.length === 0) fail('no_results');
     const sources: Source[] = [];
     const parts: string[] = [];

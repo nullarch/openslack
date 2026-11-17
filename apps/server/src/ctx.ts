@@ -1,3 +1,4 @@
+import type { ExternalSearch, MeiliConfig } from './search/meilisearch.ts';
 import type { StorageKey } from './core/encrypted-storage.ts';
 import type { ScannerConfig } from './core/scanner.ts';
 import type { Role } from '@app/shared';
@@ -36,6 +37,8 @@ export interface Config {
   inboundEmailSecret?: string | null;
   /** How many reverse proxies add an X-Forwarded-For entry in front of the server (0: none, use the socket address). */
   trustProxy?: number;
+  /** Meilisearch for message search (MEILISEARCH_URL); the built-in index otherwise. */
+  meilisearch?: MeiliConfig | null;
   /** Keys that encrypt uploaded files at rest (the first writes, all read). */
   storageKeys?: StorageKey[];
   /** Ignore the workspace's IP allowlist (recovery after locking yourself out). */
@@ -108,4 +111,6 @@ export interface Ctx {
   requireTeam(): TeamRow;
   /** Drop the cached workspace row after it changes. */
   invalidateTeam(): void;
+  /** Message search through an external engine (Meilisearch), when one is connected. */
+  externalSearch?: ExternalSearch;
 }

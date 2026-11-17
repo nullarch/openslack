@@ -1,6 +1,7 @@
 import { convToApi } from '../../core/conversations.ts';
 import { messageToApi } from '../../core/messages.ts';
-import { parseQuery, searchMessages } from '../../core/search.ts';
+import { parseQuery } from '../../core/search.ts';
+import { findMessages } from '../../search/meilisearch.ts';
 import { getUser } from '../../core/users.ts';
 import type { Registry } from '../registry.ts';
 import { permalink } from './chat.ts';
@@ -10,13 +11,15 @@ export function registerSearch(registry: Registry): void {
    * Search messages the caller may read. Unlike Slack, bot tokens may search
    * too: an agent sees public channels plus the conversations it belongs to.
    */
-  registry.add('search.messages', { scopes: ['search:read', 'channels:history'] }, ({ ctx, actor, args }) => {
+  registry.add('search.messages', { scopes: ['search:read', 'channels:history'] }, async ({ ctx, actor, args }) => {
     const text = args.req('query', 'no_query');
     const count = args.int('count', 20, { min: 1, max: 100 });
     const page = args.int('page', 1, { min: 1, max: 100 });
     const ascending = args.str('sort_dir') === 'asc';
     const query = parseQuery(ctx, actor.userId, text);
-    const result = searchMessages(ctx, actor.userId, query, { limit: count, offset: (page - 1) * count, ascending });
+    // Slack's sort=score is relevance; it needs an engine that ranks (Meilisearch), and is newest first otherwise.
+    const relevance = args.str('sort') === 'score';
+    const result = await findMessages(ctx, actor.userId, query, { limit: count, offset: (page - 1) * count, ascending, relevance });
 
     const matches = result.hits.map(({ row, conv }) => {
       const author = row.user_id ? getUser(ctx, row.user_id) : undefined;

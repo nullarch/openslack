@@ -1,3 +1,4 @@
+import { meiliFromEnv } from './search/meilisearch.ts';
 import { samlProviderFromEnv } from './accounts/saml.ts';
 import { storageKeysFromEnv } from './core/encrypted-storage.ts';
 import { existsSync } from 'node:fs';
@@ -75,6 +76,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: Number(env.TRUST_PROXY ?? 0) || 0,
     ipAllowlistDisabled: env.IP_ALLOWLIST_DISABLED === '1',
     storageKeys: storageKeysFromEnv(env.STORAGE_ENCRYPTION_KEYS),
+    meilisearch: meiliFromEnv(env),
     mailFrom: env.MAIL_FROM?.trim() || undefined,
     identityProviders: identityProvidersFromEnv(env),
     metricsToken: env.METRICS_TOKEN?.trim() || null,

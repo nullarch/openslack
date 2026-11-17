@@ -13,7 +13,7 @@ Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (
 | Messaging | Channels (public, private, archived, converted either way, created from templates, with their own email address), DMs and group DMs (a group DM can become a private channel), threads, reactions, pins, edits, scheduled send, reminders, drafts, bookmarks, saved items, sidebar sections, link previews, Block Kit and Markdown, `@here`/`@channel` and user-group mentions, posting permissions |
 | Attention | Activity, Threads, All unreads, Later views; mention counts; DND and notification schedules; desktop notifications; email digests of missed mentions and DMs; Web Push from the PWA (server side verified, browser delivery not) |
 | Files | Uploads with thumbnails the browser makes, audio/video/PDF in place, clips (audio, video, screen) recorded in the composer with captions, public links, S3-compatible storage, encryption at rest with keys you hold, ClamAV scanning, sensitive-information checks, search inside files (text, code, Word, Excel, PowerPoint, PDF), Office documents previewed as text, documents apps keep elsewhere (`files.remote.*`) shown as cards |
-| Search | Messages and files with Slack's modifiers, FTS5 trigram (Korean, Japanese, Chinese included), search tabs, AI answers when a model is connected |
+| Search | Messages and files with Slack's modifiers, FTS5 trigram (Korean, Japanese, Chinese included), optionally Meilisearch for relevance and typo tolerance, search tabs, AI answers when a model is connected |
 | Canvases and lists | Real-time co-editing (Yjs), comments, versions, sharing; lists with twelve column types, table and board views, CSV export; templates; `canvases.*`, `slackLists.*` |
 | Calls | Huddles with audio, video, screen sharing, reactions and live captions through LiveKit, with a transcript and AI notes in the thread afterwards; calls from other services (Zoom, Meet, …) as live cards through Slack's Calls API |
 | AI (off until a model is connected) | Channel and thread summaries, daily recaps, search answers, translation, writing help, a built-in assistant in a direct message that remembers only what each person approves, an Agents view; Claude by default |
@@ -40,6 +40,7 @@ Run these to reproduce.
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
 | SAML single sign-on | SimpleSAMLphp (`kristophjunge/test-saml-idp`) as the identity provider, real Chrome | button → identity provider's login → signed answer → signed in with the account created |
+| Meilisearch | Meilisearch 1.56 binary (`MEILISEARCH_TEST_URL=… node --test test/meilisearch.test.ts`) | a typo the built-in index misses is found; private messages stay private; edits and deletions arrive |
 | Installed package | the Install smoke test workflow | packed, installed into an empty folder and run with `npx` on Windows, macOS and Linux with Node 22 and 24: starts, serves the client, sets up a workspace, finds a Korean message |
 
 ### Not verified
@@ -55,7 +56,7 @@ Run these to reproduce.
 ## Decisions taken while building
 
 - **SQLite instead of PostgreSQL.** A required database server would break the one-command install. Data access stays inside the server's modules.
-- **Migrations are positional.** Branches built in parallel each appended one; merging puts them in a fixed order (10 workflows … 17 accounts, then 18 email digests, 19 calls, 20 sessions, 21 channel email, 22 legal hold, 23 barriers, 24 assistant memory, 25 huddle captions, 26 clip transcripts, 27 remote files). A migration's SQL never depends on its number.
+- **Migrations are positional.** Branches built in parallel each appended one; merging puts them in a fixed order (10 workflows … 17 accounts, then 18 email digests, 19 calls, 20 sessions, 21 channel email, 22 legal hold, 23 barriers, 24 assistant memory, 25 huddle captions, 26 clip transcripts, 27 remote files, 28 search queue and settings). A migration's SQL never depends on its number.
 - **The audit log wraps API methods** rather than every module calling it: `installAudit` must stay the last install in `app.ts`, and new admin methods named `client.admin.*` (or `client.account.*`, `client.security.*`) are covered without further work.
 - **Slack's names where Slack has them**, `client.*` for the rest. Claim names in ID tokens, the audit log shape and the manifest schema follow Slack's so tools written for Slack work.
 - **Where the platform differs from Slack on purpose:** a bot hears mentions in public channels it has not joined; Socket Mode is the default for a new app; a manifest's request URL is used only once it passes the verification handshake; scopes this server does not grant are refused in manifests rather than ignored. `docs/COMPATIBILITY.md` has the full list.

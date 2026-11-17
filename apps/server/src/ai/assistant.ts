@@ -4,7 +4,8 @@ import { getConv, memberIds, openDirect, resolveConv, setDirectOpen, type ConvRo
 import { fail } from '../core/errors.ts';
 import { newHex, newId, nowSeconds } from '../core/ids.ts';
 import { getMessage, history, postMessage, replies, updateMessage, type MsgRow } from '../core/messages.ts';
-import { parseQuery, searchMessages, type SearchHit } from '../core/search.ts';
+import { parseQuery, type SearchHit } from '../core/search.ts';
+import { findMessages } from '../search/meilisearch.ts';
 import { createUser, getUser, requireUser, uniqueHandle, userToApi } from '../core/users.ts';
 import { buildSources, citationsIn, DATA_RULES, type Source } from './context.ts';
 import { AiProviderError, createProvider } from './provider.ts';
@@ -93,11 +94,11 @@ export function keywords(text: string): string[] {
 }
 
 /** Messages this person can read that match the most terms, newest first among equals. */
-function relatedMessages(ctx: Ctx, userId: string, text: string, skip: string): { sources: Source[]; transcript: string } {
+async function relatedMessages(ctx: Ctx, userId: string, text: string, skip: string): Promise<{ sources: Source[]; transcript: string }> {
   const found = new Map<string, { hit: SearchHit; score: number }>();
   for (const term of keywords(text)) {
     // The search applies this person's visibility: nothing they could not read reaches the model.
-    const result = searchMessages(ctx, userId, parseQuery(ctx, userId, term), { limit: 10, offset: 0 });
+    const result = await findMessages(ctx, userId, parseQuery(ctx, userId, term), { limit: 10, offset: 0, relevance: true });
     for (const hit of result.hits) {
       if (hit.conv.id === skip) continue;
       const key = `${hit.conv.id}:${hit.row.ts}`;
@@ -205,7 +206,7 @@ async function answer(ctx: Ctx, conv: ConvRow, row: MsgRow, botId: string): Prom
   }
   const question = (row.text || row.plain || '').slice(0, 8000);
   const memories = savedMemories(ctx, person.id);
-  const found = relatedMessages(ctx, person.id, question, conv.id);
+  const found = await relatedMessages(ctx, person.id, question, conv.id);
   const turns = earlierTurns(ctx, conv, row, botId, name);
   const prompt = [
     turns ? `Conversation so far, oldest first:\n${turns}` : 'This is the start of the conversation.',
