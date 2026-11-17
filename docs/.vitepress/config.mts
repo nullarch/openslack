@@ -49,6 +49,9 @@ export default defineConfig({
   markdown: {
     // Relative links that leave docs/ are rewritten to the repository on GitHub.
     config: (md) => {
+      // Inline code is shown as written: `{{trigger.user}}` must not become a Vue expression.
+      const code = md.renderer.rules.code_inline!;
+      md.renderer.rules.code_inline = (tokens, index, options, env, self) => code(tokens, index, options, env, self).replace(/^<code/, '<code v-pre');
       const original = md.renderer.rules.link_open;
       md.renderer.rules.link_open = (tokens, index, options, env, self) => {
         const href = tokens[index]!.attrGet('href');
