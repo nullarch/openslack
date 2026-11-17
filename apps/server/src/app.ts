@@ -26,6 +26,7 @@ import { installWorkflows } from './workflows/index.ts';
 import { installScim } from './scim/index.ts';
 import { installRetention } from './retention/index.ts';
 import { installStats } from './stats/index.ts';
+import { installModeration } from './moderation/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
@@ -104,6 +105,7 @@ export function createApp(config: Config): App {
   installScim(kernel);
   installRetention(kernel);
   installStats(kernel);
+  installModeration(kernel);
   gateway.start(ctx);
 
   const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });

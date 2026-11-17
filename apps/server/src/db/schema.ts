@@ -576,4 +576,23 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (day, user_id)
   ) WITHOUT ROWID;
   `,
+
+  /* 13: message reports — members flag a message, admins dismiss it or remove the message */ `
+  CREATE TABLE message_reports (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    author TEXT,
+    reporter TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    -- a copy of the text, so the report still says what was reported after the message changes or goes
+    excerpt TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'dismissed', 'removed')),
+    resolved_by TEXT,
+    resolved INTEGER,
+    created INTEGER NOT NULL,
+    UNIQUE (conversation_id, ts, reporter)
+  );
+  CREATE INDEX message_reports_open ON message_reports(status, created);
+  `,
 ];
