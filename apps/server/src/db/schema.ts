@@ -1029,4 +1029,8 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (conversation_id, workflow_id)
   ) WITHOUT ROWID;
   `,
+
+  /* 31: a conversation's own retention, set by admins (admin.conversations.setCustomRetention); null follows the workspace */ `
+  ALTER TABLE conversations ADD COLUMN retention_days INTEGER;
+  `,
 ];

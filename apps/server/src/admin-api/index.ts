@@ -27,7 +27,7 @@ const TEAMS_WRITE = ['admin.teams:write'];
 const INVITES_READ = ['admin.invites:read'];
 const INVITES_WRITE = ['admin.invites:write'];
 
-export const ADMIN_USER_SCOPES = ['admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write', 'admin.barriers:read', 'admin.barriers:write', 'admin.usergroups:read', 'admin.usergroups:write'];
+export const ADMIN_USER_SCOPES = ['admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write', 'admin.barriers:read', 'admin.barriers:write', 'admin.usergroups:read', 'admin.usergroups:write', 'admin.workflows:read', 'admin.workflows:write', 'admin.analytics:read'];
 
 export function installAdminApi(kernel: Kernel): void {
   const { ctx, registry } = kernel;

@@ -4,10 +4,11 @@ import type { Kernel } from '../app.ts';
 import { customEmoji } from '../api/methods/emoji.ts';
 import { addMember, getConv, memberIds, type ConvRow } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
-import { nowSeconds } from '../core/ids.ts';
+import { newHex, nowSeconds } from '../core/ids.ts';
 import { emitUserChange, getUser, type UserRow } from '../core/users.ts';
 import type { Actor } from '../ctx.ts';
 import { revokeSessions } from '../sessions/index.ts';
+import { gzipSync } from 'node:zlib';
 
 /**
  * More of Slack's admin API, over features this server already has:
@@ -27,8 +28,11 @@ const CONV_WRITE = ['admin.conversations:write'];
 const GROUPS_READ = ['admin.usergroups:read'];
 const GROUPS_WRITE = ['admin.usergroups:write'];
 const INVITES_READ = ['admin.invites:read'];
+const WORKFLOWS_READ = ['admin.workflows:read'];
+const WORKFLOWS_WRITE = ['admin.workflows:write'];
+const ANALYTICS_READ = ['admin.analytics:read'];
 
-export const MORE_ADMIN_SCOPES = ['admin.usergroups:read', 'admin.usergroups:write'];
+export const MORE_ADMIN_SCOPES = ['admin.usergroups:read', 'admin.usergroups:write', 'admin.workflows:read', 'admin.workflows:write', 'admin.analytics:read'];
 
 const MIN_SESSION = 28_800;
 const MAX_SESSION = 315_569_520;
@@ -434,6 +438,223 @@ export function installMoreAdminApi(kernel: Kernel): void {
     ctx.db.run("UPDATE conversations SET kind = 'public', updated = ? WHERE id = ?", nowSeconds(), conv.id);
     // Everyone can find it now.
     ctx.bus.emit({ event: { type: 'channel_updated', channel: { id: conv.id } }, audience: { all: true }, clientOnly: true });
+  });
+
+  // ── Several channels at once ──────────────────────────────────────────────
+
+  const bulk = (name: string) => async (call: Call): Promise<Record<string, unknown>> => {
+    const ids = list(call.args, 'channel_ids');
+    if (ids.length === 0 || ids.length > 100) fail('invalid_arguments', { response_metadata: { messages: ['[ERROR] must provide between 1 and 100 items [json-pointer:/channel_ids]'] } });
+    const notAdded: { channel_id: string; error: string }[] = [];
+    let done = 0;
+    for (const id of ids) {
+      try {
+        await invoke(name, call, { channel_id: id });
+        done += 1;
+      } catch (error) {
+        notAdded.push({ channel_id: id, error: (error as { code?: string }).code === 'channel_not_found' ? 'invalid_channel' : ((error as { code?: string }).code ?? 'internal_error') });
+      }
+    }
+    if (done === 0) fail('no_valid_channels', { not_added: notAdded });
+    // Done at once here; Slack reports a bulk action to look up later.
+    return { bulk_action_id: `Ab${newHex(4).toUpperCase()}`, not_added: notAdded };
+  };
+  registry.add('admin.conversations.bulkArchive', { auth: 'admin', scopes: CONV_WRITE }, bulk('admin.conversations.archive'));
+  registry.add('admin.conversations.bulkDelete', { auth: 'admin', scopes: CONV_WRITE }, bulk('admin.conversations.delete'));
+
+  // ── A conversation's own retention ────────────────────────────────────────
+
+  const retentionTarget = (args: Args, allowDirect: boolean): ConvRow => {
+    const conv = getConv(ctx, args.req('channel_id', 'channel_not_found'));
+    if (!conv) fail('channel_not_found');
+    if (conv.is_general === 1 || (!allowDirect && (conv.kind === 'im' || conv.kind === 'mpim'))) fail('channel_type_not_supported');
+    return conv;
+  };
+
+  registry.add('admin.conversations.getCustomRetention', { auth: 'admin', scopes: CONV_READ }, ({ args }) => {
+    const conv = retentionTarget(args, true) as ConvRow & { retention_days?: number | null };
+    const days = conv.retention_days ?? null;
+    return { is_policy_enabled: days !== null, duration_days: days ?? 0 };
+  });
+
+  registry.add('admin.conversations.setCustomRetention', { auth: 'admin', scopes: CONV_WRITE }, ({ args }) => {
+    const conv = retentionTarget(args, false);
+    const days = Number(args.req('duration_days', 'invalid_duration'));
+    if (!Number.isInteger(days) || days <= 0 || days >= 36_500) fail('invalid_duration');
+    ctx.db.run('UPDATE conversations SET retention_days = ? WHERE id = ?', days, conv.id);
+  });
+
+  registry.add('admin.conversations.removeCustomRetention', { auth: 'admin', scopes: CONV_WRITE }, ({ args }) => {
+    const conv = retentionTarget(args, true);
+    ctx.db.run('UPDATE conversations SET retention_days = NULL WHERE id = ?', conv.id);
+  });
+
+  // ── Workflows ─────────────────────────────────────────────────────────────
+
+  interface WorkflowRow {
+    id: string;
+    name: string;
+    description: string;
+    created_by: string;
+    trigger: string;
+    status: string;
+    updated: number;
+  }
+  const workflowToApi = (row: WorkflowRow): Record<string, unknown> => {
+    const trigger = JSON.parse(row.trigger) as { type?: string };
+    const published = row.status === 'published';
+    return {
+      id: row.id,
+      workflow_function_id: '',
+      callback_id: '',
+      title: row.name,
+      description: row.description,
+      input_parameters: {},
+      steps: [],
+      collaborators: [row.created_by],
+      icons: {},
+      is_published: published,
+      last_updated_by: row.created_by,
+      unpublished_change_count: 0,
+      app_id: '',
+      source: 'workflow_builder',
+      billing_type: 'simple',
+      date_updated: row.updated,
+      is_billable: false,
+      creation_source_type: 1,
+      creation_source_id: '',
+      last_published_version_id: '',
+      last_published_date: published ? String(row.updated) : '',
+      trigger_ids: trigger.type === 'link' ? [`Ft${row.id}`] : [],
+      is_sales_home_workflow: false,
+      is_sales_elevate: false,
+      trigger_types: trigger.type ? [{ id: '', type: trigger.type }] : [],
+    };
+  };
+
+  registry.add('admin.workflows.search', { auth: 'admin', scopes: WORKFLOWS_READ }, ({ args }) => {
+    const query = (args.str('query') ?? '').toLowerCase();
+    const status = args.str('publish_status') ?? 'published';
+    const collaborators = list(args, 'collaborator_ids');
+    let rows = ctx.db.all<WorkflowRow>('SELECT id, name, description, created_by, trigger, status, updated FROM workflows');
+    rows = rows.filter((row) => {
+      if (query && !`${row.name} ${row.description}`.toLowerCase().includes(query)) return false;
+      if (status === 'published' && row.status !== 'published') return false;
+      if (status === 'unpublished' && row.status === 'published') return false;
+      if (collaborators.length && !collaborators.every((id) => id === row.created_by)) return false;
+      if (args.bool('no_collaborators')) return false;
+      const wanted = args.str('trigger_type_id');
+      if (wanted && (JSON.parse(row.trigger) as { type?: string }).type !== wanted) return false;
+      return true;
+    });
+    rows.sort((a, b) => a.name.localeCompare(b.name) * (args.str('sort_dir') === 'asc' ? 1 : -1));
+    const { items, next } = page(rows, new Args({ ...args.raw, limit: args.str('limit') ?? '20' }), 20);
+    return { total_found: rows.length, workflows: items.map(workflowToApi), response_metadata: { next_cursor: next } };
+  });
+
+  registry.add('admin.workflows.unpublish', { auth: 'admin', scopes: WORKFLOWS_WRITE }, ({ args }) => {
+    const ids = list(args, 'workflow_ids');
+    if (ids.length === 0 || ids.length > 50) fail('invalid_arguments', { arg: 'workflow_ids' });
+    const missing = ids.filter((id) => !ctx.db.get('SELECT 1 FROM workflows WHERE id = ?', id));
+    if (missing.length) fail('error_unpublishing_workflows', { workflow_ids: missing });
+    for (const id of ids) ctx.db.run("UPDATE workflows SET status = 'draft', next_run = NULL, updated = ? WHERE id = ?", nowSeconds(), id);
+  });
+
+  // ── Analytics files ───────────────────────────────────────────────────────
+
+  registry.add('admin.analytics.getFile', { auth: 'admin', scopes: ANALYTICS_READ }, ({ args, res }) => {
+    const type = args.req('type', 'invalid_type');
+    if (type !== 'member' && type !== 'public_channel') fail('invalid_type');
+    const metadataOnly = args.bool('metadata_only');
+    const lines: string[] = [];
+    const today = new Date().toISOString().slice(0, 10);
+    if (metadataOnly) {
+      if (type !== 'public_channel') fail('metadata_not_available');
+      if (args.has('date')) fail('metadata_only_does_not_support_date');
+      for (const conv of ctx.db.all<{ id: string; name: string; topic: string; purpose: string }>("SELECT id, name, topic, purpose FROM conversations WHERE kind = 'public' AND is_archived = 0 ORDER BY id")) {
+        lines.push(JSON.stringify({ channel_id: conv.id, name: conv.name, topic: conv.topic, description: conv.purpose, date: today }));
+      }
+    } else {
+      const date = args.req('date', 'invalid_arguments');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) fail('invalid_date');
+      if (date >= today) fail('file_not_yet_available');
+      const start = Date.parse(`${date}T00:00:00Z`) / 1000;
+      const from = `${String(start).padStart(10, '0')}.000000`;
+      const to = `${String(start + 86_400).padStart(10, '0')}.000000`;
+      if (type === 'member') {
+        const users = ctx.db.all<UserRow & { guest: string }>("SELECT * FROM users WHERE is_bot = 0 AND id != 'USLACKBOT' AND created < ? ORDER BY id", start + 86_400);
+        for (const user of users) {
+          const count = (sql: string, ...params: (string | number)[]): number => ctx.db.get<{ n: number }>(sql, ...params)?.n ?? 0;
+          const messages = count('SELECT count(*) AS n FROM messages WHERE user_id = ? AND ts >= ? AND ts < ?', user.id, from, to);
+          const channelMessages = count("SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE m.user_id = ? AND m.ts >= ? AND m.ts < ? AND c.kind IN ('public', 'private')", user.id, from, to);
+          lines.push(
+            JSON.stringify({
+              date,
+              enterprise_id: '',
+              user_id: user.id,
+              email_address: user.email ?? '',
+              is_guest: Boolean(user.guest),
+              is_billable_seat: user.deleted === 0 && user.guest !== 'single',
+              is_active: Boolean(ctx.db.get('SELECT 1 FROM activity_days WHERE user_id = ? AND day = ?', user.id, date)),
+              is_active_ios: false,
+              is_active_android: false,
+              is_active_desktop: false,
+              reactions_added_count: count('SELECT count(*) AS n FROM reactions WHERE user_id = ? AND created >= ? AND created < ?', user.id, start, start + 86_400),
+              messages_posted_count: messages,
+              channel_messages_posted_count: channelMessages,
+              files_added_count: count('SELECT count(*) AS n FROM files WHERE user_id = ? AND created >= ? AND created < ?', user.id, start, start + 86_400),
+              is_active_apps: false,
+              is_active_workflows: false,
+              is_active_slack_connect: false,
+              total_calls_count: 0,
+              slack_calls_count: 0,
+              slack_huddles_count: count("SELECT count(*) AS n FROM huddles WHERE created_by = ? AND started >= ? AND started < ?", user.id, start * 1000, (start + 86_400) * 1000),
+              search_count: 0,
+              date_claimed: user.created,
+            }),
+          );
+        }
+      } else {
+        const teamId = team().id;
+        for (const conv of ctx.db.all<ConvRow>("SELECT * FROM conversations WHERE kind = 'public' AND is_archived = 0 AND created < ? ORDER BY id", start + 86_400)) {
+          const count = (sql: string, ...params: (string | number)[]): number => ctx.db.get<{ n: number }>(sql, ...params)?.n ?? 0;
+          const members = memberIds(ctx, conv.id);
+          const guests = members.filter((id) => (getUser(ctx, id) as (UserRow & { guest?: string }) | undefined)?.guest).length;
+          lines.push(
+            JSON.stringify({
+              enterprise_id: '0',
+              team_id: teamId,
+              originating_team: { team_id: teamId, name: team().name },
+              channel_id: conv.id,
+              channel_type: 'single_workspace_channel',
+              visibility: 'public',
+              shared_with: [],
+              is_shared_externally: false,
+              externally_shared_with_organizations: [],
+              date_created: conv.created,
+              date_last_active: Math.floor(Number(ctx.db.get<{ ts: string | null }>('SELECT max(ts) AS ts FROM messages WHERE conversation_id = ?', conv.id)?.ts ?? conv.created)),
+              total_members_count: members.length,
+              full_members_count: members.length - guests,
+              guest_member_count: guests,
+              messages_posted_count: count('SELECT count(*) AS n FROM messages WHERE conversation_id = ? AND ts >= ? AND ts < ?', conv.id, from, to),
+              messages_posted_by_members_count: count('SELECT count(*) AS n FROM messages WHERE conversation_id = ? AND ts >= ? AND ts < ? AND bot_id IS NULL AND user_id IS NOT NULL', conv.id, from, to),
+              members_who_posted_count: count('SELECT count(DISTINCT user_id) AS n FROM messages WHERE conversation_id = ? AND ts >= ? AND ts < ? AND bot_id IS NULL', conv.id, from, to),
+              members_who_viewed_count: 0,
+              reactions_added_count: count('SELECT count(*) AS n FROM reactions WHERE conversation_id = ? AND created >= ? AND created < ?', conv.id, start, start + 86_400),
+              date,
+            }),
+          );
+        }
+      }
+    }
+    const body = gzipSync(Buffer.from(lines.length ? `${lines.join('\n')}\n` : ''));
+    const label = metadataOnly ? 'Public Channel Metadata' : type === 'member' ? 'Member Analytics' : 'Public Channel Analytics';
+    res.writeHead(200, {
+      'content-type': 'application/gzip',
+      'content-length': body.length,
+      'content-disposition': `attachment; filename="${team().name.replace(/[^\w .-]/g, '')} ${label} ${metadataOnly ? today : args.str('date')}.json.gz"`,
+    });
+    res.end(body);
   });
 
   // ── Decided invite requests ───────────────────────────────────────────────

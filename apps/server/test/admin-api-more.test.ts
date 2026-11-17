@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { gunzipSync } from 'node:zlib';
 import { after, before, describe, test } from 'node:test';
 import { createToken } from '../src/core/auth.ts';
 import { ADMIN_USER_SCOPES } from '../src/admin-api/index.ts';
@@ -140,5 +141,64 @@ describe("more of Slack's admin API", () => {
     assert.equal(approved.approved_requests[0].approved_by.actor_id, owner.userId);
     const denied = await admin('admin.inviteRequests.denied.list');
     assert.deepEqual([denied.denied_requests[0].invite_request.email, denied.denied_requests[0].denied_by.actor_id], ['bob@elsewhere.test', owner.userId]);
+  });
+
+  test('bulk archive and delete, with what could not be done', async () => {
+    const a = (await owner.ok('conversations.create', { name: 'old-launch' })).channel.id;
+    const b = (await owner.ok('conversations.create', { name: 'old-offsite' })).channel.id;
+    const archived = await admin('admin.conversations.bulkArchive', { channel_ids: [a, 'CNOPE'] });
+    assert.match(archived.bulk_action_id, /^Ab/);
+    assert.deepEqual(archived.not_added, [{ channel_id: 'CNOPE', error: 'invalid_channel' }]);
+    assert.equal((await owner.ok('conversations.info', { channel: a })).channel.is_archived, true);
+    assert.equal((await admin('admin.conversations.bulkDelete', { channel_ids: ['CNOPE'] })).error, 'no_valid_channels');
+    await admin('admin.conversations.bulkDelete', { channel_ids: [b] });
+    assert.equal((await owner.call('conversations.info', { channel: b })).error, 'channel_not_found');
+  });
+
+  test('a channel keeps its own retention', async () => {
+    const channel = (await owner.ok('conversations.create', { name: 'short-lived' })).channel.id;
+    assert.deepEqual(await admin('admin.conversations.getCustomRetention', { channel_id: channel }).then(({ is_policy_enabled, duration_days }) => [is_policy_enabled, duration_days]), [false, 0]);
+    assert.equal((await admin('admin.conversations.setCustomRetention', { channel_id: channel, duration_days: 0 })).error, 'invalid_duration');
+    await admin('admin.conversations.setCustomRetention', { channel_id: channel, duration_days: 30 });
+    // A message from 40 days ago goes at the next sweep, though the workspace keeps everything.
+    const old = `${Math.floor(Date.now() / 1000) - 40 * 86_400}.000100`;
+    t.app.ctx.db.run("INSERT INTO messages (conversation_id, ts, user_id, text, plain) VALUES (?, ?, ?, 'old news', 'old news')", channel, old, owner.userId);
+    const { sweepRetention } = await import('../src/retention/index.ts');
+    await sweepRetention(t.app.ctx);
+    assert.equal(t.app.ctx.db.get('SELECT 1 FROM messages WHERE conversation_id = ? AND ts = ?', channel, old), undefined);
+    assert.deepEqual(await admin('admin.conversations.getCustomRetention', { channel_id: channel }).then(({ is_policy_enabled, duration_days }) => [is_policy_enabled, duration_days]), [true, 30]);
+    await admin('admin.conversations.removeCustomRetention', { channel_id: channel });
+    assert.equal((await admin('admin.conversations.getCustomRetention', { channel_id: channel })).is_policy_enabled, false);
+    const general = (await owner.ok('client.boot')).channels.find((c: Json) => c.is_general).id;
+    assert.equal((await admin('admin.conversations.setCustomRetention', { channel_id: general, duration_days: 5 })).error, 'channel_type_not_supported');
+  });
+
+  test('workflows: search and unpublish', async () => {
+    const saved = await owner.ok('client.workflows.save', { name: 'Time off request', trigger: { type: 'link' }, steps: [{ id: 'say', type: 'message', destination: { to: 'trigger_channel' }, text: 'hi' }] });
+    await owner.ok('client.workflows.publish', { workflow: saved.workflow.id });
+    const found = await admin('admin.workflows.search', { query: 'time off' });
+    assert.equal(found.total_found, 1);
+    assert.deepEqual([found.workflows[0].id, found.workflows[0].title, found.workflows[0].is_published, found.workflows[0].trigger_ids], [saved.workflow.id, 'Time off request', true, [`Ft${saved.workflow.id}`]]);
+    await admin('admin.workflows.unpublish', { workflow_ids: [saved.workflow.id] });
+    assert.equal((await admin('admin.workflows.search', { query: 'time off' })).total_found, 0);
+    assert.equal((await admin('admin.workflows.search', { query: 'time off', publish_status: 'unpublished' })).total_found, 1);
+    assert.equal((await admin('admin.workflows.unpublish', { workflow_ids: ['WfNOPE'] })).error, 'error_unpublishing_workflows');
+  });
+
+  test('analytics files: gzipped JSON lines per member and per public channel', async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    // Everyone here joined today; the owner is made to have joined two days ago, so yesterday's file has a row.
+    t.app.ctx.db.run('UPDATE users SET created = ? WHERE id = ?', Math.floor(Date.now() / 1000) - 2 * 86_400, owner.userId);
+    t.app.ctx.db.run("UPDATE conversations SET created = ? WHERE name = 'general'", Math.floor(Date.now() / 1000) - 2 * 86_400);
+    const file = await fetch(`${t.base}/api/admin.analytics.getFile`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ type: 'member', date: yesterday }) });
+    assert.equal(file.headers.get('content-type'), 'application/gzip');
+    const members = gunzipSync(Buffer.from(await file.arrayBuffer())).toString('utf8').trim().split('\n').map((line) => JSON.parse(line) as Json);
+    assert.ok(members.some((row) => row.user_id === owner.userId && row.date === yesterday && typeof row.messages_posted_count === 'number'));
+    const meta = await fetch(`${t.base}/api/admin.analytics.getFile`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ type: 'public_channel', metadata_only: true }) });
+    const channels = gunzipSync(Buffer.from(await meta.arrayBuffer())).toString('utf8').trim().split('\n').map((line) => JSON.parse(line) as Json);
+    assert.ok(channels.some((row) => row.name === 'general'));
+    assert.equal((await admin('admin.analytics.getFile', { type: 'member', date: new Date().toISOString().slice(0, 10) })).error, 'file_not_yet_available');
+    assert.equal((await admin('admin.analytics.getFile', { type: 'public_channel', metadata_only: true, date: yesterday })).error, 'metadata_only_does_not_support_date');
+    assert.equal((await admin('admin.analytics.getFile', { type: 'files' })).error, 'invalid_type');
   });
 });

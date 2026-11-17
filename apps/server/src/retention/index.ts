@@ -64,14 +64,14 @@ export function retentionPreview(ctx: Ctx, policy: RetentionPolicy): { messages:
   let messages = 0;
   if (policy.messages_days) {
     messages += ctx.db.get<{ n: number }>(
-      `SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('public', 'private') AND m.ts < ? AND m.subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL}`,
+      `SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('public', 'private') AND c.retention_days IS NULL AND m.ts < ? AND m.subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL}`,
       tsBefore(now - policy.messages_days * DAY),
     )!.n;
   }
   const dmDays = policy.dm_days ?? policy.messages_days;
   if (dmDays) {
     messages += ctx.db.get<{ n: number }>(
-      `SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('im', 'mpim') AND m.ts < ? AND m.subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL}`,
+      `SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('im', 'mpim') AND c.retention_days IS NULL AND m.ts < ? AND m.subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL}`,
       tsBefore(now - dmDays * DAY),
     )!.n;
   }
@@ -87,10 +87,15 @@ export async function sweepRetention(ctx: Ctx, policy = retentionPolicy(ctx)): P
   const yieldNow = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
   const sweepKind = async (kinds: string[], days: number): Promise<void> => {
-    if (!days) return;
-    const cutoff = tsBefore(now - days * DAY);
-    const conversations = ctx.db.all<{ id: string }>(`SELECT id FROM conversations WHERE kind IN (${kinds.map(() => '?').join(', ')})`, ...kinds);
-    for (const { id } of conversations) {
+    const conversations = ctx.db.all<{ id: string; retention_days: number | null }>(
+      `SELECT id, retention_days FROM conversations WHERE kind IN (${kinds.map(() => '?').join(', ')})${days ? '' : ' AND retention_days IS NOT NULL'}`,
+      ...kinds,
+    );
+    for (const { id, retention_days: own } of conversations) {
+      // A channel's own policy (admin.conversations.setCustomRetention) wins over the workspace's.
+      const keep = own ?? days;
+      if (!keep) continue;
+      const cutoff = tsBefore(now - keep * DAY);
       for (;;) {
         const rows = ctx.db.all<{ id: number; ts: string; thread_ts: string | null }>(
           `SELECT id, ts, thread_ts FROM messages m WHERE conversation_id = ? AND ts < ? AND subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL} ORDER BY ts LIMIT ?`,
