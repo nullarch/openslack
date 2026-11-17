@@ -30,7 +30,7 @@ docker run -p 3000:3000 -v openslack:/data ghcr.io/nullarch/openslack
 
 ## Point a Slack app at it
 
-Create an app under **Apps** in the sidebar, copy the tokens, and change one option:
+Create an app under **Administration → Apps**, copy the tokens, and change one option:
 
 ```js
 import { App } from '@slack/bolt';
@@ -118,6 +118,8 @@ The others are mature products with years of production use and far more feature
 
 - [Architecture](docs/ARCHITECTURE.md): layout, data model and contracts
 - [Compatibility](docs/COMPATIBILITY.md): supported methods and events
+- [Moving from Slack](docs/MIGRATING_FROM_SLACK.md): export, import, invite, repoint bots
+- [Self-hosting](docs/SELF_HOSTING.md): configuration, reverse proxy, backups
 - [Product requirements](PRD.md): scope and phases
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
