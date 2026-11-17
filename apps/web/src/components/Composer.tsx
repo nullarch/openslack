@@ -10,6 +10,7 @@ import { sendTyping } from '../lib/realtime';
 import { displayName, get, set, threadKey, useStore } from '../lib/store';
 import { fileSize } from '../lib/time';
 import { S } from '../strings';
+import { AiWriteButton } from './ai/AiControls';
 import { promptDialog } from './dialogs/confirm';
 import { composeLookup, PickerPopover } from './Message';
 import { Avatar, IconButton } from './ui';
@@ -443,6 +444,13 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           <IconButton label={S.composer.codeBlock} onClick={() => format('block')}>
             <SquareCode size={16} />
           </IconButton>
+          <AiWriteButton
+            text={text}
+            onReplace={(value) => {
+              setText(value);
+              input.current?.focus();
+            }}
+          />
         </div>
         <textarea
           ref={input}

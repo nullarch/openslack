@@ -4,6 +4,7 @@ import { attempt, joinChannel, setConversationPrefs, setPanel } from '../lib/act
 import { call } from '../lib/api';
 import { conversation, conversationName, set, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AiChannelButton } from './ai/AiControls';
 import { AppHomeView, AppTabs, useAppOf, useAppTab } from './AppViews';
 import { Composer } from './Composer';
 import { promptDialog } from './dialogs/confirm';
@@ -80,6 +81,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
           <span>{conv.num_members ?? conv.members?.length ?? ''}</span>
         </button>
       ) : null}
+      <AiChannelButton channel={conv.id} />
       <IconButton label={S.header.details} onClick={() => openDetails('about')}>
         <Info size={18} />
       </IconButton>

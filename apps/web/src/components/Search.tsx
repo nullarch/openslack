@@ -6,6 +6,7 @@ import { call } from '../lib/api';
 import { conversationName, displayName, get, set, useStore } from '../lib/store';
 import { shortStamp } from '../lib/time';
 import { S } from '../strings';
+import { AiSearchAnswer } from './ai/AiControls';
 import { Blocks } from './blocks';
 import { Files } from './files';
 import { Mrkdwn } from './text';
@@ -135,6 +136,7 @@ export function SearchView({ query }: { query: string }) {
             <p className="search-empty">{S.search.empty}</p>
           )}
           <p className="search-hint">{S.search.hint}</p>
+          <AiSearchAnswer query={query} />
           {error ? <p className="search-empty">{error}</p> : null}
           {matches.map((match) => (
             <ResultRow key={`${match.channel_info.id}-${match.ts}`} match={match} />

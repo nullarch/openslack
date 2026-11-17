@@ -5,6 +5,7 @@ import { attempt, go, openModal, signOut } from '../lib/actions';
 import { asset, call } from '../lib/api';
 import { conversationName, currentId, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AiMenuItems } from './ai/AiControls';
 import { Emoji } from './text';
 import { Avatar, IconButton, MenuDivider, MenuItem, Popover } from './ui';
 
@@ -90,6 +91,7 @@ function TeamMenu() {
           <MenuItem icon={<Compass size={16} />} label={S.sidebar.browseChannels} onSelect={pick(() => openModal({ kind: 'browse' }))} />
           <MenuItem icon={<ShieldCheck size={16} />} label={S.sidebar.administration} onSelect={pick(() => openModal({ kind: 'admin', tab: 'members' }))} />
           <MenuItem icon={<Settings size={16} />} label={S.sidebar.preferences} onSelect={pick(() => openModal({ kind: 'preferences' }))} />
+          <AiMenuItems pick={pick} />
           <MenuDivider />
           <MenuItem icon={<LogOut size={16} />} label={S.sidebar.signOut} onSelect={pick(() => void signOut())} />
         </Popover>

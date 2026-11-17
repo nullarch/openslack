@@ -5,6 +5,8 @@ import { closeModal, openModal, setPanel } from '../lib/actions';
 import { enableNotifications } from '../lib/notify';
 import { conversation, conversationName, currentId, get, set, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AiLayer } from './ai/AiLayer';
+import { AgentsView } from './ai/AgentsView';
 import { AppModalHost } from './AppViews';
 import { ConversationView } from './Conversation';
 import { AdminDialog } from './dialogs/admin';
@@ -143,7 +145,7 @@ export function Shell() {
         <main className="sheet">
           <NotifyPrompt />
           <div className="sheet-row">
-            {route.name === 'search' ? <SearchView query={route.query} /> : route.name === 'conversation' ? <ConversationView channel={route.id} /> : <section className="conversation" />}
+            {route.name === 'search' ? <SearchView query={route.query} /> : route.name === 'conversation' ? <ConversationView channel={route.id} /> : route.name === 'agents' ? <AgentsView /> : <section className="conversation" />}
             {panel?.kind === 'thread' ? <ThreadPanel key={`${panel.channel}:${panel.ts}`} channel={panel.channel} ts={panel.ts} /> : null}
             {panel?.kind === 'profile' ? <ProfilePanel userId={panel.user} /> : null}
             {panel?.kind === 'details' ? <DetailsPanel channel={panel.channel} tab={panel.tab} /> : null}
@@ -152,6 +154,7 @@ export function Shell() {
       </div>
       <ModalHost />
       <AppModalHost />
+      <AiLayer />
     </div>
   );
 }
