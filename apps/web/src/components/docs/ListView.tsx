@@ -253,6 +253,7 @@ function Cell({ column, value, editable, onChange }: { column: Column; value: un
           aria-label={column.name}
           onBlur={(event) => commitText(event.target.value, current)}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
             if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
             if (event.key === 'Escape') {
               (event.target as HTMLInputElement).value = current;

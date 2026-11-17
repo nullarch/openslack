@@ -96,3 +96,25 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
+
+/*
+ * A Japanese interface names Japanese fonts first. In the stack above the
+ * Korean ones come earlier, and Windows always has Malgun Gothic, so kanji
+ * would be drawn with Korean shapes.
+ */
+:root:lang(ja) {
+  --font: 'Figtree Variable', 'Figtree', system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic',
+    Meiryo, 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
+  /* No small kana (ァ, ッ) or ー at the start of a line. */
+  line-break: strict;
+}
+
+/*
+ * Short interface text in Japanese wraps between phrases (キー|ワード stays
+ * whole) where the browser can find them (Chrome); a phrase too long for its
+ * box still breaks rather than spilling out.
+ */
+:root:lang(ja) :is(h1, h2, h3, h4, legend, label, th, .field-label, .field-hint, .stat-label, .stat-note, .dialog-sub, .view-title, .menu-item) {
+  word-break: auto-phrase;
+  overflow-wrap: break-word;
+}

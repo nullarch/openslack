@@ -709,6 +709,22 @@ async function main(browser) {
     await page.context().close();
   });
 
+  await step('axe: Japanese', async () => {
+    const page = watch(await (await browser.newContext({ ...options, locale: 'ja-JP' })).newPage());
+    await signIn(page, server.base, 'maya@example.com');
+    await openChannel(page, 'general');
+    await audit(page, 'japanese: channel');
+    await fromMenu(page, '.me-strip', '環境設定');
+    await audit(page, 'japanese: preferences', '.modal');
+    await closeDialog(page);
+    await fromMenu(page, '.team-btn', '管理');
+    await audit(page, 'japanese: administration', '.modal');
+    await closeDialog(page);
+    await view(page, 'activity');
+    await audit(page, 'japanese: activity', 'main');
+    await page.context().close();
+  });
+
   if (findLiveKit() && browserName === 'chrome') await step('axe: the huddle bar', () => huddle(browser, 'dark', 'dark'));
   else console.log(`  skip  axe: the huddle bar — ${browserName !== 'chrome' ? 'needs Chrome’s fake devices' : 'livekit-server not found; set LIVEKIT_SERVER_BIN'}`);
 

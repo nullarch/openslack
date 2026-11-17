@@ -1,5 +1,5 @@
-import type { Strings } from '../strings';
-import { INTL_LOCALE } from '../lib/locale';
+import type { Strings } from '../strings.ts';
+import { INTL_LOCALE } from '../lib/locale.ts';
 
 /** Korean, part three: AI, the app platform, huddles, canvases and lists, workflows and errors. */
 export const koRest = {

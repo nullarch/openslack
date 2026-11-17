@@ -176,7 +176,7 @@ export function Popover({ anchor, onClose, children, align = 'start', side = 'bo
       onClose();
     };
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.isComposing) return;
       event.stopPropagation();
       onClose();
       anchor?.focus();
@@ -313,7 +313,8 @@ export function Modal({ title, onClose, children, footer, width = 520, className
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') {
+          // Esc while a Japanese, Chinese or Korean input method is converting cancels the conversion, not the dialog.
+          if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
             event.stopPropagation();
             onClose();
           }

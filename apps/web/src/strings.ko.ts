@@ -1,7 +1,7 @@
-import type { Strings } from './strings';
-import { koAtt } from './i18n/ko-att';
-import { koCore } from './i18n/ko-core';
-import { koRest } from './i18n/ko-rest';
+import type { Strings } from './strings.ts';
+import { koAtt } from './i18n/ko-att.ts';
+import { koCore } from './i18n/ko-core.ts';
+import { koRest } from './i18n/ko-rest.ts';
 
 /**
  * Korean. Written for people, not word for word: 해요체 for sentences, short

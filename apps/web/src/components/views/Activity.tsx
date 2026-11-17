@@ -43,6 +43,8 @@ function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: Acti
   else if (item.type === 'reaction') headline = S.att.activity.reacted(actor);
   else if (item.type === 'invite') headline = S.att.activity.invited(actor);
   else headline = S.att.activity.keyword(item.keyword ?? '');
+  // "in #general", "#general에서", "#general 内": the words go on whichever side of the place the language puts them.
+  const [placeBefore = '', placeAfter = ''] = S.att.activity.inPlace('\u0000').split('\u0000');
 
   const open = (): void => {
     if (item.is_unread) onRead(item, true);
@@ -71,8 +73,9 @@ function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: Acti
         </button>
         {doc ? null : (
           <>
-            <span className="activity-in">{S.att.activity.inPlace('')}</span>
+            {placeBefore ? <span className="activity-in">{placeBefore}</span> : null}
             <PlaceLabel channel={item.channel} />
+            {placeAfter ? <span className="activity-in">{placeAfter}</span> : null}
           </>
         )}
         <time>{relative(String(item.created))}</time>

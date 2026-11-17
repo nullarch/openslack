@@ -227,7 +227,7 @@ function EditBox({ channel, message }: { channel: string; message: Message }) {
     if (ok) cancel();
   };
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
       event.stopPropagation();
       cancel();
     } else if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {

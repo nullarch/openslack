@@ -1,12 +1,12 @@
 import { BRAND } from '@app/shared';
-import { INTL_LOCALE, LOCALE } from './lib/locale';
-import { ko } from './strings.ko';
+import { INTL_LOCALE, LOCALE, type Locale } from './lib/locale.ts';
 
 /**
  * Every user-facing string, in one place. English is the source; every other
  * language is an object of exactly the same shape (`Strings`), so a key missing
  * from a translation is a type error. `S` is the language this page shows,
- * chosen once at load (see lib/locale.ts).
+ * chosen once at load (see lib/locale.ts); a translation is downloaded only
+ * when it is the one shown.
  */
 const en = {
   brand: BRAND.name,
@@ -1716,4 +1716,13 @@ const en = {
 
 export type Strings = typeof en;
 
-export const S: Strings = LOCALE === 'ko' ? ko : en;
+/** The English source, for code that needs it whatever the page shows (and for tests). */
+export const EN: Strings = en;
+
+/** Each translation, loaded on demand: a page downloads only its own language. */
+export const TRANSLATIONS: Record<Exclude<Locale, 'en'>, () => Promise<Strings>> = {
+  ko: () => import('./strings.ko.ts').then((module) => module.ko),
+  ja: () => import('./strings.ja.ts').then((module) => module.ja),
+};
+
+export const S: Strings = LOCALE === 'en' ? en : await TRANSLATIONS[LOCALE]();

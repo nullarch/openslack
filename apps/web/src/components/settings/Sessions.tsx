@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { attempt, toast } from '../../lib/actions';
 import { call } from '../../lib/api';
+import { HOUR12, INTL_LOCALE } from '../../lib/locale';
 import { S } from '../../strings';
 import { confirmDialog } from '../dialogs/confirm';
 import { Button, Spinner } from '../ui';
@@ -14,7 +15,7 @@ interface SessionInfo {
   current: boolean;
 }
 
-const when = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const when = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: HOUR12 });
 
 /** Where I am signed in, with a way to sign out of the others (client.sessions.*). */
 export function SessionsSection() {

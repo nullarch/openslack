@@ -6,6 +6,8 @@ const timeFormat = new Intl.DateTimeFormat(INTL_LOCALE, { hour: 'numeric', minut
 const dayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { weekday: 'long', month: 'long', day: 'numeric' });
 const dayYearFormat = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'long', day: 'numeric', year: 'numeric' });
 const shortDayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short', day: 'numeric' });
+// One formatter for date and time, so each language joins them its own way (`Nov 17, 9:41 AM`, `11月17日 9:41`).
+const shortDayTimeFormat = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: HOUR12 });
 const weekdayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { weekday: 'long' });
 const fullFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'full', timeStyle: 'short', hour12: HOUR12 });
 const dateFormats = {
@@ -100,7 +102,7 @@ export function shortStamp(ts: string): string {
   const ago = daysAgo(date);
   if (ago === 0) return timeFormat.format(date);
   if (ago === 1) return `${S.time.yesterday} ${timeFormat.format(date)}`;
-  return `${shortDayFormat.format(date)}, ${timeFormat.format(date)}`;
+  return shortDayTimeFormat.format(date);
 }
 
 /** `2 minutes ago`, `3 hours ago`, `yesterday`, or a date. */

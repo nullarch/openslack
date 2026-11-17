@@ -1,4 +1,4 @@
-import type { Strings } from '../strings';
+import type { Strings } from '../strings.ts';
 
 /** Korean, part two: activity, threads, unreads, later, drafts, files, notifications and commands. */
 export const koAtt = {

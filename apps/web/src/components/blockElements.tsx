@@ -218,7 +218,7 @@ function TextInput(props: ElementProps) {
     'data-action-id': element.action_id,
     onKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const multiline = element.multiline === true;
-      if (event.key === 'Enter' && (!multiline || event.metaKey || event.ctrlKey) && dispatches && triggers.includes('on_enter_pressed')) {
+      if (event.key === 'Enter' && !event.nativeEvent.isComposing && (!multiline || event.metaKey || event.ctrlKey) && dispatches && triggers.includes('on_enter_pressed')) {
         event.preventDefault();
         void send({ value });
       }

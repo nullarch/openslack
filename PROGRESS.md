@@ -23,7 +23,7 @@ Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (
 | Slack-compatible app platform | 219 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Events API over HTTP and Socket Mode, RTM, interactivity, modals, legacy dialogs (`dialog.open`), App Home, shortcuts, slash commands, unfurls, streaming, assistant threads, incoming webhooks, OAuth v2 installs, token rotation, app manifests (`apps.manifest.*`), "Sign in with this workspace" (OpenID Connect, Slack's claim names) |
 | MCP | `/mcp` endpoint on the official SDK v2 (protocol 2026-07-28 and 2025 clients), tools that respect each token's permissions |
 | Import | Slack export (zip or folder), Mattermost bulk export, Discord (DiscordChatExporter JSON). Re-runnable |
-| Clients | Web client in English and Korean (light and dark, sidebar themes, 12/24-hour clock, phone layout, installable PWA), public read-only channel pages, desktop app (Electron: badge, several servers, deep links, automatic updates; installers built for macOS, Windows and Linux in CI) |
+| Clients | Web client in English, Korean and Japanese (the Japanese not yet reviewed by a native speaker; light and dark, sidebar themes, 12/24-hour clock, phone layout, installable PWA), public read-only channel pages, desktop app (Electron: badge, several servers, deep links, automatic updates; installers built for macOS, Windows and Linux in CI) |
 | Operations | One process with built-in SQLite; `/metrics` (Prometheus) and JSON logs; backup and restore test script; Docker image, Helm chart, Render and Fly files; docs site (VitePress) |
 
 ### How it was verified
@@ -33,9 +33,9 @@ Run these to reproduce.
 | Check | Command | Result on 2026-11-17 |
 |---|---|---|
 | Types, brand rule | `pnpm typecheck`, `pnpm check:brand` | clean |
-| Unit and integration tests | `pnpm test` | server 374, compat 68, shared 19, web 14, all passing |
+| Unit and integration tests | `pnpm test` | server 374, compat 68, shared 19, web 20, all passing |
 | Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, legacy dialogs, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases, lists, remote files and the smaller methods (reactions.list, stars, team preferences, event authorizations, apps.uninstall), `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
-| Browser tests | `pnpm --filter @app/web e2e` | fifteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions, background blur and drawing), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, accessibility (axe on 108 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
+| Browser tests | `pnpm --filter @app/web e2e` | sixteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions, background blur and drawing), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, Japanese (with input-method Esc and phone-width overflow checks), accessibility (axe on 112 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
 | Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
@@ -88,5 +88,5 @@ In order. Details and owners are in `TODO.html`.
 
 1. Owner decisions: public demo server, when to make the repository public, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app.
 2. Run against real exports and real identity providers; try real third-party agents and document only what works.
-3. A real screen reader pass (VoiceOver, NVDA); more interface languages; server-side speech recognition for browsers without it.
+3. A real screen reader pass (VoiceOver, NVDA); a native speaker's review of the Japanese; more interface languages; server-side speech recognition for browsers without it.
 4. Then the larger items: several processes sharing one database, shared channels between servers, native mobile apps.
