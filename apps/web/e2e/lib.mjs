@@ -10,7 +10,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
+import { chromium, firefox, webkit } from 'playwright-core';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const serverRoot = resolve(process.env.SERVER_ROOT ?? root);
@@ -137,11 +137,24 @@ async function debugDump(browser) {
   if (errors.length > 0) console.log('  page errors:\n   ', errors.join('\n    '));
 }
 
-/** Launch Chrome, run `main(browser)`, then stop everything this run started. */
+/**
+ * The browser under test: the system Chrome by default; BROWSER=webkit (Safari's
+ * engine) or BROWSER=firefox use Playwright's builds, installed with
+ * `npx playwright-core install webkit firefox`.
+ */
+export const browserName = process.env.BROWSER ?? 'chrome';
+export function launchBrowser() {
+  const headless = process.env.HEADED !== '1';
+  if (browserName === 'webkit') return webkit.launch({ headless });
+  if (browserName === 'firefox') return firefox.launch({ headless });
+  return chromium.launch({ channel: 'chrome', headless });
+}
+
+/** Launch the browser, run `main(browser)`, then stop everything this run started. */
 export async function run(main) {
   let browser;
   try {
-    browser = await chromium.launch({ channel: 'chrome', headless: process.env.HEADED !== '1' });
+    browser = await launchBrowser();
     await main(browser);
     assert.deepEqual(errors, [], 'no page errors or console errors');
     console.log(`\n${passed} steps passed. Screenshots: ${shots}`);

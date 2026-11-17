@@ -11,7 +11,9 @@
     "test": "node --test \"test/**/*.test.ts\"",
     "e2e": "node e2e/smoke.mjs && node e2e/files-people-apps.mjs && node e2e/platform.mjs",
     "e2e:agent": "node e2e/agent.mjs",
-    "demo": "node e2e/demo.mjs"
+    "demo": "node e2e/demo.mjs",
+    "e2e:webkit": "BROWSER=webkit npm run e2e",
+    "e2e:firefox": "BROWSER=firefox npm run e2e"
   },
   "dependencies": {
     "@app/shared": "workspace:*",
