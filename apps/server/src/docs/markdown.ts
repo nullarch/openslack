@@ -386,6 +386,89 @@ export function fragmentToMarkdown(fragment: Y.XmlFragment): string {
     .join('\n\n');
 }
 
+const escapeHtml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function inlineHtml(el: Y.XmlElement): string {
+  let out = '';
+  for (const child of el.toArray()) {
+    if (child instanceof Y.XmlText) {
+      for (const op of child.toDelta() as { insert: unknown; attributes?: Marks }[]) {
+        if (typeof op.insert !== 'string') continue;
+        const marks = op.attributes ?? {};
+        let text = escapeHtml(op.insert);
+        if (marks.code) text = `<code>${text}</code>`;
+        if (marks.bold) text = `<strong>${text}</strong>`;
+        if (marks.italic) text = `<em>${text}</em>`;
+        if (marks.strike) text = `<s>${text}</s>`;
+        const href = marks.link?.href;
+        if (typeof href === 'string' && /^(https?:|mailto:|\/)/i.test(href)) text = `<a href="${escapeHtml(href)}">${text}</a>`;
+        out += text;
+      }
+    } else if (child instanceof Y.XmlElement) {
+      if (child.nodeName === 'mention') {
+        const char = child.getAttribute('mentionSuggestionChar') === '#' ? '#' : '@';
+        out += `<span data-type="mention" data-id="${escapeHtml(String(child.getAttribute('id') ?? ''))}">${char}${escapeHtml(String(child.getAttribute('label') ?? ''))}</span>`;
+      } else if (child.nodeName === 'hardBreak') out += '<br>';
+      else out += inlineHtml(child);
+    }
+  }
+  return out;
+}
+
+function blockHtml(el: Y.XmlElement): string {
+  const children = (): string =>
+    el
+      .toArray()
+      .filter((child): child is Y.XmlElement => child instanceof Y.XmlElement)
+      .map(blockHtml)
+      .join('');
+  switch (el.nodeName) {
+    case 'paragraph':
+      return `<p>${inlineHtml(el)}</p>`;
+    case 'heading': {
+      const level = Math.max(1, Math.min(3, Number(el.getAttribute('level') ?? 1)));
+      return `<h${level}>${inlineHtml(el)}</h${level}>`;
+    }
+    case 'bulletList':
+      return `<ul>${children()}</ul>`;
+    case 'orderedList':
+      return `<ol>${children()}</ol>`;
+    case 'taskList':
+      return `<ul data-type="taskList">${children()}</ul>`;
+    case 'listItem':
+      return `<li>${children()}</li>`;
+    case 'taskItem':
+      return `<li data-checked="${isChecked(el.getAttribute('checked'))}">${children()}</li>`;
+    case 'blockquote':
+      return `<blockquote>${children()}</blockquote>`;
+    case 'codeBlock':
+      return `<pre><code>${escapeHtml(el.toArray().map((child) => (child instanceof Y.XmlText ? child.toString() : '')).join(''))}</code></pre>`;
+    case 'horizontalRule':
+      return '<hr>';
+    case 'image':
+      return `<img src="${escapeHtml(String(el.getAttribute('src') ?? ''))}" alt="${escapeHtml(String(el.getAttribute('alt') ?? ''))}">`;
+    case 'table':
+      return `<table>${children()}</table>`;
+    case 'tableRow':
+      return `<tr>${children()}</tr>`;
+    case 'tableHeader':
+      return `<th>${children()}</th>`;
+    case 'tableCell':
+      return `<td>${children()}</td>`;
+    default:
+      return children();
+  }
+}
+
+/** The canvas as HTML, for `canvases.getContent` with `content_type: html`. */
+export function fragmentToHtml(fragment: Y.XmlFragment): string {
+  return fragment
+    .toArray()
+    .filter((child): child is Y.XmlElement => child instanceof Y.XmlElement)
+    .map(blockHtml)
+    .join('\n');
+}
+
 /** Words only, for search and summaries: no Markdown syntax, mentions as their labels. */
 export function fragmentToPlain(fragment: Y.XmlFragment | Y.XmlElement): string {
   const parts: string[] = [];

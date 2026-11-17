@@ -11,9 +11,9 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | Run | SDK | Web API methods called | Payload types received |
 |---|---|---|---|
 | `bolt-js-function` | @slack/bolt 5.1.0 | 4 | 1 |
-| `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 39 | 14 |
+| `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 57 | 14 |
 | `bolt-js-oauth` | @slack/bolt 5.1.0 | 3 | 0 |
-| `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
+| `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 58 | 14 |
 | `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
@@ -92,7 +92,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **120 supported**, 177 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -116,6 +116,13 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 
 | `bookmarks.list` |  | ✓ |  |
 | `bookmarks.remove` |  | ✓ |  |
 | `bots.info` | ✓ |  |  |
+| `canvases.access.delete` | ✓ | ✓ |  |
+| `canvases.access.set` | ✓ | ✓ |  |
+| `canvases.create` | ✓ | ✓ |  |
+| `canvases.delete` | ✓ | ✓ |  |
+| `canvases.edit` | ✓ | ✓ |  |
+| `canvases.getContent` | ✓ | ✓ |  |
+| `canvases.sections.lookup` | ✓ | ✓ |  |
 | `chat.appendStream` |  | ✓ |  |
 | `chat.delete` | ✓ | ✓ |  |
 | `chat.deleteScheduledMessage` |  | ✓ |  |
@@ -130,6 +137,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 
 | `chat.unfurl` | ✓ | ✓ | Links are offered once a message is posted; `source: composer` is not supported. The app must have registered the link’s domain. |
 | `chat.update` | ✓ | ✓ |  |
 | `conversations.archive` | ✓ |  |  |
+| `conversations.canvases.create` | ✓ | ✓ |  |
 | `conversations.close` |  |  |  |
 | `conversations.create` | ✓ | ✓ |  |
 | `conversations.history` | ✓ | ✓ |  |
@@ -180,6 +188,18 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 
 | `search.all` |  | ✓ | `posts` is always empty. |
 | `search.files` |  | ✓ | Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations). |
 | `search.messages` | ✓ | ✓ | Bot tokens may search (Slack: user tokens only): public channels plus the bot’s conversations. |
+| `slackLists.access.delete` | ✓ | ✓ |  |
+| `slackLists.access.set` | ✓ | ✓ |  |
+| `slackLists.create` | ✓ | ✓ |  |
+| `slackLists.download.get` | ✓ | ✓ |  |
+| `slackLists.download.start` | ✓ | ✓ |  |
+| `slackLists.items.create` | ✓ | ✓ |  |
+| `slackLists.items.delete` | ✓ | ✓ |  |
+| `slackLists.items.deleteMultiple` |  | ✓ |  |
+| `slackLists.items.info` | ✓ | ✓ |  |
+| `slackLists.items.list` | ✓ | ✓ |  |
+| `slackLists.items.update` | ✓ | ✓ |  |
+| `slackLists.update` |  | ✓ |  |
 | `team.info` | ✓ | ✓ |  |
 | `tooling.tokens.rotate` | ✓ |  |  |
 | `users.conversations` | ✓ |  |  |
@@ -209,8 +229,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 
 | `auth` | 1 | `auth.teams.list` |
 | `blocks` | 1 | `blocks.validate` |
 | `calls` | 6 | `calls.add`, `calls.end`, `calls.info`, `calls.participants.add`, `calls.participants.remove`, `calls.update` |
-| `canvases` | 7 | `canvases.access.delete`, `canvases.access.set`, `canvases.create`, `canvases.delete`, `canvases.edit`, `canvases.getContent`, `canvases.sections.lookup` |
-| `conversations` | 10 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.canvases.create`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
+| `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 7 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update` |
@@ -218,7 +237,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 
 | `oauth` | 2 | `oauth.access`, `oauth.v2.exchange` |
 | `reactions` | 1 | `reactions.list` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
-| `slackLists` | 12 | `slackLists.access.delete`, `slackLists.access.set`, `slackLists.create`, `slackLists.download.get`, `slackLists.download.start`, `slackLists.items.create`, `slackLists.items.delete`, `slackLists.items.deleteMultiple`, `slackLists.items.info`, `slackLists.items.list`, `slackLists.items.update`, `slackLists.update` |
 | `stars` | 3 | `stars.add`, `stars.list`, `stars.remove` |
 | `team` | 8 | `team.accessLogs`, `team.billableInfo`, `team.billing.info`, `team.externalTeams.disconnect`, `team.externalTeams.list`, `team.integrationLogs`, `team.preferences.list`, `team.profile.get` |
 | `usergroups` | 7 | `usergroups.create`, `usergroups.disable`, `usergroups.enable`, `usergroups.list`, `usergroups.update`, `usergroups.users.list`, `usergroups.users.update` |
@@ -239,5 +257,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **100 supported**, 197 
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 102 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 127 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

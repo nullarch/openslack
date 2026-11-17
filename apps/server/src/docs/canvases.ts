@@ -20,7 +20,7 @@ import {
   type Level,
 } from './access.ts';
 import type { CanvasHub } from './hub.ts';
-import { FIELD, fragmentToMarkdown, markdownToY, sections, type Labels } from './markdown.ts';
+import { FIELD, fragmentToHtml, fragmentToMarkdown, markdownToY, sections, type Labels } from './markdown.ts';
 
 const READ = ['canvases:read', 'canvases:write'];
 const WRITE = ['canvases:write'];
@@ -306,12 +306,12 @@ export function registerCanvases(registry: Registry, hub: CanvasHub): void {
     return { sections: matches.map((section) => ({ id: section.id })) };
   });
 
-  // Slack has no method that returns a canvas's text; this one returns it as Markdown.
-  registry.add('client.canvases.content', { scopes: READ }, ({ ctx, actor, args }) => {
+  registry.add('canvases.getContent', { scopes: READ }, ({ ctx, actor, args }) => {
     const { doc } = requireDoc(ctx, args.req('canvas_id', 'canvas_not_found'), 'canvas', actor.userId);
     const type = args.str('content_type') ?? 'markdown';
-    if (type !== 'markdown') fail('invalid_arguments', { detail: 'only content_type=markdown is supported' });
-    return { content: fragmentToMarkdown(hub.fragment(doc.id)) };
+    if (type !== 'markdown' && type !== 'html') fail('invalid_arguments', { detail: 'content_type is markdown or html' });
+    const fragment = hub.fragment(doc.id);
+    return { content: type === 'html' ? fragmentToHtml(fragment) : fragmentToMarkdown(fragment) };
   });
 
   // ── First-party additions ─────────────────────────────────────────────────

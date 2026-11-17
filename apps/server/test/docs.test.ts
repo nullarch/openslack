@@ -157,7 +157,7 @@ describe('canvases', () => {
       ],
     });
     assert.equal(edited.ok, true, JSON.stringify(edited));
-    const content = await callWithToken(test_.base, bot.token, 'client.canvases.content', { canvas_id: id });
+    const content = await callWithToken(test_.base, bot.token, 'canvases.getContent', { canvas_id: id });
     const text: string = content.content;
     assert.ok(text.startsWith('Draft — do not share.\n\n# Launch plan'), text);
     assert.match(text, /## Risks\n\nInserted after risks heading\./);
@@ -169,8 +169,16 @@ describe('canvases', () => {
     assert.match(text, /\| Owner \| Task \|/);
     assert.match(text, new RegExp(`!\\[\\]\\(@${mina.userId}\\)`));
     assert.match(text, /The end\.$/);
+    const html: string = (await callWithToken(test_.base, bot.token, 'canvases.getContent', { canvas_id: id, content_type: 'html' })).content;
+    assert.match(html, /<h1>Launch plan<\/h1>/);
+    assert.match(html, /<p>We ship on <strong>Monday<\/strong>\.<\/p>/);
+    assert.match(html, /<ul data-type="taskList"><li data-checked="false"><p>Load test<\/p><\/li><li data-checked="true">/);
+    assert.match(html, /<pre><code>const x = 1;<\/code><\/pre>/);
+    assert.match(html, /<th><p>Owner<\/p><\/th>/);
+    assert.match(html, new RegExp(`<span data-type="mention" data-id="${mina.userId}">@Mina Park</span>`));
+    assert.equal((await callWithToken(test_.base, bot.token, 'canvases.getContent', { canvas_id: id, content_type: 'pdf' })).error, 'invalid_arguments');
 
-    const deleted = await callWithToken(test_.base, bot.token, 'canvases.edit', {
+    const deleted =await callWithToken(test_.base, bot.token, 'canvases.edit', {
       canvas_id: id,
       changes: [{ operation: 'delete', section_id: (await callWithToken(test_.base, bot.token, 'canvases.sections.lookup', { canvas_id: id, criteria: { contains_text: 'Draft' } })).sections[0].id }],
     });
@@ -295,16 +303,16 @@ describe('canvases', () => {
     const { canvas_id: id } = await owner.ok('canvases.create', { title: 'Versioned', document_content: md('first draft') });
     const saved = await owner.ok('client.canvases.versions.save', { canvas_id: id, label: 'v1' });
     await owner.ok('canvases.edit', { canvas_id: id, changes: [{ operation: 'replace', document_content: md('rewritten completely') }] });
-    assert.equal((await owner.ok('client.canvases.content', { canvas_id: id })).content, 'rewritten completely');
+    assert.equal((await owner.ok('canvases.getContent', { canvas_id: id })).content, 'rewritten completely');
     const v = await owner.ok('client.canvases.versions.get', { canvas_id: id, version_id: saved.version_id });
     assert.equal(v.version.markdown, 'first draft');
     await owner.ok('client.canvases.versions.restore', { canvas_id: id, version_id: saved.version_id });
-    assert.equal((await owner.ok('client.canvases.content', { canvas_id: id })).content, 'first draft');
+    assert.equal((await owner.ok('canvases.getContent', { canvas_id: id })).content, 'first draft');
     const list = await owner.ok('client.canvases.versions.list', { canvas_id: id });
     const before = list.versions.find((version: Json) => version.label === 'Before restore');
     assert.ok(before);
     await owner.ok('client.canvases.versions.restore', { canvas_id: id, version_id: before.id });
-    assert.equal((await owner.ok('client.canvases.content', { canvas_id: id })).content, 'rewritten completely');
+    assert.equal((await owner.ok('canvases.getContent', { canvas_id: id })).content, 'rewritten completely');
     assert.equal((await mina.call('client.canvases.versions.list', { canvas_id: id })).error, 'canvas_not_found');
   });
 
@@ -364,7 +372,7 @@ describe('canvases', () => {
     const load = async (who: Session): Promise<number> => (await fetch(`${test_.base}${path}`, { headers: { cookie: who.cookie } })).status;
     assert.equal(await load(mina), 404);
     const { canvas_id: id } = await owner.ok('canvases.create', { title: 'With image', document_content: md(`Look:\n\n![pixel](${path})`) });
-    assert.match((await owner.ok('client.canvases.content', { canvas_id: id })).content, /!\[pixel\]\(\/files-pri\//);
+    assert.match((await owner.ok('canvases.getContent', { canvas_id: id })).content, /!\[pixel\]\(\/files-pri\//);
     assert.equal(await load(mina), 404);
     await owner.ok('canvases.access.set', { canvas_id: id, access_level: 'read', user_ids: [mina.userId] });
     assert.equal(await load(mina), 200);
@@ -410,7 +418,7 @@ describe('canvas storage', () => {
     try {
       const again = new Session(second.base);
       await again.ok('client.signin', { email: 'owner@acme.test', password: 'correct horse battery' });
-      const content: string = (await again.ok('client.canvases.content', { canvas_id: id })).content;
+      const content: string = (await again.ok('canvases.getContent', { canvas_id: id })).content;
       assert.equal(content.split('\n\n').length, 231);
       assert.ok(content.endsWith('line 229'));
       const reader = new CanvasClient(second.base, id, again.cookie);
@@ -715,7 +723,7 @@ describe('templates', () => {
 
     const notes = await mina.ok('client.docs.create', { kind: 'canvas', template_id: 'TPLmeeting' });
     assert.equal(notes.doc.title, 'Meeting notes');
-    assert.match((await mina.ok('client.canvases.content', { canvas_id: notes.doc.id })).content, /## Action items\n\n- \[ \]/);
+    assert.match((await mina.ok('canvases.getContent', { canvas_id: notes.doc.id })).content, /## Action items\n\n- \[ \]/);
 
     const bugs = await mina.ok('client.docs.create', { kind: 'list', template_id: 'TPLbugs', title: 'Our bugs' });
     const info = await mina.ok('client.lists.info', { list_id: bugs.doc.id });
@@ -730,7 +738,7 @@ describe('templates', () => {
     assert.ok((await owner.ok('client.docs.templates.list', { kind: 'canvas' })).templates.some((template: Json) => template.id === saved.template_id && !template.builtin));
     const fromSaved = await owner.ok('client.docs.create', { kind: 'canvas', template_id: saved.template_id });
     assert.equal(fromSaved.doc.title, 'Team retro');
-    assert.match((await owner.ok('client.canvases.content', { canvas_id: fromSaved.doc.id })).content, /Our own closing section$/);
+    assert.match((await owner.ok('canvases.getContent', { canvas_id: fromSaved.doc.id })).content, /Our own closing section$/);
 
     const listTemplate = await mina.ok('client.docs.templates.save', { doc_id: onboarding.doc.id, include_items: true });
     const fromList = await owner.ok('client.docs.create', { kind: 'list', template_id: listTemplate.template_id });
