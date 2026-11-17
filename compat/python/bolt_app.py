@@ -1,7 +1,8 @@
-"""An ordinary Bolt for Python app over Socket Mode.
+"""An ordinary Bolt for Python app, over Socket Mode or over HTTP.
 
 Nothing here knows it is not talking to Slack, except the API base URL passed to
-the WebClient. Run by compat/test/bolt-python.test.ts.
+the WebClient. Run by compat/test/bolt-python.test.ts: with APP_TOKEN it uses
+Socket Mode; with SIGNING_SECRET and PORT it serves HTTP on that port.
 """
 
 import os
@@ -15,7 +16,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 
 client = WebClient(token=os.environ["BOT_TOKEN"], base_url=os.environ["API_URL"])
-app = App(client=client)
+app = App(client=client, signing_secret=os.environ.get("SIGNING_SECRET"))
 
 CHANNEL_TYPE_EVENT = {
     "channel": "message.channels",
@@ -113,9 +114,65 @@ def summarise(message, client, context):
     streamer.stop()
 
 
+@app.shortcut("file_bug")
+def file_bug(ack, shortcut, client):
+    ack()
+    client.views_open(
+        trigger_id=shortcut["trigger_id"],
+        view={
+            "type": "modal",
+            "callback_id": "bug_form",
+            "private_metadata": os.environ.get("BUG_CHANNEL", ""),
+            "title": {"type": "plain_text", "text": "File a bug"},
+            "submit": {"type": "plain_text", "text": "File"},
+            "blocks": [
+                {
+                    "type": "input",
+                    "block_id": "title",
+                    "label": {"type": "plain_text", "text": "Title"},
+                    "element": {"type": "plain_text_input", "action_id": "value"},
+                },
+                {
+                    "type": "input",
+                    "block_id": "due",
+                    "label": {"type": "plain_text", "text": "Due"},
+                    "element": {"type": "datepicker", "action_id": "date"},
+                },
+            ],
+        },
+    )
+
+
+@app.view("bug_form")
+def bug_form(ack, view, body, client):
+    values = view["state"]["values"]
+    title = values["title"]["value"]["value"] or ""
+    if len(title) < 5:
+        ack(response_action="errors", errors={"title": "Use at least five characters"})
+        return
+    ack()
+    due = values["due"]["date"]["selected_date"]
+    client.chat_postMessage(channel=view["private_metadata"], text=f"Bug filed by <@{body['user']['id']}>: {title} (due {due})")
+
+
+@app.event("app_home_opened")
+def home_opened(event, client):
+    client.views_publish(
+        user_id=event["user"],
+        view={"type": "home", "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "*Hello from Python*"}}]},
+    )
+
+
 if __name__ == "__main__":
-    handler = SocketModeHandler(app, os.environ["APP_TOKEN"])
-    handler.connect()
-    print(f"VERSIONS slack_bolt {slack_bolt.version.__version__}, slack_sdk {slack_sdk.version.__version__}", flush=True)
-    print("READY", flush=True)
-    threading.Event().wait()
+    versions = f"VERSIONS slack_bolt {slack_bolt.version.__version__}, slack_sdk {slack_sdk.version.__version__}"
+    if os.environ.get("APP_TOKEN"):
+        handler = SocketModeHandler(app, os.environ["APP_TOKEN"])
+        handler.connect()
+        print(versions, flush=True)
+        print("READY", flush=True)
+        threading.Event().wait()
+    else:
+        # Bolt's built-in development server; it starts listening right after READY is printed.
+        print(versions, flush=True)
+        print("READY", flush=True)
+        app.start(port=int(os.environ["PORT"]), path="/slack/events")

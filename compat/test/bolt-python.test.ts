@@ -12,13 +12,16 @@ import {
   type TestApp,
 } from '@app/server/test/helpers.ts';
 import { createPlatformApp, type TestAppCredentials } from '@app/server/test/platform-helpers.ts';
-import { recordTokenCalls, saveExercised } from './harness.ts';
+import { freePort, recordTokenCalls, saveExercised } from './harness.ts';
 
 const SCRIPT = fileURLToPath(new URL('../python/bolt_app.py', import.meta.url));
 // Bolt for Python is fetched by uv on first use. Without uv this suite is skipped, not faked.
 const hasUv = spawnSync('uv', ['--version']).status === 0;
 
-describe('an official Bolt for Python app over Socket Mode', { skip: hasUv ? false : 'uv is not installed' }, () => {
+for (const transport of ['socket', 'http'] as const) defineSuite(transport);
+
+function defineSuite(transport: 'socket' | 'http'): void {
+describe(`an official Bolt for Python app over ${transport === 'socket' ? 'Socket Mode' : 'HTTP'}`, { skip: hasUv ? false : 'uv is not installed' }, () => {
   let t: TestApp;
   let owner: Session;
   let member: Session;
@@ -36,13 +39,17 @@ describe('an official Bolt for Python app over Socket Mode', { skip: hasUv ? fal
     owner = await setupWorkspace(t);
     member = await addMember(t, owner, 'Mina Member');
     general = (await owner.ok('client.boot')).channels.find((channel: Json) => channel.is_general).id;
-    creds = await createPlatformApp(owner, 'Python Bot');
+    creds = await createPlatformApp(owner, 'Python Bot', { socket_mode: transport === 'socket' });
     await owner.ok('conversations.invite', { channel: general, users: creds.botUserId });
-    await owner.ok('client.apps.commands.set', { app: creds.id, command: '/pyecho' });
+    await owner.ok('client.apps.update', { app: creds.id, shortcuts: [{ type: 'global', name: 'File a bug', callback_id: 'file_bug' }] });
     called = recordTokenCalls(t);
 
+    const port = await freePort();
+    const env: NodeJS.ProcessEnv = { ...process.env, API_URL: `${t.base}/api/`, BOT_TOKEN: creds.botToken, BUG_CHANNEL: general };
+    if (transport === 'socket') env.APP_TOKEN = creds.appToken;
+    else Object.assign(env, { SIGNING_SECRET: creds.signingSecret, PORT: String(port) });
     child = spawn('uv', ['run', '--no-project', '--quiet', '--with', 'slack_bolt', 'python', SCRIPT], {
-      env: { ...process.env, API_URL: `${t.base}/api/`, BOT_TOKEN: creds.botToken, APP_TOKEN: creds.appToken },
+      env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const ready = new Promise<void>((resolve, reject) => {
@@ -65,6 +72,17 @@ describe('an official Bolt for Python app over Socket Mode', { skip: hasUv ? fal
       });
     });
     await ready;
+    const url = `http://127.0.0.1:${port}/slack/events`;
+    if (transport === 'http') {
+      // Saving the URLs runs the verification handshake against Bolt's own server; retry while it starts listening.
+      for (let attempt = 0; ; attempt += 1) {
+        const saved = await owner.call('client.apps.update', { app: creds.id, events_url: url, interactivity_url: url });
+        if (saved.ok) break;
+        if (attempt > 50) throw new Error(`could not verify ${url}: ${JSON.stringify(saved)} ${output}`);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+    await owner.ok('client.apps.commands.set', { app: creds.id, command: '/pyecho', ...(transport === 'http' ? { url } : {}) });
     stream = await member.connect();
   });
 
@@ -77,7 +95,7 @@ describe('an official Bolt for Python app over Socket Mode', { skip: hasUv ? fal
       child.kill('SIGTERM');
       await exited;
     }
-    if (called) saveExercised('bolt-python-socket', sdk, called, delivered);
+    if (called) saveExercised(`bolt-python-${transport}`, sdk, called, delivered);
     await t?.close();
   });
 
@@ -134,4 +152,26 @@ describe('an official Bolt for Python app over Socket Mode', { skip: hasUv ? fal
     );
     assert.equal(final.message.text, 'I read the last **3** messages. Nothing is on fire.');
   });
+
+  test('@app.shortcut, views_open and @app.view with response_action errors', async () => {
+    await member.ok('client.shortcuts.run', { app: creds.id, callback_id: 'file_bug' });
+    const opened = await stream.next((event) => event.type === 'view_stack' && event.stack[0]?.callback_id === 'bug_form', 8000);
+    const view = opened.stack[0];
+    const values = (title: string): Json => ({
+      title: { value: { type: 'plain_text_input', value: title } },
+      due: { date: { type: 'datepicker', selected_date: '2026-12-01' } },
+    });
+    const refused = await member.ok('client.views.submit', { view_id: view.id, state: { values: values('Slow') } });
+    assert.deepEqual(refused.errors, { title: 'Use at least five characters' });
+    const filed = await member.ok('client.views.submit', { view_id: view.id, state: { values: values('Search is slow') } });
+    assert.deepEqual(filed.stack, []);
+    await fromBot((event) => event.text === `Bug filed by <@${member.userId}>: Search is slow (due 2026-12-01)`);
+  });
+
+  test('@app.event(app_home_opened) with views_publish', async () => {
+    await member.ok('client.apps.homeOpened', { app: creds.id, tab: 'home' });
+    const home = await stream.next((event) => event.type === 'app_home' && event.app_id === creds.id, 8000);
+    assert.equal(home.view.blocks[0].text.text, '*Hello from Python*');
+  });
 });
+}
