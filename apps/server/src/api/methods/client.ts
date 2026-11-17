@@ -6,21 +6,18 @@ import {
   hashPassword,
   readSessionToken,
   sessionCookie,
-  verifyPassword,
 } from '../../core/auth.ts';
 import {
-  addMember,
   convToApi,
   createChannel,
   getConv,
   getMember,
   readState,
-  type ConvRow,
   type MemberRow,
 } from '../../core/conversations.ts';
 import { fail } from '../../core/errors.ts';
 import { newId, newSecret, nowSeconds } from '../../core/ids.ts';
-import { createUser, emitUserChange, getUser, presenceOf, requireUser, userToApi, type UserRow } from '../../core/users.ts';
+import { createUser, emitUserChange, presenceOf, requireUser, userToApi, type UserRow } from '../../core/users.ts';
 import type { Registry } from '../registry.ts';
 import { customEmoji } from './emoji.ts';
 
@@ -34,24 +31,24 @@ const MIN_PASSWORD = 8;
 
 let decoy: Promise<string> | null = null;
 /** A password hash that matches nothing, computed once. */
-function decoyHash(): Promise<string> {
+export function decoyHash(): Promise<string> {
   decoy ??= hashPassword(newSecret(24));
   return decoy;
 }
 
-function validEmail(value: string): string {
+export function validEmail(value: string): string {
   const email = value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) fail('invalid_email');
   return email;
 }
 
-function validPassword(value: string): string {
+export function validPassword(value: string): string {
   if (value.length < MIN_PASSWORD) fail('password_too_short', { min_length: MIN_PASSWORD });
   if (value.length > 256) fail('password_too_long');
   return value;
 }
 
-function validTz(value: string | undefined): string {
+export function validTz(value: string | undefined): string {
   if (!value) return 'UTC';
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: value });
@@ -82,15 +79,6 @@ export function teamToApi(ctx: Ctx): Team {
     url: `${ctx.config.publicUrl}/`,
     icon: { image_68: icon(68), image_132: icon(132), image_default: team.icon_key === null },
   };
-}
-
-function defaultChannels(ctx: Ctx): ConvRow[] {
-  const prefs = JSON.parse(ctx.requireTeam().prefs) as { default_channels?: string[] };
-  const ids = prefs.default_channels ?? [];
-  const rows = ids.map((id) => getConv(ctx, id)).filter((row): row is ConvRow => row !== undefined && row.is_archived === 0);
-  const general = ctx.db.get<ConvRow>('SELECT * FROM conversations WHERE is_general = 1');
-  if (general && !rows.some((row) => row.id === general.id)) rows.unshift(general);
-  return rows;
 }
 
 function bootData(ctx: Ctx, self: UserRow, wsOrigin: string): BootData {
@@ -179,78 +167,10 @@ export function registerClient(registry: Registry): void {
     return { user_id: owner.id, team_id: ctx.requireTeam().id };
   });
 
-  registry.addPublic('client.signin', async ({ ctx, args, req, res }) => {
-    ctx.requireTeam();
-    const email = args.req('email').trim().toLowerCase();
-    const password = args.req('password');
-    const user = ctx.db.get<UserRow>('SELECT * FROM users WHERE email = ? AND is_bot = 0', email);
-    // Always do the hashing work, so response time does not reveal whether the address exists.
-    const valid = await verifyPassword(password, user?.password_hash ?? (await decoyHash()));
-    if (!user || !valid) fail('invalid_credentials');
-    if (user.deleted === 1) fail('account_inactive');
-    const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));
-    res.setHeader('set-cookie', sessionCookie(ctx, token));
-    return { user_id: user.id };
-  });
-
   registry.addPublic('client.signout', ({ ctx, req, res }) => {
     const token = readSessionToken(req);
     if (token) destroySession(ctx, token);
     res.setHeader('set-cookie', sessionCookie(ctx, null));
-  });
-
-  registry.addPublic('client.invites.info', ({ ctx, args }) => {
-    const invite = findInvite(ctx, args.req('code'));
-    if (!invite) return { valid: false };
-    const inviter = getUser(ctx, invite.created_by);
-    return {
-      valid: true,
-      team: teamToApi(ctx),
-      inviter_name: inviter?.real_name ?? '',
-      email: invite.email,
-    };
-  });
-
-  registry.addPublic('client.signup', async ({ ctx, args, req, res }) => {
-    ctx.requireTeam();
-    const invite = findInvite(ctx, args.req('code'));
-    if (!invite) fail('invalid_invite');
-    const email = validEmail(args.req('email'));
-    if (invite.email && invite.email !== email) fail('invite_email_mismatch');
-    const realName = args.req('real_name').trim().slice(0, 80);
-    if (!realName) fail('invalid_arguments', { needed: 'real_name' });
-    const passwordHash = await hashPassword(validPassword(args.req('password')));
-    const existing = ctx.db.get<UserRow>('SELECT * FROM users WHERE email = ?', email);
-    // An account that came from an import has no password yet; its owner claims it here and keeps their history.
-    const claimable = existing && existing.password_hash === null && existing.is_bot === 0 && existing.deleted === 0;
-    if (existing && !claimable) fail('email_taken');
-
-    const user = ctx.db.tx(() => {
-      ctx.db.run('UPDATE invites SET uses = uses + 1 WHERE code = ?', invite.code);
-      if (!existing) return createUser(ctx, { email, realName, passwordHash, tz: validTz(args.str('tz')) });
-      ctx.db.run(
-        'UPDATE users SET password_hash = ?, real_name = ?, tz = ?, updated = ? WHERE id = ?',
-        passwordHash,
-        realName,
-        validTz(args.str('tz')),
-        nowSeconds(),
-        existing.id,
-      );
-      return requireUser(ctx, existing.id);
-    });
-    if (existing) {
-      emitUserChange(ctx, user.id);
-    } else {
-      ctx.bus.emit({
-        event: { type: 'team_join', user: userToApi(ctx, user), event_ts: ctx.clock.eventTs() },
-        audience: { all: true },
-      });
-    }
-    for (const conv of defaultChannels(ctx)) addMember(ctx, conv, user.id);
-
-    const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));
-    res.setHeader('set-cookie', sessionCookie(ctx, token));
-    return { user_id: user.id };
   });
 
   // ── Signed in ─────────────────────────────────────────────────────────────
@@ -326,45 +246,6 @@ export function registerClient(registry: Registry): void {
     return { prefs };
   });
 
-  // ── Invitations ───────────────────────────────────────────────────────────
-
-  registry.add('client.invites.create', { auth: 'session' }, ({ ctx, actor, args }) => {
-    const email = args.has('email') ? validEmail(args.req('email')) : null;
-    if (email && ctx.db.get('SELECT 1 FROM users WHERE email = ?', email)) fail('already_in_team');
-    const days = args.int('expires_in_days', 30, { min: 1, max: 365 });
-    const maxUses = email ? 1 : args.int('max_uses', 0, { min: 0, max: 10_000 });
-    const code = newSecret(12);
-    const now = nowSeconds();
-    ctx.db.run(
-      'INSERT INTO invites (code, created_by, email, max_uses, created, expires) VALUES (?, ?, ?, ?, ?, ?)',
-      code,
-      actor.userId,
-      email,
-      maxUses,
-      now,
-      now + days * 86_400,
-    );
-    return { invite: inviteToApi(ctx, findInvite(ctx, code)!) };
-  });
-
-  registry.add('client.invites.list', { auth: 'session' }, ({ ctx, actor }) => {
-    const rows = ctx.db.all<InviteRow>(
-      actor.role === 'member'
-        ? 'SELECT * FROM invites WHERE revoked = 0 AND expires > ? AND created_by = ? ORDER BY created DESC'
-        : 'SELECT * FROM invites WHERE revoked = 0 AND expires > ? AND created_by LIKE ? ORDER BY created DESC',
-      nowSeconds(),
-      actor.role === 'member' ? actor.userId : '%',
-    );
-    return { invites: rows.map((row) => inviteToApi(ctx, row)) };
-  });
-
-  registry.add('client.invites.revoke', { auth: 'session' }, ({ ctx, actor, args }) => {
-    const invite = ctx.db.get<InviteRow>('SELECT * FROM invites WHERE code = ?', args.req('code'));
-    if (!invite) fail('invalid_invite');
-    if (invite.created_by !== actor.userId && actor.role === 'member') fail('not_allowed');
-    ctx.db.run('UPDATE invites SET revoked = 1 WHERE code = ?', invite.code);
-  });
-
   // ── Administration ────────────────────────────────────────────────────────
 
   registry.add('client.admin.setRole', { auth: 'admin' }, ({ ctx, actor, args }) => {
@@ -408,37 +289,4 @@ export function registerClient(registry: Registry): void {
     ctx.bus.emit({ event: { type: 'team_rename', name, team: api }, audience: { all: true } });
     return { team: api };
   });
-}
-
-// ── Invites ─────────────────────────────────────────────────────────────────
-
-interface InviteRow {
-  code: string;
-  created_by: string;
-  email: string | null;
-  max_uses: number;
-  uses: number;
-  revoked: number;
-  created: number;
-  expires: number;
-}
-
-function findInvite(ctx: Ctx, code: string): InviteRow | undefined {
-  const row = ctx.db.get<InviteRow>('SELECT * FROM invites WHERE code = ?', code);
-  if (!row || row.revoked === 1 || row.expires < nowSeconds()) return undefined;
-  if (row.max_uses > 0 && row.uses >= row.max_uses) return undefined;
-  return row;
-}
-
-function inviteToApi(ctx: Ctx, row: InviteRow): Record<string, unknown> {
-  return {
-    code: row.code,
-    url: `${ctx.config.publicUrl}/join/${row.code}`,
-    email: row.email,
-    created_by: row.created_by,
-    created: row.created,
-    expires: row.expires,
-    max_uses: row.max_uses,
-    uses: row.uses,
-  };
 }

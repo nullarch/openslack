@@ -26,6 +26,11 @@ export interface UserProfile {
   team: string;
   bot_id?: string;
   api_app_id?: string;
+  /** Custom profile fields the workspace defines (see `team.profile.get`). */
+  fields?: Record<string, { value: string; alt: string }>;
+  /** Guests only: when the account stops working (seconds, 0 for never). */
+  guest_expiration_ts?: number;
+  guest_invited_by?: string;
 }
 
 export interface User {

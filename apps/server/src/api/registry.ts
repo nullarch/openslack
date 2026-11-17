@@ -123,6 +123,11 @@ export class Registry {
   private readonly methods = new Map<string, MethodDef>();
   /** Called with the name of every method that was requested but does not exist. */
   onUnknown: ((name: string) => void) | null = null;
+  /**
+   * Checks run before every call with a credential, after the method's own
+   * authorisation. A guard throws to refuse the call.
+   */
+  readonly guards: ((name: string, actor: Actor) => void)[] = [];
 
   /** Register an authenticated method. */
   add(name: string, options: MethodOptions, handler: (call: Call) => Result | Promise<Result>): void {

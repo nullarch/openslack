@@ -27,6 +27,16 @@ export interface UserRow {
   prefs: string;
   created: number;
   updated: number;
+  /** '' for members, 'multi' or 'single' for guests. */
+  guest: '' | 'multi' | 'single';
+  /** When a guest account stops working (seconds); 0 for never. */
+  guest_expires: number;
+  invited_by: string | null;
+  totp_secret: string | null;
+  totp_enabled: number;
+  totp_last_step: number;
+  /** Custom profile field values, JSON. */
+  fields: string;
 }
 
 const COLORS = ['4f8cc9', 'd9822b', '3f9c73', 'c2536b', '7a61c9', '2f9aa0', 'b8843a', '5b6ee1', 'c45fa0', '6a8f3c'];
@@ -108,13 +118,19 @@ export function userToApi(ctx: Ctx, row: UserRow, actor: Actor | null = null): U
     is_admin: row.role !== 'member',
     is_owner: row.role === 'owner' || row.role === 'primary_owner',
     is_primary_owner: row.role === 'primary_owner',
-    is_restricted: false,
-    is_ultra_restricted: false,
+    is_restricted: row.guest !== '',
+    is_ultra_restricted: row.guest === 'single',
     is_bot: row.is_bot === 1,
     is_app_user: false,
     updated: row.updated,
   };
   if (row.email && canSeeEmail(actor)) user.profile.email = row.email;
+  const fields = profileFieldValues(row);
+  if (fields) user.profile.fields = fields;
+  if (row.guest !== '') {
+    user.profile.guest_expiration_ts = row.guest_expires;
+    if (row.invited_by) user.profile.guest_invited_by = row.invited_by;
+  }
   if (row.bot_id) user.profile.bot_id = row.bot_id;
   if (row.app_id) user.profile.api_app_id = row.app_id;
   return user;
@@ -150,6 +166,9 @@ export interface NewUser {
   id?: string;
   title?: string;
   deleted?: boolean;
+  guest?: '' | 'multi' | 'single';
+  guestExpires?: number;
+  invitedBy?: string | null;
 }
 
 export function createUser(ctx: Ctx, input: NewUser): UserRow {
@@ -161,8 +180,8 @@ export function createUser(ctx: Ctx, input: NewUser): UserRow {
   const color = COLORS[Math.abs(hashCode(id)) % COLORS.length]!;
   ctx.db.run(
     `INSERT INTO users (id, name, real_name, display_name, email, password_hash, tz, color, is_bot, bot_id, app_id, role,
-       title, deleted, created, updated)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       title, deleted, guest, guest_expires, invited_by, created, updated)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     handle,
     input.realName.trim(),
@@ -177,10 +196,29 @@ export function createUser(ctx: Ctx, input: NewUser): UserRow {
     input.role ?? 'member',
     input.title ?? '',
     input.deleted ? 1 : 0,
+    input.guest ?? '',
+    input.guestExpires ?? 0,
+    input.invitedBy ?? null,
     now,
     now,
   );
   return requireUser(ctx, id);
+}
+
+/** Filled-in custom profile fields, or null when there are none. */
+function profileFieldValues(row: UserRow): Record<string, { value: string; alt: string }> | null {
+  try {
+    const parsed = JSON.parse(row.fields || '{}') as Record<string, { value?: unknown; alt?: unknown }>;
+    const out: Record<string, { value: string; alt: string }> = {};
+    for (const [id, entry] of Object.entries(parsed)) {
+      if (entry && typeof entry.value === 'string' && entry.value !== '') {
+        out[id] = { value: entry.value, alt: typeof entry.alt === 'string' ? entry.alt : '' };
+      }
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
+  }
 }
 
 function hashCode(input: string): number {
