@@ -918,4 +918,39 @@ export const MIGRATIONS: string[] = [
     created INTEGER NOT NULL
   ) WITHOUT ROWID;
   `,
+
+  /* 22: legal hold — what is under hold, and the versions of messages and files kept because of it */ `
+  CREATE TABLE legal_holds (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created INTEGER NOT NULL,
+    released INTEGER
+  );
+  CREATE TABLE legal_hold_targets (
+    hold_id TEXT NOT NULL REFERENCES legal_holds(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('user', 'conversation')),
+    target_id TEXT NOT NULL,
+    PRIMARY KEY (hold_id, kind, target_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX legal_hold_targets_target ON legal_hold_targets(kind, target_id);
+  CREATE TABLE held_versions (
+    id INTEGER PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    user_id TEXT,
+    text TEXT NOT NULL,
+    blocks TEXT,
+    files TEXT,
+    thread_ts TEXT,
+    change TEXT NOT NULL CHECK (change IN ('edited', 'deleted')),
+    at INTEGER NOT NULL
+  );
+  CREATE INDEX held_versions_message ON held_versions(conversation_id, ts);
+  CREATE TABLE held_files (
+    file_id TEXT PRIMARY KEY,
+    row TEXT NOT NULL,
+    deleted INTEGER NOT NULL
+  ) WITHOUT ROWID;
+  `,
 ];

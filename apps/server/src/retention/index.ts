@@ -4,6 +4,7 @@ import { deleteFile, type FileRow } from '../core/files.ts';
 import { nowSeconds } from '../core/ids.ts';
 import { refreshLastTs, refreshThread } from '../core/messages.ts';
 import type { Ctx } from '../ctx.ts';
+import { HELD_FILE_SQL, HELD_MESSAGE_SQL } from '../legal/index.ts';
 
 /**
  * Data retention: a workspace can keep messages and files for a set number of
@@ -63,18 +64,18 @@ export function retentionPreview(ctx: Ctx, policy: RetentionPolicy): { messages:
   let messages = 0;
   if (policy.messages_days) {
     messages += ctx.db.get<{ n: number }>(
-      "SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('public', 'private') AND m.ts < ? AND m.subtype IS NOT 'tombstone'",
+      `SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('public', 'private') AND m.ts < ? AND m.subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL}`,
       tsBefore(now - policy.messages_days * DAY),
     )!.n;
   }
   const dmDays = policy.dm_days ?? policy.messages_days;
   if (dmDays) {
     messages += ctx.db.get<{ n: number }>(
-      "SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('im', 'mpim') AND m.ts < ? AND m.subtype IS NOT 'tombstone'",
+      `SELECT count(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.kind IN ('im', 'mpim') AND m.ts < ? AND m.subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL}`,
       tsBefore(now - dmDays * DAY),
     )!.n;
   }
-  const files = policy.files_days ? ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM files WHERE created < ? AND state != 'pending'", now - policy.files_days * DAY)!.n : 0;
+  const files = policy.files_days ? ctx.db.get<{ n: number }>(`SELECT count(*) AS n FROM files WHERE created < ? AND state != 'pending' AND NOT ${HELD_FILE_SQL}`, now - policy.files_days * DAY)!.n : 0;
   return { messages, files };
 }
 
@@ -92,7 +93,7 @@ export async function sweepRetention(ctx: Ctx, policy = retentionPolicy(ctx)): P
     for (const { id } of conversations) {
       for (;;) {
         const rows = ctx.db.all<{ id: number; ts: string; thread_ts: string | null }>(
-          "SELECT id, ts, thread_ts FROM messages WHERE conversation_id = ? AND ts < ? AND subtype IS NOT 'tombstone' ORDER BY ts LIMIT ?",
+          `SELECT id, ts, thread_ts FROM messages m WHERE conversation_id = ? AND ts < ? AND subtype IS NOT 'tombstone' AND NOT ${HELD_MESSAGE_SQL} ORDER BY ts LIMIT ?`,
           id,
           cutoff,
           CHUNK,
@@ -134,7 +135,7 @@ export async function sweepRetention(ctx: Ctx, policy = retentionPolicy(ctx)): P
   if (policy.files_days) {
     const before = now - policy.files_days * DAY;
     for (;;) {
-      const files = ctx.db.all<FileRow>("SELECT * FROM files WHERE created < ? AND state != 'pending' ORDER BY created LIMIT ?", before, CHUNK);
+      const files = ctx.db.all<FileRow>(`SELECT * FROM files WHERE created < ? AND state != 'pending' AND NOT ${HELD_FILE_SQL} ORDER BY created LIMIT ?`, before, CHUNK);
       for (const file of files) {
         await deleteFile(ctx, file);
         result.files += 1;

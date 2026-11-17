@@ -365,10 +365,19 @@ async function scanUpload(ctx: Ctx, row: FileRow, size: number): Promise<void> {
   }
 }
 
+/**
+ * Asked before a file is deleted; a hook that returns true takes the stored
+ * bytes over (legal hold keeps them), so they are not removed.
+ */
+export const keepFileBytes: ((ctx: Ctx, row: FileRow) => boolean)[] = [];
+
 export async function deleteFile(ctx: Ctx, row: FileRow): Promise<void> {
+  const kept = keepFileBytes.some((hook) => hook(ctx, row));
   ctx.db.run('DELETE FROM files WHERE id = ?', row.id);
-  await ctx.storage.remove(row.storage_key);
-  if (row.thumb) await ctx.storage.remove(`${row.storage_key}_t`);
+  if (!kept) {
+    await ctx.storage.remove(row.storage_key);
+    if (row.thumb) await ctx.storage.remove(`${row.storage_key}_t`);
+  }
   ctx.bus.emit({
     event: { type: 'file_deleted', file_id: row.id, event_ts: ctx.clock.eventTs() },
     audience: { all: true },

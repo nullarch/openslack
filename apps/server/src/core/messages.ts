@@ -279,6 +279,12 @@ export function refreshLastTs(ctx: Ctx, conversationId: string): void {
 export const messageGuards: ((ctx: Ctx, input: NewMessage) => void)[] = [];
 
 /**
+ * Called with a message as it was, just before it is edited or deleted (legal
+ * hold keeps such versions). Hooks must not throw.
+ */
+export const beforeMessageChange: ((ctx: Ctx, conv: ConvRow, row: MsgRow, change: 'edited' | 'deleted') => void)[] = [];
+
+/**
  * Checks run before a person's message is stored or changed (not for imports).
  * A check throws to refuse it. Workspace policies register here.
  */
@@ -423,6 +429,7 @@ export function updateMessage(
   patch: MessagePatch,
   options: UpdateOptions = {},
 ): MsgRow {
+  for (const hook of beforeMessageChange) hook(ctx, conv, row, 'edited');
   const previous = messageToApi(ctx, row);
   const text = patch.text ?? row.text;
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
@@ -470,6 +477,7 @@ export function updateMessage(
 }
 
 export function deleteMessage(ctx: Ctx, conv: ConvRow, row: MsgRow): void {
+  for (const hook of beforeMessageChange) hook(ctx, conv, row, 'deleted');
   const previous = messageToApi(ctx, row);
   const eventTs = ctx.clock.eventTs();
   const isParentWithReplies = row.thread_ts === row.ts && row.reply_count > 0;
