@@ -35,9 +35,14 @@ export interface MemberRow {
   is_open: number;
   is_starred: number;
   is_muted: number;
+  /** `default`, `all`, `mentions` or `nothing`: which messages notify this member. */
+  notify_level: string;
 }
 
 const MAX_GROUP_DM = 9;
+
+/** Modules that add fields to the conversation object (posting permissions, managers). */
+export const conversationExtensions: ((ctx: Ctx, conv: ConvRow, out: Conversation, viewerId: string | null) => void)[] = [];
 
 // ── Lookup ──────────────────────────────────────────────────────────────────
 
@@ -226,7 +231,9 @@ export function convToApi(ctx: Ctx, conv: ConvRow, viewerId: string | null, view
     base.latest_ts = conv.last_ts;
     base.is_starred = member.is_starred === 1;
     base.is_muted = member.is_muted === 1;
+    base.notify_level = (member.notify_level || 'default') as Conversation['notify_level'];
   }
+  for (const extend of conversationExtensions) extend(ctx, conv, base, viewerId);
   return base;
 }
 
@@ -360,9 +367,10 @@ export function removeMember(ctx: Ctx, conv: ConvRow, userId: string): boolean {
   return true;
 }
 
-/** Channel settings may be changed by workspace admins and by the channel's creator. */
-export function canManage(conv: ConvRow, actor: Actor): boolean {
-  return isAdmin(actor) || conv.creator === actor.userId;
+/** Channel settings may be changed by workspace admins, the channel's creator and its managers. */
+export function canManage(conv: ConvRow, actor: Actor, ctx?: Ctx): boolean {
+  if (isAdmin(actor) || conv.creator === actor.userId) return true;
+  return ctx !== undefined && ctx.db.get('SELECT 1 FROM channel_managers WHERE conversation_id = ? AND user_id = ?', conv.id, actor.userId) !== undefined;
 }
 
 export function touchConv(ctx: Ctx, id: string): void {

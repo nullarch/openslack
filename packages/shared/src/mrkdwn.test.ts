@@ -23,6 +23,8 @@ describe('parseMrkdwn', () => {
       { type: 'bold', children: [text('2.4 ships Thursday.')] },
       text(' Freeze is Wednesday'),
     ]);
+    // A marker after a backslash is literal: the shrug from /shrug is not italic.
+    assert.deepEqual(parseMrkdwn('fine ¯\\_(ツ)_/¯'), [text('fine ¯\\_(ツ)_/¯')]);
     // Nested emphasis.
     assert.deepEqual(parseMrkdwn('*bold _both_*'), [
       { type: 'bold', children: [text('bold '), { type: 'italic', children: [text('both')] }] },

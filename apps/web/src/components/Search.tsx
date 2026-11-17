@@ -10,6 +10,9 @@ import { Blocks } from './blocks';
 import { Files } from './files';
 import { Mrkdwn } from './text';
 import { Avatar, Button, IconButton, Modal, Spinner } from './ui';
+import { recentSearches, recordSearch } from '../lib/attention';
+import { ChannelResults, FileResults, PeopleResults, SearchSuggestions, type SearchTab } from './SearchTabs';
+import { History } from 'lucide-react';
 
 // ── Search results ──────────────────────────────────────────────────────────
 
@@ -67,6 +70,8 @@ function ResultRow({ match }: { match: Match }) {
 
 export function SearchView({ query }: { query: string }) {
   const [input, setInput] = useState(query);
+  const [tab, setTab] = useState<SearchTab>('messages');
+  const [focused, setFocused] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -104,8 +109,17 @@ export function SearchView({ query }: { query: string }) {
   useEffect(() => {
     setInput(query);
     load(query, 1);
+    recordSearch(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  const submit = (value: string): void => {
+    const text = value.trim();
+    if (!text) return;
+    setFocused(false);
+    if (text === query) load(text, 1);
+    else go({ name: 'search', query: text });
+  };
 
   return (
     <section className="search-view">
@@ -117,15 +131,45 @@ export function SearchView({ query }: { query: string }) {
           className="search-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (input.trim()) go({ name: 'search', query: input.trim() });
+            submit(input);
           }}
         >
           <SearchIcon size={17} />
-          <input type="search" value={input} placeholder={S.search.placeholder} onChange={(event) => setInput(event.target.value)} aria-label={S.search.placeholder} autoFocus />
+          <input
+            type="search"
+            value={input}
+            placeholder={S.search.placeholder}
+            onChange={(event) => setInput(event.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => window.setTimeout(() => setFocused(false), 150)}
+            aria-label={S.search.placeholder}
+            autoFocus
+          />
+          {focused && input.trim() && input.trim() !== query.trim() ? <SearchSuggestions input={input} onPick={(value) => (value.endsWith(' ') ? setInput(value) : submit(value))} /> : null}
+          {focused && !input.trim() ? <SearchSuggestions input="" onPick={submit} /> : null}
         </form>
       </header>
+      <div className="tabs search-tabs" role="tablist">
+        {(
+          [
+            ['messages', S.att.search.messages],
+            ['files', S.att.search.files],
+            ['channels', S.att.search.channels],
+            ['people', S.att.search.people],
+          ] as [SearchTab, string][]
+        ).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="search-scroll">
         <div className="search-inner">
+          {tab === 'files' ? <FileResults query={query} /> : null}
+          {tab === 'channels' ? <ChannelResults query={query} /> : null}
+          {tab === 'people' ? <PeopleResults query={query} /> : null}
+          {tab === 'messages' ? (
+            <>
           {query ? (
             <div className="search-summary">
               <h2>{S.search.title(query)}</h2>
@@ -154,6 +198,8 @@ export function SearchView({ query }: { query: string }) {
             <div className="search-more">
               <Button onClick={() => load(query, page + 1)}>{S.search.more}</Button>
             </div>
+          ) : null}
+            </>
           ) : null}
         </div>
       </div>
@@ -253,6 +299,13 @@ export function QuickSwitcher() {
     }
     out.sort((a, b) => b.rank - a.rank || a.label.localeCompare(b.label));
     const limited = out.slice(0, 12);
+    if (!needle) {
+      // Recent searches first when nothing is typed yet.
+      const recent = recentSearches()
+        .slice(0, 3)
+        .map((text) => ({ key: `recent:${text}`, icon: <History size={16} />, label: text, sub: S.att.search.recent, rank: 0, run: () => go({ name: 'search', query: text }) }));
+      limited.unshift(...recent);
+    }
     if (query.trim()) {
       limited.push({
         key: 'search',

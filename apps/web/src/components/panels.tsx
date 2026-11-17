@@ -1,5 +1,8 @@
 import { escapeText, type Conversation, type Message, type User } from '@app/shared';
-import { BellOff, Bell, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
+import { BellOff, Bell, BellRing, LogOut, MessageSquare, Pencil, UserMinus, UserPlus, X, Archive, ArchiveRestore } from 'lucide-react';
+import { markThreadSeen, setThreadFollow } from '../lib/attention';
+import { PostingPermissions } from './Posting';
+import { FileList } from './views/Later';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   attempt,
@@ -24,7 +27,7 @@ import { MessageRow } from './Message';
 import { Emoji, Mrkdwn } from './text';
 import { Avatar, Button, IconButton, Spinner } from './ui';
 
-function PanelFrame({ title, subtitle, children, dropLabel }: { title: ReactNode; subtitle?: ReactNode; children: ReactNode; dropLabel?: string }) {
+function PanelFrame({ title, subtitle, children, dropLabel, actions }: { title: ReactNode; subtitle?: ReactNode; children: ReactNode; dropLabel?: string; actions?: ReactNode }) {
   // A panel with a composer accepts dropped files anywhere on it.
   const drop = dropLabel ? { 'data-drop-scope': '', 'data-drop-label': dropLabel } : {};
   return (
@@ -34,6 +37,7 @@ function PanelFrame({ title, subtitle, children, dropLabel }: { title: ReactNode
           <h2>{title}</h2>
           {subtitle ? <span>{subtitle}</span> : null}
         </div>
+        {actions}
         <IconButton label={S.close} onClick={() => setPanel(null)}>
           <X size={18} />
         </IconButton>
@@ -76,13 +80,36 @@ export function ThreadPanel({ channel, ts }: { channel: string; ts: string }) {
   }, [highlight, channel, thread.loaded]);
 
   const label = conv?.is_channel ? `#${name}` : name;
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const subscribed = following ?? Boolean((thread.parent as (LocalMessage & { subscribed?: boolean }) | null)?.subscribed);
+  const lastReply = thread.replies.filter((reply) => !reply.pending && !reply.failed && !reply.is_ephemeral).at(-1)?.ts;
+
+  // Seeing the end of a followed thread catches you up on it.
+  useEffect(() => {
+    if (!thread.loaded || !lastReply) return;
+    const mark = (): void => {
+      if (document.hasFocus() && stick.current) markThreadSeen(channel, ts, lastReply);
+    };
+    mark();
+    window.addEventListener('focus', mark);
+    return () => window.removeEventListener('focus', mark);
+  }, [thread.loaded, lastReply, channel, ts]);
+
   const onScroll = (): void => {
     const node = scroller.current;
     if (node) stick.current = node.scrollHeight - node.scrollTop - node.clientHeight < 48;
   };
 
+  const followButton =
+    thread.parent && isMember ? (
+      <Button size="sm" className={`follow-btn ${subscribed ? 'is-on' : ''}`} onClick={() => void setThreadFollow(channel, ts, !subscribed).then(setFollowing)}>
+        {subscribed ? <BellRing size={14} /> : <Bell size={14} />}
+        {subscribed ? S.att.threads.following : S.att.threads.follow}
+      </Button>
+    ) : null;
+
   return (
-    <PanelFrame title={S.thread.title} subtitle={thread.title ?? label} dropLabel={S.composer.dropHere}>
+    <PanelFrame title={S.thread.title} subtitle={thread.title ?? label} dropLabel={S.composer.dropHere} actions={followButton}>
       <div className="panel-scroll thread-scroll" ref={scroller} onScroll={onScroll}>
         {!thread.loaded ? (
           <div className="list-loading">
@@ -397,6 +424,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
             {conv.purpose?.value ? <Mrkdwn text={conv.purpose.value} /> : <p className="muted">{S.details.none}</p>}
           </section>
           <p className="about-created muted">{S.details.created(displayName(creator), created)}</p>
+          {isMember ? <PostingPermissions conv={conv} canManage={canManage} /> : null}
         </>
       ) : null}
       {isMember ? (
@@ -437,17 +465,18 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
   );
 }
 
-export function DetailsPanel({ channel, tab }: { channel: string; tab: 'about' | 'members' | 'pins' }) {
+export function DetailsPanel({ channel, tab }: { channel: string; tab: 'about' | 'members' | 'pins' | 'files' }) {
   const conv = useStore((state) => conversation(state, channel));
   const name = useStore((state) => conversationName(state, conv));
   const self = useStore((state) => state.self);
   const isMember = useStore((state) => state.channels[channel] !== undefined);
   if (!conv) return <PanelFrame title={S.header.details}>{null}</PanelFrame>;
-  const canManage = Boolean(self && (self.is_admin || conv.creator === self.id));
-  const tabs: { id: 'about' | 'members' | 'pins'; label: string }[] = [
+  const canManage = Boolean(self && (self.is_admin || conv.creator === self.id || conv.managers?.includes(self.id)));
+  const tabs: { id: 'about' | 'members' | 'pins' | 'files'; label: string }[] = [
     { id: 'about', label: S.details.about },
     { id: 'members', label: `${S.details.members}${conv.num_members !== undefined ? ` ${conv.num_members}` : ''}` },
     { id: 'pins', label: S.details.pins },
+    { id: 'files', label: S.att.files.title },
   ];
   return (
     <PanelFrame title={conv.is_channel ? `#${name}` : name} subtitle={conv.is_private && conv.is_channel ? S.header.private : undefined}>
@@ -469,6 +498,11 @@ export function DetailsPanel({ channel, tab }: { channel: string; tab: 'about' |
         {tab === 'about' ? <AboutTab conv={conv} canManage={canManage} isMember={isMember} /> : null}
         {tab === 'members' ? <MembersTab conv={conv} canManage={canManage} /> : null}
         {tab === 'pins' ? <PinsTab conv={conv} /> : null}
+        {tab === 'files' ? (
+          <div className="panel-files">
+            <FileList channel={conv.id} />
+          </div>
+        ) : null}
       </div>
     </PanelFrame>
   );

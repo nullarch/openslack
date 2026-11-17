@@ -2,6 +2,7 @@ import { BRAND } from '@app/shared';
 import { createApp } from './app.ts';
 import { configFromEnv } from './config.ts';
 import { DEMO_EMAIL, DEMO_PASSWORD, seedDemo } from './demo/seed.ts';
+import { importMattermost } from './importer/mattermost.ts';
 import { importSlackExport } from './importer/slack-export.ts';
 
 const USAGE = `${BRAND.name} — ${BRAND.tagline}
@@ -11,6 +12,7 @@ Usage:
   ${BRAND.slug} import-slack <export> [...]  Import a Slack export (.zip or unpacked folder)
       --download-files                     Also fetch files from the URLs in the export
       --token <token>                      Bearer token for those downloads, if needed
+  ${BRAND.slug} import-mattermost <export>   Import a Mattermost bulk export (mmctl export create: .zip or .jsonl)
   ${BRAND.slug} help
 
 Environment:
@@ -83,10 +85,37 @@ async function importSlack(args: string[]): Promise<void> {
   }
 }
 
+async function importFromMattermost(args: string[]): Promise<void> {
+  const path = args.find((arg) => !arg.startsWith('--'));
+  if (!path) {
+    console.error(USAGE);
+    process.exit(2);
+  }
+  const app = createApp({ ...configFromEnv(), quiet: true });
+  try {
+    const report = await importMattermost(app.ctx, path, (line) => console.log(`  ${line}`));
+    console.log('\nImport finished');
+    console.log(`  people         ${report.users.created} created, ${report.users.matched} matched`);
+    console.log(`  channels       ${report.channels.created} created, ${report.channels.matched} matched`);
+    console.log(`  direct         ${report.directs} created`);
+    console.log(`  messages       ${report.messages.imported} imported (${report.replies} replies), ${report.messages.alreadyPresent} already present, ${report.messages.failed} failed`);
+    console.log(`  reactions      ${report.reactions}`);
+    console.log(`  files          ${report.files.stored} stored, ${report.files.missing} missing`);
+    if (report.problemCount > 0) {
+      console.log(`\n${report.problemCount} item(s) could not be carried over exactly:`);
+      for (const line of report.problems) console.log(`  - ${line}`);
+    }
+    console.log('\nPeople sign in by accepting an invite with the same email address; their history is kept.');
+  } finally {
+    await app.close();
+  }
+}
+
 const [command = 'serve', ...rest] = process.argv.slice(2);
 try {
   if (command === 'serve') await serve();
   else if (command === 'import-slack') await importSlack(rest);
+  else if (command === 'import-mattermost') await importFromMattermost(rest);
   else {
     console.log(USAGE);
     process.exit(command === 'help' || command === '--help' || command === '-h' ? 0 : 2);

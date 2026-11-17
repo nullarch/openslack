@@ -263,8 +263,15 @@ function refreshLastTs(ctx: Ctx, conversationId: string): void {
   ctx.db.run('UPDATE conversations SET last_ts = ? WHERE id = ?', row?.ts ?? ZERO_TS, conversationId);
 }
 
+/**
+ * Checks run before a message is stored (posting permissions). Each throws an
+ * API error to refuse. Imports and system lines skip them.
+ */
+export const messageGuards: ((ctx: Ctx, input: NewMessage) => void)[] = [];
+
 export function postMessage(ctx: Ctx, input: NewMessage): MsgRow {
   const { conv } = input;
+  if (!input.silent) for (const guard of messageGuards) guard(ctx, input);
   const text = input.text ?? '';
   if (text.length > MAX_TEXT_LENGTH) fail('msg_too_long');
   const hasContent = text.length > 0 || input.blocks?.length || input.attachments?.length || input.fileIds?.length;

@@ -1,7 +1,7 @@
 import type { Conversation } from '@app/shared';
 import { ArrowDown, Hash, Lock } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { loadLatest, loadNewer, loadOlder, maybeMarkRead } from '../lib/actions';
+import { loadLatest, loadNewer, loadOlder, MAX_LOADED, maybeMarkRead, trimLoaded } from '../lib/actions';
 import { viewing } from '../lib/realtime';
 import { conversation, conversationName, EMPTY_CONV, set, useStore, type LocalMessage } from '../lib/store';
 import { dayKey, dayLabel } from '../lib/time';
@@ -73,6 +73,8 @@ export function MessageList({ channel }: { channel: string }) {
   const lastKey = useRef<string | null>(null);
   const positionedFor = useRef<string | null>(null);
   const handledHighlight = useRef(0);
+  /** The first message on screen and its distance from the top of the pane, to keep it still when rows come or go above it. */
+  const anchor = useRef<{ ts: string; offset: number } | null>(null);
   const [atBottom, setAtBottom] = useState(true);
 
   const isNearBottom = (): boolean => {
@@ -80,7 +82,32 @@ export function MessageList({ channel }: { channel: string }) {
     return !node || node.scrollHeight - node.scrollTop - node.clientHeight < NEAR_BOTTOM;
   };
 
+  const captureAnchor = (): void => {
+    const node = scroller.current;
+    if (!node) return;
+    const top = node.getBoundingClientRect().top;
+    for (const row of node.querySelectorAll<HTMLElement>('.message-content > .msg[data-ts]')) {
+      const rect = row.getBoundingClientRect();
+      if (rect.bottom > top + 1) {
+        anchor.current = { ts: row.dataset.ts!, offset: rect.top - top };
+        return;
+      }
+    }
+    anchor.current = null;
+  };
+
+  const restoreAnchor = (): boolean => {
+    const node = scroller.current;
+    const saved = anchor.current;
+    if (!node || !saved) return false;
+    const row = node.querySelector<HTMLElement>(`.message-content > .msg[data-ts="${saved.ts}"]`);
+    if (!row) return false;
+    node.scrollTop += row.getBoundingClientRect().top - node.getBoundingClientRect().top - saved.offset;
+    return true;
+  };
+
   const report = (): void => {
+    captureAnchor();
     const node = scroller.current;
     // Content that grew since the last measurement (a video learning its size) is not the reader
     // scrolling away: keep the newest message in view rather than concluding they left the bottom.
@@ -112,8 +139,9 @@ export function MessageList({ channel }: { channel: string }) {
         if (divider) node.scrollTop = Math.max(0, divider.offsetTop - 72);
         else node.scrollTop = node.scrollHeight;
       }
-    } else if (firstTs.current && first && first < firstTs.current) {
-      node.scrollTop += node.scrollHeight - lastHeight.current;
+    } else if (firstTs.current && first && first !== firstTs.current && !(stick.current && first > firstTs.current)) {
+      // Rows were added or dropped above what is on screen: keep the same message in the same place.
+      if (!restoreAnchor() && first < firstTs.current) node.scrollTop += node.scrollHeight - lastHeight.current;
     } else if (stick.current || ownSend) {
       node.scrollTop = node.scrollHeight;
     }
@@ -154,6 +182,16 @@ export function MessageList({ channel }: { channel: string }) {
     observer.observe(node);
     return () => observer.disconnect();
   }, [channel]);
+
+  // Keep the number of rows bounded: drop the end the reader is furthest from.
+  useEffect(() => {
+    const node = scroller.current;
+    if (!node || conv.list.length <= MAX_LOADED) return;
+    captureAnchor();
+    if (stick.current) trimLoaded(channel, 'newest');
+    else trimLoaded(channel, node.scrollTop < (node.scrollHeight - node.clientHeight) / 2 ? 'oldest' : 'newest');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv.list.length, channel]);
 
   // Load more when the top or bottom edge scrolls into view.
   useEffect(() => {

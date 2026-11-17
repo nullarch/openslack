@@ -81,8 +81,8 @@ const NOTES: Record<string, string> = {
   'chat.unfurl': 'Links are offered once a message is posted; `source: composer` is not supported. The app must have registered the link’s domain.',
   'search.files': 'Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations).',
   'search.all': '`posts` is always empty.',
-  'dnd.info': 'Reports Do Not Disturb as off unless the server implements Do Not Disturb.',
-  'dnd.teamInfo': 'Reports Do Not Disturb as off unless the server implements Do Not Disturb.',
+  'dnd.info': 'Also allowed with `users:read`, so apps with the default bot scopes can check before notifying.',
+  'dnd.teamInfo': 'Also allowed with `users:read`. Without `users`, reports everyone in the workspace.',
 };
 
 /** Interaction payload types, which are not Events API subscriptions. */

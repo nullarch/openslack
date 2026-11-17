@@ -1,11 +1,14 @@
 import type { Message, Reaction } from '@app/shared';
-import { Bookmark, Copy, EyeOff, Link2, MessageSquareText, MoreHorizontal, Pencil, Pin, PinOff, SmilePlus, Trash2 } from 'lucide-react';
+import { AlarmClock, BellOff, BellRing, Bookmark, Copy, EyeOff, Forward, Link2, MessageSquareText, MoreHorizontal, Pencil, Pin, PinOff, Share2, SmilePlus, Trash2 } from 'lucide-react';
+import { canDeleteOwn, canEditMessage, remindAbout, setThreadFollow, toggleSaved } from '../lib/attention';
+import { RemindMenu } from './views/Later';
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   deleteMessage,
   discardFailed,
   editMessage,
   markUnreadFrom,
+  openModal,
   openThread,
   retryMessage,
   setPanel,
@@ -224,16 +227,23 @@ interface ToolbarProps {
 
 function Toolbar({ channel, message, inThread, onOpenChange }: ToolbarProps) {
   const self = useStore((state) => state.self);
+  const saved = useStore((state) => state.att.saved[`${channel}:${message.ts}`] === 'in_progress');
   const reactRef = useRef<HTMLButtonElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState<'react' | 'more' | null>(null);
-  const change = (next: 'react' | 'more' | null): void => {
+  const [open, setOpen] = useState<'react' | 'more' | 'remind' | null>(null);
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const change = (next: 'react' | 'more' | 'remind' | null): void => {
     setOpen(next);
     onOpenChange(next !== null);
   };
 
   const own = self?.id === message.user;
-  const canDelete = own || (self?.is_admin ?? false);
+  // Workspace rules (edit window, who may delete) apply to people; admins are not limited.
+  useStore((state) => state.att.messagePolicy);
+  const canDelete = (own && canDeleteOwn()) || (self?.is_admin ?? false);
+  const isParent = Boolean(message.reply_count) && message.thread_ts === message.ts;
+  const threadTs = message.thread_ts ?? message.ts;
+  const isFollowing = following ?? (message as LocalMessage & { subscribed?: boolean }).subscribed ?? Boolean(message.reply_users?.includes(self?.id ?? '') || message.user === self?.id);
   const pinned = Boolean(message.pinned_to?.length);
   const copy = (text: string, done: string): void => {
     void navigator.clipboard.writeText(text).then(() => toast(done));
@@ -255,15 +265,49 @@ function Toolbar({ channel, message, inThread, onOpenChange }: ToolbarProps) {
           <MessageSquareText size={17} />
         </IconButton>
       ) : null}
+      <IconButton label={saved ? S.att.later.unsave : S.att.later.save} className={saved ? 'is-on' : ''} onClick={() => void toggleSaved(channel, message.ts)}>
+        <Bookmark size={17} fill={saved ? 'currentColor' : 'none'} />
+      </IconButton>
       <IconButton ref={moreRef} label={S.messages.actions.more} onClick={() => change('more')}>
         <MoreHorizontal size={17} />
       </IconButton>
       {open === 'react' ? (
         <PickerPopover anchor={reactRef.current} onClose={() => change(null)} onPick={(name) => void toggleReaction(channel, message, name)} />
       ) : null}
+      {open === 'remind' ? <RemindMenu anchor={moreRef.current} onClose={() => change(null)} onPick={(time) => void remindAbout(channel, message.ts, time)} /> : null}
       {open === 'more' ? (
         <Popover anchor={moreRef.current} onClose={() => change(null)} align="end" className="menu">
-          {own && !message.bot_id ? (
+          <MenuItem
+            icon={<Forward size={16} />}
+            label={S.att.forward.action}
+            onSelect={() => {
+              change(null);
+              openModal({ kind: 'forward', channel, ts: message.ts });
+            }}
+          />
+          {message.files?.length === 1 ? (
+            <MenuItem
+              icon={<Share2 size={16} />}
+              label={S.att.files.share}
+              onSelect={() => {
+                change(null);
+                openModal({ kind: 'shareFile', file: message.files![0]! });
+              }}
+            />
+          ) : null}
+          <MenuItem icon={<AlarmClock size={16} />} label={S.att.later.remindMe} onSelect={() => change('remind')} />
+          {isParent || inThread ? (
+            <MenuItem
+              icon={isFollowing ? <BellOff size={16} /> : <BellRing size={16} />}
+              label={isFollowing ? S.att.threads.unfollow : S.att.threads.follow}
+              onSelect={() => {
+                change(null);
+                void setThreadFollow(channel, threadTs, !isFollowing).then(setFollowing);
+              }}
+            />
+          ) : null}
+          <MenuDivider />
+          {own && !message.bot_id && canEditMessage(message) ? (
             <MenuItem
               icon={<Pencil size={16} />}
               label={S.messages.actions.edit}
@@ -345,6 +389,8 @@ function Body({ channel, message }: { channel: string; message: LocalMessage }) 
 export const MessageRow = memo(function MessageRow({ channel, message, compact = false, inThread = false, highlighted = false }: RowProps) {
   const author = useStore((state) => state.users[message.user ?? '']);
   const editing = useStore((state) => state.editing?.channel === channel && state.editing.ts === message.ts);
+  const saved = useStore((state) => state.att.saved[`${channel}:${message.ts}`] === 'in_progress');
+  const collapsed = useStore((state) => Boolean(state.att.collapsed[channel]));
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (isSystem(message)) {
@@ -408,7 +454,12 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
       <div className="msg-main">
         {message.pinned_to?.length ? (
           <div className="msg-flag">
-            <Bookmark size={12} /> {S.messages.pinned}
+            <Pin size={12} /> {S.messages.pinned}
+          </div>
+        ) : null}
+        {saved ? (
+          <div className="msg-flag is-saved">
+            <Bookmark size={12} /> {S.att.later.saved}
           </div>
         ) : null}
         {message.subtype === 'thread_broadcast' && !inThread ? (
@@ -434,7 +485,7 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
           </div>
         ) : null}
         {editing ? <EditBox channel={channel} message={message} /> : <Body channel={channel} message={message} />}
-        {message.files?.length ? <Files files={message.files} /> : null}
+        {message.files?.length ? <Files files={message.files} collapsed={collapsed} /> : null}
         {message.attachments?.length ? <Attachments attachments={message.attachments} channel={channel} message={message} /> : null}
         {message.failed ? (
           <div className="msg-failed">

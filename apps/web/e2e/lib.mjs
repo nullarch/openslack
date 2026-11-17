@@ -48,7 +48,7 @@ export function track(child) {
 }
 
 /** Start a server of our own on a free port with a throwaway data directory. */
-export async function startServer({ seed, port: chosenPort, env = {} }) {
+export async function startServer({ seed, previews = false, port: chosenPort, env = {} }) {
   const port = chosenPort ?? (await freePort());
   const dataDir = mkdtempSync(join(tmpdir(), 'chat-e2e-'));
   dataDirs.push(dataDir);
@@ -65,6 +65,8 @@ export async function startServer({ seed, port: chosenPort, env = {} }) {
         DATA_DIR: dataDir,
         WEB_DIR: join(root, 'apps/web/dist'),
         SEED_DEMO: seed ? '1' : '',
+        // Link previews fetch from the network; only the tests about them turn them on.
+        LINK_PREVIEWS: previews ? '1' : '0',
         ...env,
         QUIET: '1',
         NODE_NO_WARNINGS: '1',

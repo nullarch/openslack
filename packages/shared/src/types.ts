@@ -97,6 +97,17 @@ export interface Conversation {
   is_starred?: boolean;
   /** ext */
   is_muted?: boolean;
+  /** ext: which messages notify the viewer here. `default` follows the workspace default (mentions). */
+  notify_level?: 'default' | 'all' | 'mentions' | 'nothing';
+  /** Slack's channel properties; only posting restrictions are used here. */
+  properties?: {
+    posting_restrictions?: { type: string[] };
+    threads_restrictions?: { type: string[] };
+    at_channel_restricted?: boolean;
+    at_here_restricted?: boolean;
+  };
+  /** ext: channel managers. */
+  managers?: string[];
 }
 
 export interface Reaction {
@@ -118,7 +129,7 @@ export interface FileObject {
   user_team: string;
   editable: boolean;
   size: number;
-  mode: 'hosted';
+  mode: 'hosted' | 'snippet';
   is_external: boolean;
   external_type: string;
   is_public: boolean;

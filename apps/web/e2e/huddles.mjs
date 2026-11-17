@@ -30,21 +30,67 @@ if (!findLiveKit()) {
   process.exit(0);
 }
 
+/** Start LiveKit and a seeded server wired to it. */
+async function startStack() {
+  const port = await freePort();
+  const livekit = await startLiveKit({ webhookUrl: `http://127.0.0.1:${port}/livekit/webhook` });
+  return startServer({
+    seed: true,
+    port,
+    env: {
+      LIVEKIT_URL: livekit.url,
+      LIVEKIT_API_KEY: livekit.apiKey,
+      LIVEKIT_API_SECRET: livekit.apiSecret,
+      HUDDLE_RECONCILE_MS: '2000',
+      HUDDLE_JOIN_GRACE_MS: '6000',
+    },
+  });
+}
+
+const apiCall = (page, method, args) =>
+  page.evaluate(
+    async ([name, body]) => {
+      const response = await fetch(`/api/${name}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const result = await response.json();
+      if (!result.ok) throw new Error(`${name}: ${result.error}`);
+      return result;
+    },
+    [method, args],
+  );
+
+if (browserName === 'webkit') {
+  // Playwright's WebKit build gathers no ICE candidates at all (two RTCPeerConnections in one page never
+  // connect), so no media can flow through LiveKit. What can be checked here is that the huddle UI renders.
+  skip('huddles: audio, video, screen share, reactions', "Playwright's WebKit build cannot make WebRTC connections (no ICE candidates)");
+  await run(async (browser) => {
+    const { base } = await startStack();
+    const maya = watch(await (await browser.newContext({ ...wide, colorScheme: 'light' })).newPage());
+    const daniel = watch(await (await browser.newContext({ ...wide })).newPage());
+    await signIn(maya, base, 'maya@example.com');
+    await signIn(daniel, base, 'daniel@example.com');
+
+    await step('the huddle button, header pill, sidebar marker and cards render (joined without media)', async () => {
+      await openChannel(maya, 'engineering');
+      await openChannel(daniel, 'engineering');
+      await maya.locator('[data-huddle-start]').waitFor();
+      const channel = new URL(daniel.url()).pathname.split('/').pop();
+      await apiCall(daniel, 'client.huddles.join', { channel });
+      await maya.locator('[data-huddle-pill] button', { hasText: 'Join' }).waitFor();
+      await sideItem(maya, 'engineering').locator('.side-huddle', { hasText: '1' }).waitFor();
+      await maya.locator('[data-huddle-card="live"]').waitFor();
+      await shot(maya, 'huddle-webkit-live');
+      await apiCall(daniel, 'client.huddles.leave', { channel });
+      await maya.locator('[data-huddle-card="ended"]').waitFor();
+      await maya.locator('[data-huddle-pill]').waitFor({ state: 'detached' });
+      assert.match(await maya.locator('[data-huddle-card="ended"]').last().innerText(), /Lasted/);
+    });
+  });
+  process.exit(process.exitCode ?? 0);
+}
+
 await run(
   async (browser) => {
-    const port = await freePort();
-    const livekit = await startLiveKit({ webhookUrl: `http://127.0.0.1:${port}/livekit/webhook` });
-    const { base } = await startServer({
-      seed: true,
-      port,
-      env: {
-        LIVEKIT_URL: livekit.url,
-        LIVEKIT_API_KEY: livekit.apiKey,
-        LIVEKIT_API_SECRET: livekit.apiSecret,
-        HUDDLE_RECONCILE_MS: '2000',
-        HUDDLE_JOIN_GRACE_MS: '6000',
-      },
-    });
+    const { base } = await startStack();
 
     const context = (scheme) =>
       // Only Chromium takes camera and microphone permissions here; Firefox uses the prefs above.
