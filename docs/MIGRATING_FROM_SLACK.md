@@ -50,6 +50,8 @@ Apps built on Slack's SDKs keep working with one changed setting. Create each ap
 
 Socket Mode apps are the easiest: nothing on your side needs to be reachable from the server.
 
+If the app has a manifest (on api.slack.com/apps: your app → **App Manifest**, switch to JSON), paste it under **Administration → Apps → Create from a manifest**: name, bot user, slash commands, shortcuts, events, scopes and Socket Mode are set from it, and anything this server cannot run is pointed out before the app is created. Tools that manage apps by API can do the same with `apps.manifest.*` and an app configuration token made on the same screen. Apps with token rotation turned on get twelve-hour tokens and refresh them as they do on Slack.
+
 [`COMPATIBILITY.md`](COMPATIBILITY.md) lists exactly which API methods and events are supported. If an app calls a method that is missing, the call fails with `unknown_method`, as Slack's API does for a method it does not know, and the server counts it; admins can list those counts with the `client.apps.unknownMethods` API method.
 
 Apps that Slack or a vendor runs for you (installed from the Slack Marketplace, or a vendor's hosted bot) cannot be repointed, because you cannot change where they send requests.

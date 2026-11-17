@@ -548,4 +548,24 @@ export const MIGRATIONS: string[] = [
     created INTEGER NOT NULL
   );
   `,
+
+  /* 11: app manifests and token rotation — expiring tokens, their refresh tokens, app configuration tokens */ `
+  ALTER TABLE tokens ADD COLUMN expires INTEGER;
+  CREATE TABLE refresh_tokens (
+    token_hash TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('bot', 'user', 'config')),
+    app_id TEXT,
+    user_id TEXT NOT NULL,
+    scopes TEXT NOT NULL DEFAULT '',
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX refresh_tokens_app ON refresh_tokens(app_id);
+  CREATE TABLE config_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    hint TEXT NOT NULL DEFAULT '',
+    created INTEGER NOT NULL,
+    expires INTEGER NOT NULL
+  );
+  `,
 ];

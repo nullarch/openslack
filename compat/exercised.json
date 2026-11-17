@@ -205,5 +205,19 @@
       "message",
       null
     ]
+  },
+  "web-api-manifest": {
+    "sdk": "@slack/web-api 8.4.0, @slack/bolt 5.1.0",
+    "methods": [
+      "apps.manifest.create",
+      "apps.manifest.delete",
+      "apps.manifest.export",
+      "apps.manifest.validate",
+      "auth.test",
+      "chat.postMessage",
+      "oauth.v2.access",
+      "tooling.tokens.rotate"
+    ],
+    "events": []
   }
 }

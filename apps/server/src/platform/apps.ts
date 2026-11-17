@@ -63,6 +63,12 @@ export interface AppConfig {
   functions: AppFunction[];
   /** Set on apps that are part of the server itself, e.g. `workflows`. */
   builtin?: string;
+  /** OAuth installs hand out twelve-hour tokens with refresh tokens; cannot be turned off again. */
+  token_rotation_enabled: boolean;
+  /** The last manifest applied to the app, kept so an export gives back what was put in. */
+  manifest?: Record<string, unknown>;
+  /** A request URL from a manifest that has not answered the verification handshake yet. */
+  pending_events_url?: string | null;
 }
 
 export interface FunctionParameter {
@@ -134,7 +140,17 @@ export function appConfig(app: AppRow): AppConfig {
   const domains = Array.isArray(raw.unfurl_domains) ? raw.unfurl_domains.filter((entry): entry is string => typeof entry === 'string') : [];
   const redirects = Array.isArray(raw.redirect_urls) ? raw.redirect_urls.filter((entry): entry is string => typeof entry === 'string') : [];
   const functions = Array.isArray(raw.functions) ? (raw.functions as AppFunction[]) : [];
-  const config: AppConfig = { shortcuts, unfurl_domains: domains, redirect_urls: redirects, functions };
+  const manifest = raw.manifest && typeof raw.manifest === 'object' ? (raw.manifest as Record<string, unknown>) : undefined;
+  const pending = typeof raw.pending_events_url === 'string' ? raw.pending_events_url : null;
+  const config: AppConfig = {
+    shortcuts,
+    unfurl_domains: domains,
+    redirect_urls: redirects,
+    functions,
+    token_rotation_enabled: raw.token_rotation_enabled === true,
+    manifest,
+    pending_events_url: pending,
+  };
   if (typeof raw.builtin === 'string') config.builtin = raw.builtin;
   return config;
 }
