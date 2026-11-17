@@ -8,6 +8,7 @@ import { conversation, conversationName, set, useStore } from '../lib/store';
 import { S } from '../strings';
 import { AppHomeView, AppTabs, useAppOf, useAppTab } from './AppViews';
 import { Composer } from './Composer';
+import { HuddleHeaderButton } from './Huddle';
 import { promptDialog } from './dialogs/confirm';
 import { MessageList } from './MessageList';
 import { Emoji, Mrkdwn } from './text';
@@ -81,6 +82,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
           </button>
         ) : null}
       </div>
+      <HuddleHeaderButton channel={conv.id} isMember={isMember} />
       {!conv.is_im ? (
         <button type="button" className="members-btn" onClick={() => openDetails('members')} title={S.header.members(conv.num_members ?? conv.members?.length ?? 0)}>
           <Users size={16} />

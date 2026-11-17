@@ -48,8 +48,8 @@ export function track(child) {
 }
 
 /** Start a server of our own on a free port with a throwaway data directory. */
-export async function startServer({ seed, previews = false }) {
-  const port = await freePort();
+export async function startServer({ seed, previews = false, port: chosenPort, env = {} }) {
+  const port = chosenPort ?? (await freePort());
   const dataDir = mkdtempSync(join(tmpdir(), 'chat-e2e-'));
   dataDirs.push(dataDir);
   const base = `http://127.0.0.1:${port}`;
@@ -67,6 +67,7 @@ export async function startServer({ seed, previews = false }) {
         SEED_DEMO: seed ? '1' : '',
         // Link previews fetch from the network; only the tests about them turn them on.
         LINK_PREVIEWS: previews ? '1' : '0',
+        ...env,
         QUIET: '1',
         NODE_NO_WARNINGS: '1',
       },
@@ -145,18 +146,20 @@ async function debugDump(browser) {
  * `npx playwright-core install webkit firefox`.
  */
 export const browserName = process.env.BROWSER ?? 'chrome';
-export function launchBrowser() {
+
+/** Launch the browser under test; `extra` holds launch options per browser: `{ chrome, firefox, webkit }`. */
+export function launchBrowser(extra = {}) {
   const headless = process.env.HEADED !== '1';
-  if (browserName === 'webkit') return webkit.launch({ headless });
-  if (browserName === 'firefox') return firefox.launch({ headless });
-  return chromium.launch({ channel: 'chrome', headless });
+  if (browserName === 'webkit') return webkit.launch({ headless, ...extra.webkit });
+  if (browserName === 'firefox') return firefox.launch({ headless, ...extra.firefox });
+  return chromium.launch({ channel: 'chrome', headless, ...extra.chrome });
 }
 
 /** Launch the browser, run `main(browser)`, then stop everything this run started. */
-export async function run(main) {
+export async function run(main, launchOptions = {}) {
   let browser;
   try {
-    browser = await launchBrowser();
+    browser = await launchBrowser(launchOptions);
     await main(browser);
     assert.deepEqual(errors, [], 'no page errors or console errors');
     console.log(`\n${passed} steps passed. Screenshots: ${shots}`);

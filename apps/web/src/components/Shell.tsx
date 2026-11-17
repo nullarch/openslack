@@ -11,6 +11,7 @@ import { AdminDialog } from './dialogs/admin';
 import { AddPeopleDialog, BrowseChannelsDialog, CreateChannelDialog, InviteDialog, NewDmDialog } from './dialogs/channels';
 import { EditProfileDialog, PreferencesDialog } from './dialogs/settings';
 import { ImageViewer } from './files';
+import { HuddleDock } from './Huddle';
 import { DetailsPanel, ProfilePanel, ThreadPanel } from './panels';
 import { QuickSwitcher, SearchView } from './Search';
 import { Sidebar } from './Sidebar';
@@ -207,6 +208,7 @@ export function Shell() {
           </div>
         </main>
       </div>
+      <HuddleDock />
       <ModalHost />
       <AppModalHost />
     </div>
