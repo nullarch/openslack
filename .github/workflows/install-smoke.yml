@@ -1,0 +1,38 @@
+# The packed command, installed into an empty folder and run with npx on each
+# operating system: starts, serves the web client, sets up a workspace and
+# finds a Korean message again. Runs on demand and when packaging changes.
+name: Install smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['packages/cli/**', 'scripts/build-release.mjs', 'scripts/smoke-installed.mjs', '.github/workflows/install-smoke.yml']
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release
+      - name: Pack
+        working-directory: packages/cli
+        shell: bash
+        run: npm pack --pack-destination "$RUNNER_TEMP" && ls "$RUNNER_TEMP"/*.tgz
+      # Install and run with the Node version under test (the package supports both).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install into an empty folder and run with npx
+        shell: bash
+        run: node scripts/smoke-installed.mjs "$(ls "$RUNNER_TEMP"/*.tgz | head -1)"
