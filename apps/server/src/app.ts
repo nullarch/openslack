@@ -2,13 +2,14 @@ import { mkdirSync } from 'node:fs';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import { createHttpServer, Router, type UpgradeHandler } from './api/http.ts';
+import { createHttpServer, DEFAULT_API_RATE_LIMIT, Router, type UpgradeHandler } from './api/http.ts';
 import { registerChat } from './api/methods/chat.ts';
 import { registerClient } from './api/methods/client.ts';
 import { registerConversations } from './api/methods/conversations.ts';
 import { registerEmoji } from './api/methods/emoji.ts';
 import { registerFileRoutes, registerFiles } from './api/methods/files.ts';
 import { registerSearch } from './api/methods/search.ts';
+import { registerSearchFiles } from './api/methods/search-files.ts';
 import { registerUsers } from './api/methods/users.ts';
 import { Registry } from './api/registry.ts';
 import { Bus } from './core/bus.ts';
@@ -80,12 +81,13 @@ export function createApp(config: Config): App {
   registerFiles(registry);
   registerEmoji(registry);
   registerSearch(registry);
+  registerSearchFiles(registry);
   registerFileRoutes(ctx, router);
   installPlatform(kernel);
   installMcp(kernel);
   gateway.start(ctx);
 
-  const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: 6000 });
+  const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });
   const explicitPublicUrl = config.publicUrl !== '';
 
   return {

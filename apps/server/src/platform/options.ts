@@ -8,6 +8,8 @@ export interface PlatformOptions {
   streamTimeoutMs: number;
   /** How long a status set with `assistant.threads.setStatus` stays up without a message. */
   statusTimeoutMs: number;
+  /** How long a `trigger_id` can be exchanged for a modal. */
+  triggerTtlMs: number;
 }
 
 function numbers(value: string | undefined): number[] | null {
@@ -27,5 +29,6 @@ export function platformOptions(env: NodeJS.ProcessEnv = process.env): PlatformO
     retryDelaysMs: numbers(env.EVENT_RETRY_DELAYS_MS) ?? [0, 60_000, 300_000],
     streamTimeoutMs: numbers(env.STREAM_TIMEOUT_MS)?.[0] ?? 10 * 60_000,
     statusTimeoutMs: numbers(env.STATUS_TIMEOUT_MS)?.[0] ?? 2 * 60_000,
+    triggerTtlMs: numbers(env.TRIGGER_TTL_MS)?.[0] ?? 3000,
   };
 }

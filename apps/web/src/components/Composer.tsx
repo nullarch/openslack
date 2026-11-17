@@ -1,5 +1,6 @@
 import type { User } from '@app/shared';
 import { AtSign, Bold, Code, Hash, Italic, Link2, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, X, FileText } from 'lucide-react';
+import { ShortcutsButton } from './AppViews';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { errorText, loadCommands, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { asset, uploadFile } from '../lib/api';
@@ -506,6 +507,7 @@ export function Composer({ channel, threadTs, placeholder, autoFocus = false, br
           >
             <AtSign size={17} />
           </IconButton>
+          <ShortcutsButton />
           {threadTs && broadcastLabel ? (
             <label className="composer-broadcast">
               <input type="checkbox" checked={broadcast} onChange={(event) => setBroadcast(event.target.checked)} />

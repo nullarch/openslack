@@ -3,13 +3,7 @@ import { getMember, resolveConv } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
 import { requireUser } from '../core/users.ts';
 import { getApp, requireApp } from './apps.ts';
-import {
-  deliverInteractive,
-  liveConv,
-  newTriggerId,
-  payloadChannelName,
-  type Interactivity,
-} from './interactivity.ts';
+import { deliverInteractive, liveConv, payloadChannelName, type Interactivity } from './interactivity.ts';
 import { isHttpUrl } from './net.ts';
 import { hasContent, readResponseContent } from './responses.ts';
 
@@ -103,7 +97,7 @@ export function installCommands(kernel: Kernel, deps: Interactivity): void {
       api_app_id: app.id,
       is_enterprise_install: 'false',
       response_url: deps.hooks.create({ app, kind: 'commands', conversationId: conv.id, userId: user.id }),
-      trigger_id: newTriggerId(),
+      trigger_id: deps.triggers.issue(app.id, user.id),
     };
     // Slack has no commands inside threads; when the client runs one there, answer there.
     const threadTs = args.ts('thread_ts');

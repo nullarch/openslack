@@ -1,13 +1,17 @@
+import { DEFAULT_API_RATE_LIMIT, TOKEN_LIMIT_RANGE, workspaceTokenLimit } from '../api/http.ts';
 import type { Kernel } from '../app.ts';
 import { fail } from '../core/errors.ts';
 import { nowSeconds } from '../core/ids.ts';
 import {
   announceBotUser,
+  appConfig,
   appToApi,
   createAppRecord,
   deleteAppRecord,
   issueToken,
   listApps,
+  readDomains,
+  readShortcuts,
   requireApp,
 } from './apps.ts';
 import { SUBSCRIBABLE_EVENTS } from './dispatch.ts';
@@ -81,11 +85,14 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
       if (unknown) fail('invalid_event', { event: unknown });
       botEvents = JSON.stringify([...new Set(wanted)]);
     }
+    const config = appConfig(app);
+    if (args.has('shortcuts')) config.shortcuts = readShortcuts(args.json('shortcuts'));
+    if (args.has('unfurl_domains') || args.str('unfurl_domains') === '') config.unfurl_domains = readDomains(args.list('unfurl_domains'));
     // A new request URL must prove it belongs to the app before it receives anything.
     if (eventsUrl && eventsUrl !== app.events_url) await http.verifyUrl(app, eventsUrl);
 
     ctx.db.run(
-      `UPDATE apps SET name = ?, description = ?, socket_mode = ?, events_url = ?, interactivity_url = ?, bot_events = ?
+      `UPDATE apps SET name = ?, description = ?, socket_mode = ?, events_url = ?, interactivity_url = ?, bot_events = ?, config = ?
        WHERE id = ?`,
       name,
       description,
@@ -93,6 +100,7 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
       eventsUrl,
       interactivityUrl,
       botEvents,
+      JSON.stringify(config),
       app.id,
     );
     if (name !== app.name) {
@@ -117,6 +125,30 @@ export function installAdmin(kernel: Kernel, sockets: SocketHub, http: HttpDeliv
     // Connections opened with the old app-level token must not outlive it.
     if (kind === 'app') sockets.disconnectApp(app.id, 'link_disabled');
     return { token };
+  });
+
+  // ── API rate limit for tokens ──────────────────────────────────────────────
+
+  /** The per-token limit apps run under: the workspace's setting, or the built-in default. */
+  kernel.registry.add('client.apps.limits', { auth: 'session' }, () => ({
+    api_rate_limit_per_minute: workspaceTokenLimit(ctx) ?? null,
+    default_per_minute: DEFAULT_API_RATE_LIMIT,
+    min: TOKEN_LIMIT_RANGE.min,
+    max: TOKEN_LIMIT_RANGE.max,
+  }));
+
+  /** Set the per-token limit (calls per minute); 0 or empty goes back to the default. */
+  kernel.registry.add('client.apps.setRateLimit', { auth: 'admin' }, ({ args }) => {
+    const team = ctx.requireTeam();
+    const value = args.int('per_minute', 0);
+    if (value === 0) {
+      ctx.db.run("UPDATE team SET prefs = json_remove(prefs, '$.api_rate_limit_per_minute') WHERE id = ?", team.id);
+    } else {
+      if (value < TOKEN_LIMIT_RANGE.min || value > TOKEN_LIMIT_RANGE.max) fail('invalid_limit', { min: TOKEN_LIMIT_RANGE.min, max: TOKEN_LIMIT_RANGE.max });
+      ctx.db.run("UPDATE team SET prefs = json_set(prefs, '$.api_rate_limit_per_minute', ?) WHERE id = ?", value, team.id);
+    }
+    ctx.invalidateTeam();
+    return { api_rate_limit_per_minute: workspaceTokenLimit(ctx) ?? null, default_per_minute: DEFAULT_API_RATE_LIMIT };
   });
 
   // ── Methods that were asked for but do not exist ───────────────────────────

@@ -74,15 +74,24 @@ const NOTES: Record<string, string> = {
   'files.list': 'Cursor pagination only; `page` is ignored.',
   'search.messages': 'Bot tokens may search (Slack: user tokens only): public channels plus the bot’s conversations.',
   'users.setPhoto': 'Takes `file_id` of an uploaded image instead of image bytes.',
+  'views.open': 'A person has one modal at a time: opening a new one replaces any modal they already had open.',
+  'views.publish': 'Any app may publish a Home tab; there is no Home tab switch to enable first.',
+  'chat.unfurl': 'Links are offered once a message is posted; `source: composer` is not supported. The app must have registered the link’s domain.',
+  'search.files': 'Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations).',
+  'search.all': '`posts` is always empty.',
+  'dnd.info': 'Reports Do Not Disturb as off unless the server implements Do Not Disturb.',
+  'dnd.teamInfo': 'Reports Do Not Disturb as off unless the server implements Do Not Disturb.',
 };
 
 /** Interaction payload types, which are not Events API subscriptions. */
 const PAYLOADS: [string, boolean, string][] = [
   ['block_actions', true, 'Buttons, menus and other elements on messages, including ephemeral ones'],
   ['slash_commands', true, 'Custom slash commands'],
-  ['view_submission / view_closed', false, 'Modals are not implemented (`views.*`)'],
-  ['shortcut / message_action', false, 'Global and message shortcuts are not implemented'],
-  ['block_suggestion', false, 'Menus with external data sources are not implemented'],
+  ['view_submission', true, 'Modal submissions, with `response_action` `errors`, `update`, `push` or `clear`'],
+  ['view_closed', true, 'Sent when the view asked for `notify_on_close`; `is_cleared` when the whole modal was closed'],
+  ['shortcut', true, 'Global shortcuts, which an admin declares on the app'],
+  ['message_action', true, 'Message shortcuts, with a `response_url` into the conversation'],
+  ['block_suggestion', true, 'Options for `external_select` menus in messages, modals and Home tabs'],
 ];
 
 const mark = (value: boolean): string => (value ? '✓' : '');

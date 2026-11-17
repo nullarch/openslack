@@ -22,6 +22,7 @@ import { Attachments, Blocks } from './blocks';
 import { confirmDialog } from './dialogs/confirm';
 import { Files } from './files';
 import { Emoji, Mrkdwn } from './text';
+import { MessageShortcutItems } from './AppViews';
 import { Avatar, IconButton, MenuDivider, MenuItem, Popover, Spinner } from './ui';
 
 const EmojiPicker = lazy(() => import('./EmojiPicker'));
@@ -291,6 +292,7 @@ function Toolbar({ channel, message, inThread, onOpenChange }: ToolbarProps) {
               }}
             />
           ) : null}
+          <MessageShortcutItems channel={channel} ts={message.ts} onDone={() => change(null)} />
           {canDelete ? (
             <>
               <MenuDivider />
