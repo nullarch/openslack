@@ -148,6 +148,18 @@ Other tools can let people sign in with their account here (OpenID Connect, the 
 
 Tools that support Sign in with Slack can instead be pointed at `https://chat.example.com/openid/connect/authorize` and `https://chat.example.com/api/`. The signing key is created on first use as `oidc-signing-key.pem` in the data directory; keep it with your backups, or tools will have to fetch the new key after a restore.
 
+## Provisioning accounts from an identity provider (SCIM)
+
+Okta, Microsoft Entra ID, OneLogin and other identity providers can create, update and deactivate accounts here with SCIM 2.0. An admin makes a token with the `client.admin.scimToken` API method (it acts with that admin's authority, can do nothing but provisioning, and a new one replaces the old), then in the identity provider's generic SCIM app:
+
+| Setting | Value |
+|---|---|
+| SCIM base URL | `https://chat.example.com/scim/v2` |
+| Authentication | Bearer token (the one above) |
+| Unique identifier | `userName` (an email address works) |
+
+Supported: listing and filtering users (`userName`, `externalId`, `emails`), create, replace, patch (including the forms Okta and Entra send) and delete, which deactivates the account and keeps its history. Groups are not provisioned yet.
+
 ## Kubernetes
 
 A Helm chart is in `deploy/helm/chat`. It runs one replica (the server owns its database file and the realtime connections) with its data on a persistent volume:

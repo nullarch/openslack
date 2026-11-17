@@ -23,6 +23,7 @@ import { Db } from './db/db.ts';
 import { installHuddles } from './huddles/index.ts';
 import { installAi } from './ai/index.ts';
 import { installWorkflows } from './workflows/index.ts';
+import { installScim } from './scim/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
@@ -98,6 +99,7 @@ export function createApp(config: Config): App {
   installHuddles(kernel);
   installAi(kernel);
   installWorkflows(kernel);
+  installScim(kernel);
   gateway.start(ctx);
 
   const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });
