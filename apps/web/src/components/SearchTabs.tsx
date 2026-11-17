@@ -11,7 +11,7 @@ import { Files } from './files';
 import { Avatar, Spinner } from './ui';
 import { PlaceLabel } from './views/common';
 
-export type SearchTab = 'messages' | 'files' | 'channels' | 'people';
+export type SearchTab = 'messages' | 'files' | 'channels' | 'people' | 'docs';
 
 /** Free text with the modifiers taken out, for the tabs that are not message search. */
 function plainTerms(query: string): string {

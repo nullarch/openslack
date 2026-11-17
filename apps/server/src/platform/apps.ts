@@ -207,6 +207,8 @@ export function readDomains(values: string[]): string[] {
 export const DEFAULT_BOT_SCOPES = [
   'app_mentions:read',
   'assistant:write',
+  'canvases:read',
+  'canvases:write',
   'channels:history',
   'channels:join',
   'channels:manage',
@@ -227,6 +229,8 @@ export const DEFAULT_BOT_SCOPES = [
   'incoming-webhook',
   'links:read',
   'links:write',
+  'lists:read',
+  'lists:write',
   'mpim:history',
   'mpim:read',
   'mpim:write',

@@ -30,6 +30,7 @@ import { installModeration } from './moderation/index.ts';
 import { installAudit } from './audit/index.ts';
 import { installFileText } from './core/file-text.ts';
 import { installAttention } from './attention/index.ts';
+import { installDocs } from './docs/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
 import { Gateway } from './realtime/gateway.ts';
@@ -103,6 +104,7 @@ export function createApp(config: Config): App {
   installMcp(kernel);
   installHuddles(kernel);
   installAi(kernel);
+  installDocs(kernel);
   installWorkflows(kernel);
   installScim(kernel);
   installRetention(kernel);

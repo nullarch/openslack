@@ -23,6 +23,7 @@ import type { ViewName } from '../lib/router';
 import { BookmarkDialog, DndScheduleDialog, ForwardDialog, ScheduleDialog, ShareFileDialog, SnippetDialog } from './dialogs/attention';
 import { ActivityView, ThreadsView, UnreadsView } from './views/Activity';
 import { DraftsView, FilesView, LaterView } from './views/Later';
+import { DocRouteView, DocsView } from './docs';
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -107,6 +108,10 @@ function WorkspaceView({ view }: { view: ViewName }) {
       return <DraftsView />;
     case 'files':
       return <FilesView />;
+    case 'canvases':
+      return <DocsView kind="canvas" />;
+    case 'lists':
+      return <DocsView kind="list" />;
   }
 }
 
@@ -204,6 +209,8 @@ export function Shell() {
               <WorkspaceView view={route.view} />
             ) : route.name === 'agents' ? (
               <AgentsView />
+            ) : route.name === 'doc' ? (
+              <DocRouteView kind={route.kind} id={route.id} />
             ) : route.name === 'workflows' ? (
               <WorkflowsView key={route.id ?? ''} id={route.id} />
             ) : route.name === 'workflowLink' ? (

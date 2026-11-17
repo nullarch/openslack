@@ -12,10 +12,11 @@ import { MessageRow } from '../Message';
 import { Emoji } from '../text';
 import { Button, IconButton, Spinner } from '../ui';
 import { EmptyNote, MessagePreview, PlaceLabel, Tabs, useRefreshOn, ViewFrame } from './common';
+import { DOC_ACTIVITY, DocActivityBody, docActivityHeadline, docActivityIcon, openDocActivity, type DocActivity } from '../docs';
 
 // ── Activity ────────────────────────────────────────────────────────────────
 
-type ActivityFilter = 'all' | 'mention' | 'thread_reply' | 'reaction' | 'invite' | 'keyword';
+type ActivityFilter = 'all' | 'mention' | 'thread_reply' | 'reaction' | 'invite' | 'keyword' | 'docs';
 
 function activityIcon(item: ActivityItem): ReactNode {
   switch (item.type) {
@@ -34,8 +35,10 @@ function activityIcon(item: ActivityItem): ReactNode {
 
 function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: ActivityItem, read: boolean) => void }) {
   const actor = useStore((state) => (item.actor ? displayName(state.users[item.actor]) : ''));
+  const doc = DOC_ACTIVITY.includes(item.type) ? (item as unknown as DocActivity) : null;
   let headline: string;
-  if (item.type === 'mention') headline = item.broadcast ? S.att.activity.mentionedAll(actor) : S.att.activity.mentioned(actor);
+  if (doc) headline = docActivityHeadline(doc, actor);
+  else if (item.type === 'mention') headline = item.broadcast ? S.att.activity.mentionedAll(actor) : S.att.activity.mentioned(actor);
   else if (item.type === 'thread_reply') headline = S.att.activity.replied(actor);
   else if (item.type === 'reaction') headline = S.att.activity.reacted(actor);
   else if (item.type === 'invite') headline = S.att.activity.invited(actor);
@@ -43,7 +46,8 @@ function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: Acti
 
   const open = (): void => {
     if (item.is_unread) onRead(item, true);
-    if (item.type === 'invite' || !item.message) go({ name: 'conversation', id: item.channel });
+    if (doc) openDocActivity(doc);
+    else if (item.type === 'invite' || !item.message) go({ name: 'conversation', id: item.channel });
     else if (item.type === 'thread_reply' && item.thread_ts) {
       go({ name: 'conversation', id: item.channel });
       openThread(item.channel, item.thread_ts);
@@ -62,10 +66,14 @@ function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: Acti
       }}
     >
       <div className="result-place">
-        <span className={`activity-icon is-${item.type}`}>{activityIcon(item)}</span>
+        <span className={`activity-icon is-${item.type}`}>{doc ? docActivityIcon(item.type) : activityIcon(item)}</span>
         <strong className="activity-headline">{headline}</strong>
-        <span className="activity-in">{S.att.activity.inPlace('')}</span>
-        <PlaceLabel channel={item.channel} />
+        {doc ? null : (
+          <>
+            <span className="activity-in">{S.att.activity.inPlace('')}</span>
+            <PlaceLabel channel={item.channel} />
+          </>
+        )}
         <time>{relative(String(item.created))}</time>
         <span className="composer-spacer" />
         <IconButton
@@ -79,7 +87,7 @@ function ActivityRow({ item, onRead }: { item: ActivityItem; onRead: (item: Acti
           <Circle size={10} fill={item.is_unread ? 'currentColor' : 'none'} />
         </IconButton>
       </div>
-      {item.message ? <MessagePreview channel={item.channel} message={item.message} /> : item.type !== 'invite' ? <p className="view-empty is-inline">{S.att.activity.gone}</p> : null}
+      {doc ? <DocActivityBody item={doc} /> : item.message ? <MessagePreview channel={item.channel} message={item.message} /> : item.type !== 'invite' ? <p className="view-empty is-inline">{S.att.activity.gone}</p> : null}
     </div>
   );
 }
@@ -97,7 +105,7 @@ export function ActivityView() {
   const load = (cursor?: string): void => {
     const id = (request.current += 1);
     setLoading(true);
-    fetchActivity({ types: filter === 'all' ? undefined : filter, unread_only: unreadOnly || undefined, cursor })
+    fetchActivity({ types: filter === 'all' ? undefined : filter === 'docs' ? DOC_ACTIVITY.join(',') : filter, unread_only: unreadOnly || undefined, cursor })
       .then((result) => {
         if (id !== request.current) return;
         setItems((current) => (cursor ? [...current, ...result.items] : result.items));
@@ -124,6 +132,7 @@ export function ActivityView() {
     { id: 'reaction', label: S.att.activity.reactions },
     { id: 'invite', label: S.att.activity.invites },
     { id: 'keyword', label: S.att.activity.keywords },
+    { id: 'docs', label: S.docs.activityFilter },
   ];
 
   return (

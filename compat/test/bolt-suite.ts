@@ -459,9 +459,93 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
         assert.equal(error.data.error, 'channel_not_found');
         return true;
       });
-      await assert.rejects(client.apiCall('canvases.create', { title: 'x' }), (error: Json) => error.data.error === 'unknown_method');
+      await assert.rejects(client.apiCall('admin.barriers.list', {}), (error: Json) => error.data.error === 'unknown_method');
       await assert.rejects(client.views.open({ trigger_id: '1.2.abc', view: { type: 'modal', title: { type: 'plain_text', text: 'x' }, blocks: [] } }), (error: Json) => error.data.error === 'invalid_trigger_id');
       await client.conversations.archive({ channel });
+    });
+
+    test('canvases and lists through the typed methods: create, edit by section, share, look up; items created, updated, listed, exported', async () => {
+      const { client } = app;
+      const created = await client.canvases.create({
+        title: 'Release notes',
+        document_content: { type: 'markdown', markdown: '# Release notes\n\n## Fixed\n\n- Login\n\n## Known issues\n\nNone yet.' },
+      });
+      const canvasId = created.canvas_id!;
+      const headers = await client.canvases.sections.lookup({ canvas_id: canvasId, criteria: { section_types: ['h2'] } });
+      assert.equal(headers.sections?.length, 2);
+      const known = await client.canvases.sections.lookup({ canvas_id: canvasId, criteria: { contains_text: 'None yet' } });
+      await client.canvases.edit({
+        canvas_id: canvasId,
+        changes: [
+          { operation: 'insert_after', section_id: headers.sections![0]!.id!, document_content: { type: 'markdown', markdown: '- Search is faster' } },
+          { operation: 'replace', section_id: known.sections![0]!.id!, document_content: { type: 'markdown', markdown: `Ask ![](@${member.userId}).` } },
+          { operation: 'insert_at_end', document_content: { type: 'markdown', markdown: '---\n\n**Shipped** with [docs](https://example.com/docs).' } },
+        ],
+      });
+      await assert.rejects(client.canvases.edit({ canvas_id: canvasId, changes: [{ operation: 'delete', section_id: 'temp:C:NOPE' }] }), (error: Json) => error.data.error === 'canvas_editing_failed');
+      assert.match((await client.canvases.getContent({ canvas_id: canvasId })).content!, /^# Release notes\n\n## Fixed/);
+      assert.match((await client.canvases.getContent({ canvas_id: canvasId, content_type: 'html' })).content!, /<h2>Fixed<\/h2>/);
+      assert.equal((await member.call('canvases.getContent', { canvas_id: canvasId })).error, 'canvas_not_found');
+      await client.canvases.access.set({ canvas_id: canvasId, access_level: 'read', user_ids: [member.userId] });
+      const content: string = (await member.ok('canvases.getContent', { canvas_id: canvasId })).content;
+      assert.match(content, /## Fixed\n\n- Search is faster\n\n- Login/);
+      assert.match(content, new RegExp(`Ask !\\[\\]\\(@${member.userId}\\)\\.`));
+      assert.match(content, /\*\*Shipped\*\* with \[docs\]\(https:\/\/example\.com\/docs\)\.$/);
+      await client.canvases.access.delete({ canvas_id: canvasId, user_ids: [member.userId] });
+      assert.equal((await member.call('client.canvases.info', { canvas_id: canvasId })).error, 'canvas_not_found');
+      const channelCanvas = await client.conversations.canvases.create({ channel_id: general, document_content: { type: 'markdown', markdown: 'How we work here' } });
+      assert.equal((await member.ok('client.canvases.info', { canvas_id: channelCanvas.canvas_id })).canvas.access_level, 'write');
+      await assert.rejects(client.conversations.canvases.create({ channel_id: general }), (error: Json) => error.data.error === 'channel_canvas_already_exists');
+      await client.canvases.delete({ canvas_id: canvasId });
+      await assert.rejects(client.canvases.sections.lookup({ canvas_id: canvasId, criteria: { contains_text: 'x' } }), (error: Json) => error.data.error === 'canvas_not_found');
+
+      const list = await client.slackLists.create({
+        name: 'Bugs',
+        schema: [
+          { key: 'title', name: 'Bug', type: 'text', is_primary_column: true },
+          { key: 'status', name: 'Status', type: 'select', options: { choices: [{ value: 'open', label: 'Open', color: 'red' }, { value: 'fixed', label: 'Fixed', color: 'green' }] } },
+          { key: 'owner', name: 'Owner', type: 'user' },
+          { key: 'due', name: 'Due', type: 'date' },
+        ],
+      });
+      const listId = list.list_id!;
+      const columns = (list as Json).list_metadata.schema as Json[];
+      const column = (key: string): string => columns.find((entry) => entry.key === key).id;
+      const title = (text: string): Json => [{ type: 'rich_text', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text }] }] }];
+      const first = await client.slackLists.items.create({
+        list_id: listId,
+        initial_fields: [
+          { column_id: column('title'), rich_text: title('Login button does nothing') },
+          { column_id: column('status'), select: ['open'] },
+          { column_id: column('due'), date: ['2026-12-01'] },
+        ],
+      });
+      const itemId = (first as Json).item.id;
+      await client.slackLists.items.create({ list_id: listId, initial_fields: [{ column_id: column('title'), rich_text: title('Slow search') }] });
+      await client.slackLists.items.update({
+        list_id: listId,
+        cells: [
+          { row_id: itemId, column_id: column('status'), select: ['fixed'] },
+          { row_id: itemId, column_id: column('owner'), user: [member.userId] },
+        ],
+      });
+      const info = await client.slackLists.items.info({ list_id: listId, id: itemId });
+      const fields = Object.fromEntries(((info as Json).record.fields as Json[]).map((field) => [field.key, field]));
+      assert.deepEqual(fields.status.select, ['fixed']);
+      assert.deepEqual(fields.owner.user, [member.userId]);
+      assert.ok(!(await member.ok('client.activity.list', {})).items.some((entry: Json) => entry.type === 'list_assigned'), 'the member cannot open the list yet, so nothing is announced');
+      await client.slackLists.access.set({ list_id: listId, access_level: 'write', user_ids: [member.userId] });
+      const listed = await client.slackLists.items.list({ list_id: listId, limit: 1 });
+      assert.equal(listed.items?.length, 1);
+      assert.ok(listed.response_metadata?.next_cursor);
+      const job = await client.slackLists.download.start({ list_id: listId });
+      const ready = await client.slackLists.download.get({ list_id: listId, job_id: job.job_id! });
+      assert.equal(ready.status, 'COMPLETED');
+      const csv = await (await fetch(ready.download_url!.replace(/^https?:\/\/[^/]+/, t.base))).text();
+      assert.match(csv, /Bug,Status,Owner,Due\r\nLogin button does nothing,Fixed,Mina Member,2026-12-01\r\nSlow search,,,\r\n/);
+      await client.slackLists.items.delete({ list_id: listId, id: itemId });
+      await client.slackLists.access.delete({ list_id: listId, user_ids: [member.userId] });
+      assert.equal((await member.call('slackLists.items.list', { list_id: listId })).error, 'list_not_found');
     });
 
     test('app.shortcut, views.open, app.options, views.push and app.view: a bug filed through a modal', async () => {
