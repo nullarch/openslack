@@ -12,6 +12,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
+import { safeInsets } from '../lib/safeArea';
 import { createPortal } from 'react-dom';
 import { asset } from '../lib/api';
 import { displayName, useStore } from '../lib/store';
@@ -142,13 +143,16 @@ export function Popover({ anchor, onClose, children, align = 'start', side = 'bo
       const rect = anchor.getBoundingClientRect();
       const width = node.offsetWidth;
       const height = node.offsetHeight;
-      const margin = 8;
+      // Kept 8px inside the part of the screen the notch and the home indicator leave free.
+      const safe = safeInsets();
+      const minTop = 8 + safe.top;
+      const maxBottom = window.innerHeight - 8 - safe.bottom;
       let top = side === 'bottom' ? rect.bottom + 6 : rect.top - height - 6;
-      if (side === 'bottom' && top + height > window.innerHeight - margin) top = rect.top - height - 6;
-      if (top < margin) top = Math.min(rect.bottom + 6, window.innerHeight - height - margin);
-      top = Math.max(margin, top);
+      if (side === 'bottom' && top + height > maxBottom) top = rect.top - height - 6;
+      if (top < minTop) top = Math.min(rect.bottom + 6, maxBottom - height);
+      top = Math.max(minTop, top);
       let left = align === 'start' ? rect.left : rect.right - width;
-      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+      left = Math.max(8 + safe.left, Math.min(left, window.innerWidth - width - 8 - safe.right));
       setStyle({ top, left, visibility: 'visible' });
     };
     place();

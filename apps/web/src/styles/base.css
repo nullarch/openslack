@@ -445,7 +445,7 @@ input[type='checkbox'] {
   border: 1px solid var(--line);
   border-radius: 11px;
   box-shadow: var(--shadow);
-  max-height: calc(100dvh - 16px);
+  max-height: calc(100dvh - 16px - var(--safe-top) - var(--safe-bottom));
   overflow: auto;
 }
 
@@ -535,7 +535,7 @@ em-emoji-picker {
 .toasts {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: calc(22px + var(--safe-bottom));
   transform: translateX(-50%);
   z-index: 500;
   display: flex;

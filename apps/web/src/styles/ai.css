@@ -75,11 +75,11 @@
 
 .ai-sheet {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: calc(20px + var(--safe-right));
+  bottom: calc(20px + var(--safe-bottom));
   z-index: 60;
-  width: min(440px, calc(100vw - 32px));
-  max-height: min(70vh, 640px);
+  width: min(440px, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
+  max-height: min(70vh, 640px, calc(100dvh - 40px - var(--safe-top) - var(--safe-bottom)));
   display: flex;
   flex-direction: column;
   background: var(--bg-raised);

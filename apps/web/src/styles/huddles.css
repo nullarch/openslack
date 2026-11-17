@@ -226,8 +226,8 @@
 /* Dock: over the bottom of the sidebar while browsing */
 .huddle-dock {
   position: fixed;
-  left: 6px;
-  bottom: 62px;
+  left: calc(6px + var(--safe-left));
+  bottom: calc(62px + var(--safe-bottom));
   z-index: 40;
   width: calc(var(--sidebar-w) - 12px);
   padding: 10px 10px 8px;
@@ -307,7 +307,7 @@
 /* Stage: the full call window */
 .huddle-stage {
   position: fixed;
-  inset: 16px;
+  inset: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
   z-index: 80;
   display: flex;
   flex-direction: column;
@@ -506,15 +506,17 @@
 @media (max-width: 760px) {
   .huddle-dock {
     left: auto;
-    right: 8px;
+    right: calc(8px + var(--safe-right));
     bottom: auto;
-    top: 52px;
+    top: calc(52px + var(--safe-top));
     width: min(300px, calc(100vw - 16px));
   }
 
+  /* The whole screen, its content clear of the status bar and the home indicator. */
   .huddle-stage {
     inset: 0;
     border-radius: 0;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   }
 
   .huddle-stage .huddle-controls {

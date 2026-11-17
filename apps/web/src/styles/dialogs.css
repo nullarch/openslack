@@ -7,7 +7,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 9vh 12px 24px;
+  padding: calc(9vh + var(--safe-top)) calc(12px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(12px + var(--safe-left));
   background: rgba(8, 20, 25, 0.55);
   overflow-y: auto;
 }
@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   max-width: 100%;
-  max-height: 82vh;
+  max-height: min(82vh, calc(100dvh - 9vh - 24px - var(--safe-top) - var(--safe-bottom)));
   border-radius: 14px;
   background: var(--bg-raised);
   color: var(--text);
@@ -231,10 +231,17 @@
   color: var(--ok);
 }
 
-.browse-purpose {
+/* "Joined" and the member count keep their one line; the description gives way. */
+.browse-sub > * {
+  flex: none;
+  white-space: nowrap;
+}
+
+.browse-sub > .browse-purpose {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* People picker */
@@ -641,7 +648,8 @@
   justify-content: center;
   gap: 22px;
   min-height: 100dvh;
-  padding: 32px 16px;
+  box-sizing: border-box;
+  padding: calc(32px + var(--safe-top)) calc(16px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(16px + var(--safe-left));
   background: var(--chrome);
   color: #fff;
   overflow: hidden auto;
@@ -744,7 +752,11 @@
 
 @media (max-width: 600px) {
   .modal-backdrop {
-    padding-top: 4vh;
+    padding-top: calc(4vh + var(--safe-top));
+  }
+
+  .modal {
+    max-height: calc(100dvh - 4vh - 24px - var(--safe-top) - var(--safe-bottom));
   }
 
   .profile-edit {

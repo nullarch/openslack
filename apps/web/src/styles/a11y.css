@@ -19,8 +19,8 @@
 /* The first Tab stop on the page jumps past the frame to the messages. */
 .skip-link {
   position: fixed;
-  top: 8px;
-  left: 8px;
+  top: calc(8px + var(--safe-top));
+  left: calc(8px + var(--safe-left));
   z-index: 1000;
   padding: 8px 14px;
   border-radius: 8px;

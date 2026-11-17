@@ -1,3 +1,4 @@
+import { safeInsets } from '../../lib/safeArea';
 import { Extension, mergeAttributes, type AnyExtension, type ChainedCommands } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
@@ -63,11 +64,12 @@ export function suggestionPopup<T extends MenuEntry>(empty: string): SuggestionO
     };
     const place = (rect: DOMRect | null | undefined): void => {
       if (!element || !rect) return;
+      const safe = safeInsets();
       const width = Math.min(280, window.innerWidth - 16);
-      element.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+      element.style.left = `${Math.max(8 + safe.left, Math.min(rect.left, window.innerWidth - width - 8 - safe.right))}px`;
       const below = rect.bottom + 6;
       const height = element.offsetHeight || 200;
-      element.style.top = `${below + height > window.innerHeight ? Math.max(8, rect.top - height - 6) : below}px`;
+      element.style.top = `${below + height > window.innerHeight - safe.bottom ? Math.max(8 + safe.top, rect.top - height - 6) : below}px`;
     };
     const take = (props: SuggestionProps<T>): void => {
       items = props.items;
