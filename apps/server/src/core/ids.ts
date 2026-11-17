@@ -23,10 +23,14 @@ export function sha256(input: string): string {
 
 const TOKEN_PREFIX = { bot: 'xoxb', user: 'xoxp', app: 'xapp' } as const;
 
-/** API tokens keep Slack's prefixes because SDKs and tooling recognise them. */
-export function newToken(kind: keyof typeof TOKEN_PREFIX): string {
+/**
+ * API tokens keep Slack's prefixes because SDKs and tooling recognise them. An
+ * app-level token carries its app's id (`xapp-1-<app id>-…`) the way Slack's do;
+ * some clients read it from the token and compare it with `auth.test`.
+ */
+export function newToken(kind: keyof typeof TOKEN_PREFIX, appId?: string | null): string {
   const digits = (): string => String(randomInt(1_000_000_000, 9_999_999_999));
-  if (kind === 'app') return `xapp-1-${newId('A', 10)}-${digits()}-${newHex(32)}`;
+  if (kind === 'app') return `xapp-1-${appId ?? newId('A', 10)}-${digits()}-${newHex(32)}`;
   return `${TOKEN_PREFIX[kind]}-${digits()}-${digits()}-${newSecret(18).replace(/[-_]/g, 'x')}`;
 }
 
