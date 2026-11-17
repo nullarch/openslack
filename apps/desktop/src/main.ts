@@ -3,6 +3,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BRAND } from '@app/shared';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron';
+import electronUpdater from 'electron-updater';
+
+/** build/icon.png, beside dist/ in the source tree and inside the packaged app. */
+const ICON = join(__dirname, '../build/icon.png');
 
 /**
  * The desktop app: the server's own web client in a window of its own, plus
@@ -108,6 +112,8 @@ function showServer(server: Server, path = '/'): void {
       minHeight: 500,
       title: server.name,
       show: false,
+      // Windows and Linux take the window icon from here; macOS from the app bundle.
+      ...(process.platform === 'darwin' ? {} : { icon: ICON }),
       webPreferences: { partition: partitionFor(server.url), contextIsolation: true, sandbox: true, spellcheck: true },
     });
     keepToServer(view, server.url);
@@ -228,6 +234,22 @@ app.on('before-quit', () => {
   quitting = true;
 });
 
+/**
+ * Installed builds update themselves from the project's GitHub releases
+ * (electron-updater reads the feed electron-builder publishes). macOS only
+ * applies updates to signed builds; until releases are signed this fails
+ * quietly there. APP_NO_UPDATES=1 turns it off (managed installs, tests).
+ */
+function checkForUpdates(): void {
+  if (!app.isPackaged || process.env.APP_NO_UPDATES === '1') return;
+  const { autoUpdater } = electronUpdater;
+  autoUpdater.logger = null;
+  autoUpdater.on('error', (error) => console.error('[update]', error.message));
+  void autoUpdater.checkForUpdatesAndNotify().catch(() => undefined);
+  const hourly = setInterval(() => void autoUpdater.checkForUpdatesAndNotify().catch(() => undefined), 6 * 3_600_000);
+  hourly.unref();
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -262,7 +284,9 @@ if (!app.requestSingleInstanceLock()) {
     else await addServer();
     const link = pendingDeepLink ?? process.argv.find((arg) => arg.startsWith(`${SCHEME}://`));
     if (link) openDeepLink(link);
-    if (process.platform === 'darwin') app.dock?.setIcon(nativeImage.createEmpty());
+    // A packaged app has its icon in the bundle; running from source shows the same one in the dock.
+    if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(nativeImage.createFromPath(ICON));
+    checkForUpdates();
   });
 
   app.on('activate', () => {
