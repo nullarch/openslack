@@ -2,7 +2,7 @@ import { blocksToPlainText, extractBlockMentions, extractMentions } from '@app/s
 import type { BusEvent } from '../core/bus.ts';
 import { getMember, type ConvRow } from '../core/conversations.ts';
 import { newId, nowSeconds } from '../core/ids.ts';
-import { createUser, getUser, type UserRow } from '../core/users.ts';
+import { createUser, getUser, userToApi, type UserRow } from '../core/users.ts';
 import type { Ctx } from '../ctx.ts';
 
 export type EventBody = BusEvent['event'];
@@ -79,12 +79,15 @@ export function systemUser(ctx: Ctx, role: 'reminders'): UserRow {
   const known = ctx.db.get<{ user_id: string }>('SELECT user_id FROM system_users WHERE role = ?', role);
   const existing = known ? getUser(ctx, known.user_id) : undefined;
   if (existing) return existing;
-  return ctx.db.tx(() => {
-    const user = createUser(ctx, { realName: 'Reminders', displayName: 'Reminders', isBot: true, botId: newId('B'), handle: undefined });
-    ctx.db.run('INSERT OR REPLACE INTO system_users (role, user_id) VALUES (?, ?)', role, user.id);
-    ctx.db.run('UPDATE users SET updated = ? WHERE id = ?', nowSeconds(), user.id);
-    return user;
+  const user = ctx.db.tx(() => {
+    const created = createUser(ctx, { realName: 'Reminders', displayName: 'Reminders', isBot: true, botId: newId('B'), handle: undefined });
+    ctx.db.run('INSERT OR REPLACE INTO system_users (role, user_id) VALUES (?, ?)', role, created.id);
+    ctx.db.run('UPDATE users SET updated = ? WHERE id = ?', nowSeconds(), created.id);
+    return created;
   });
+  // Open clients learn about the new user before its first message arrives.
+  ctx.bus.emit({ event: { type: 'team_join', user: userToApi(ctx, user), event_ts: ctx.clock.eventTs() }, audience: { all: true } });
+  return user;
 }
 
 /** Parse a JSON column, tolerating bad data. */

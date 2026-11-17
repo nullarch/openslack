@@ -144,7 +144,8 @@ function parseInline(input: string, autolink = true): MrkdwnNode[] {
       }
     }
 
-    if ((char === '*' || char === '_' || char === '~') && (before === '' || !WORD.test(before))) {
+    // A marker right after a backslash is literal, so ¯\_(ツ)_/¯ stays a shrug.
+    if ((char === '*' || char === '_' || char === '~') && (before === '' || !WORD.test(before)) && before !== '\\') {
       const next = input[i + 1];
       if (next !== undefined && !SPACE.test(next) && next !== char) {
         const close = findClose(input, i, char);
