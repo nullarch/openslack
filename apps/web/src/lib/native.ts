@@ -33,7 +33,7 @@ interface AppPlugin {
   addListener(event: 'appUrlOpen', listener: (event: { url: string }) => void): Promise<PluginListener>;
 }
 
-/** What another app shared (Android; apps/mobile/android/…/ShareTargetPlugin.java). */
+/** What another app shared (apps/mobile: ShareTargetPlugin.java on Android, ShareTargetPlugin.swift and the share extension on iOS). */
 interface Shared {
   text?: string;
   files?: { name: string; type: string; data: string }[];
@@ -153,11 +153,14 @@ export async function forgetThisPhone(): Promise<void> {
 
 // ── Shared from another app ─────────────────────────────────────────────────
 
+let shares = 0;
+
 function receiveShare(share: Shared): void {
   const text = (share.text ?? '').slice(0, 40_000);
   const files = (share.files ?? []).slice(0, 10);
   if (!text && files.length === 0) return;
-  openModal({ kind: 'incomingShare', text, files });
+  // A new share replaces one still open (the id starts its dialog afresh).
+  openModal({ kind: 'incomingShare', id: ++shares, text, files });
 }
 
 /** A share waits until someone is signed in and the workspace is on screen. */

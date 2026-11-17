@@ -5,7 +5,7 @@
   "type": "module",
   "description": "iOS and Android apps: a list of servers, each server's web client in the app, native push through the relay.",
   "scripts": {
-    "sync": "cap sync && node scripts/native-config.mjs",
+    "sync": "cap sync && node scripts/native-config.mjs && node scripts/ios-share-extension.mjs",
     "ios": "cap sync ios && cap open ios",
     "android": "cap sync android && cap open android"
   },

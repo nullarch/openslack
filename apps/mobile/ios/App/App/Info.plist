@@ -82,5 +82,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>ShareAppGroup</key>
+	<string>$(SHARE_APP_GROUP)</string>
 </dict>
 </plist>
