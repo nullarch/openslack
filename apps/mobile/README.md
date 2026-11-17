@@ -26,7 +26,7 @@ cd android && ./gradlew assembleDebug
 ## Before a store release (owner)
 
 - The bundle id (`capacitor.config.ts`, now `dev.<slug>.mobile`) is permanent once published.
-- Icons and splash screens are still Capacitor's placeholders.
+- Icons and splash screens are drawn from the mark in `www/icon.svg` by `scripts/icons.mjs` (needs `rsvg-convert`): iOS's 1024 icon without an alpha channel, Android's legacy, round and adaptive icons, and both splash screens. Change the mark and run it again for a different look.
 - iOS: an Apple Developer team, signing, the Push Notifications capability (`aps-environment`), and an APNs key for the relay. Two app ids, the app's and the share extension's (`<bundle id>.share`), both with the App Groups capability for `group.<bundle id>`.
 - Android: a Firebase project for the app; its `google-services.json` goes in `android/app/` (without it the app runs but cannot register for notifications), and its service account goes to the relay.
 - The relay must run somewhere reachable by every server, at an address the apps' users' servers are told (`PUSH_RELAY_URL`).
