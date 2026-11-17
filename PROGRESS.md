@@ -11,7 +11,7 @@ Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (
 | Area | What works |
 |---|---|
 | Messaging | Channels (public, private, archived, converted either way, created from templates, with their own email address), DMs and group DMs (a group DM can become a private channel), threads, reactions, pins, edits, scheduled send, reminders, drafts, bookmarks, saved items, sidebar sections, link previews, Block Kit and Markdown, `@here`/`@channel` and user-group mentions, posting permissions |
-| Attention | Activity, Threads, All unreads, Later views; mention counts; DND and notification schedules; desktop notifications; email digests of missed mentions and DMs; Web Push from the PWA (server side verified, browser delivery not) |
+| Attention | Activity, Threads, All unreads, Later views; mention counts; DND and notification schedules; desktop notifications; email digests of missed mentions and DMs; Web Push from the PWA (delivered through Google's push service to Chrome) |
 | Files | Uploads with thumbnails the browser makes, audio/video/PDF in place, clips (audio, video, screen) recorded in the composer with captions, public links, S3-compatible storage, encryption at rest with keys you hold, ClamAV scanning, sensitive-information checks, search inside files (text, code, Word, Excel, PowerPoint, PDF), Office documents previewed as text, documents apps keep elsewhere (`files.remote.*`) shown as cards |
 | Search | Messages and files with Slack's modifiers, FTS5 trigram (Korean, Japanese, Chinese included), optionally Meilisearch for relevance and typo tolerance, search tabs, AI answers when a model is connected |
 | Canvases and lists | Real-time co-editing (Yjs), comments, versions, sharing; lists with twelve column types, table and board views, CSV export; templates; `canvases.*`, `slackLists.*` |
@@ -40,13 +40,14 @@ Run these to reproduce.
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
 | SAML single sign-on | SimpleSAMLphp (`kristophjunge/test-saml-idp`) as the identity provider, real Chrome | button → identity provider's login → signed answer → signed in with the account created |
+| Web Push | `node e2e/push.mjs` (network) | Chrome with a real profile subscribes with Google's push service; a DM to someone away arrives as a notification from the service worker |
 | Meilisearch | Meilisearch 1.56 binary (`MEILISEARCH_TEST_URL=… node --test test/meilisearch.test.ts`) | a typo the built-in index misses is found; private messages stay private; edits and deletions arrive |
 | Installed package | the Install smoke test workflow | packed, installed into an empty folder and run with `npx` on Windows, macOS and Linux with Node 22 and 24: starts, serves the client, sets up a workspace, finds a Korean message |
 
 ### Not verified
 
 - A real Slack export, Mattermost export or Discord export (formats followed from their sources; hand-made fixtures).
-- Real Google, GitHub or third-party OpenID Connect sign-in (a fake identity provider in tests); real SMTP delivery (a fake mail server); browser push delivery.
+- Real Google, GitHub or third-party OpenID Connect sign-in (a fake identity provider in tests); real SMTP delivery (a fake mail server); push on a real phone.
 - SCIM against a real Okta or Entra ID tenant (their request shapes are reproduced in tests).
 - The Helm chart on a real cluster; Render and Fly deployments; the release workflow (needs `NPM_TOKEN`).
 - Inbound email through a real provider; Calls from a real Zoom or Meet app.
@@ -74,6 +75,7 @@ Run these to reproduce.
 - `git add -A` in the repository root once staged agent worktrees under `.claude/`. `.claude/` is ignored.
 - Never extract files into a project directory to inspect them: pulling `package.json` out of the packaged desktop app overwrote the real one, and it was deleted in a commit (restored in e5ed825).
 - VitePress reads `{{…}}` in inline code as a Vue expression; inline code is rendered `v-pre` in `docs/.vitepress/config.mts`.
+- Chrome refuses push subscriptions in Playwright's ordinary (incognito-like) contexts; use a persistent profile.
 - Playwright's WebKit has no push service: `pushManager.getSubscription()` throws `IndexSizeError` and freezes the page. Only ask for a subscription once notification permission is granted.
 - A browser test whose page froze never exited (`browser.close()` hung). `e2e/lib.mjs` now bounds the failure screenshot and the close.
 - pnpm lockfile conflicts on every branch merge: take either side and run `pnpm install`.
