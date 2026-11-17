@@ -100,7 +100,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **185 supported**, 112 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **211 supported**, 86 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -110,25 +110,51 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **185 supported**, 112 
 | `admin.barriers.update` |  | ✓ |  |
 | `admin.conversations.archive` |  | ✓ |  |
 | `admin.conversations.convertToPrivate` |  | ✓ |  |
+| `admin.conversations.convertToPublic` |  | ✓ |  |
+| `admin.conversations.create` |  | ✓ | `org_wide` creates an ordinary channel in the one workspace. |
 | `admin.conversations.delete` |  | ✓ |  |
+| `admin.conversations.getConversationPrefs` |  | ✓ |  |
 | `admin.conversations.getTeams` |  |  |  |
+| `admin.conversations.invite` |  | ✓ |  |
+| `admin.conversations.lookup` |  | ✓ |  |
 | `admin.conversations.rename` |  | ✓ |  |
 | `admin.conversations.search` |  | ✓ |  |
 | `admin.conversations.setConversationPrefs` |  | ✓ |  |
 | `admin.conversations.unarchive` |  | ✓ |  |
 | `admin.emoji.add` |  | ✓ | Takes `file_id` of an uploaded image instead of `url`. Browser session only. |
 | `admin.emoji.addAlias` |  | ✓ | Browser session only. |
+| `admin.emoji.list` |  | ✓ |  |
 | `admin.emoji.remove` |  |  | Browser session only. |
+| `admin.emoji.rename` |  | ✓ |  |
 | `admin.inviteRequests.approve` |  |  |  |
+| `admin.inviteRequests.approved.list` |  | ✓ |  |
+| `admin.inviteRequests.denied.list` |  | ✓ |  |
 | `admin.inviteRequests.deny` |  |  |  |
 | `admin.inviteRequests.list` |  |  |  |
+| `admin.teams.admins.list` |  | ✓ |  |
+| `admin.teams.list` |  | ✓ |  |
+| `admin.teams.owners.list` |  | ✓ |  |
+| `admin.teams.settings.info` |  | ✓ |  |
 | `admin.teams.settings.setDefaultChannels` |  | ✓ |  |
+| `admin.teams.settings.setDescription` |  | ✓ |  |
+| `admin.teams.settings.setDiscoverability` |  | ✓ | Stored and reported; sign-up is still governed by invites and allowed domains. |
 | `admin.teams.settings.setName` |  | ✓ |  |
+| `admin.usergroups.addChannels` |  | ✓ |  |
+| `admin.usergroups.listChannels` |  | ✓ |  |
+| `admin.usergroups.removeChannels` |  | ✓ |  |
+| `admin.users.getExpiration` |  | ✓ |  |
 | `admin.users.invite` |  | ✓ |  |
 | `admin.users.list` |  | ✓ |  |
 | `admin.users.remove` |  | ✓ |  |
+| `admin.users.session.clearSettings` |  | ✓ |  |
+| `admin.users.session.getSettings` |  | ✓ |  |
+| `admin.users.session.invalidate` |  | ✓ |  |
+| `admin.users.session.list` |  | ✓ | `session_id` is a stable number derived from the session; device fields other than `os` and `ip` are empty. |
 | `admin.users.session.reset` |  | ✓ |  |
+| `admin.users.session.resetBulk` |  | ✓ | Every session is a web session here (the desktop app included); `mobile_only` resets nothing. |
+| `admin.users.session.setSettings` |  | ✓ |  |
 | `admin.users.setAdmin` |  | ✓ |  |
+| `admin.users.setExpiration` |  | ✓ |  |
 | `admin.users.setOwner` |  |  |  |
 | `admin.users.setRegular` |  | ✓ |  |
 | `agents.sessions.rename` | ✓ | ✓ | Thread sessions only; the title is not a channel name. |
@@ -296,7 +322,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **185 supported**, 112 
 
 | Family | Count | Methods |
 |---|---|---|
-| `admin` | 76 | `admin.analytics.getFile`, `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.conversations.bulkArchive`, `admin.conversations.bulkDelete`, `admin.conversations.bulkMove`, `admin.conversations.convertToPublic`, `admin.conversations.create`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.getConversationPrefs`, `admin.conversations.getCustomRetention`, `admin.conversations.invite`, `admin.conversations.lookup`, `admin.conversations.removeCustomRetention`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.setCustomRetention`, `admin.conversations.setTeams`, `admin.emoji.list`, `admin.emoji.rename`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.inviteRequests.approved.list`, `admin.inviteRequests.denied.list`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.admins.list`, `admin.teams.create`, `admin.teams.list`, `admin.teams.owners.list`, `admin.teams.settings.info`, `admin.teams.settings.setDescription`, `admin.teams.settings.setDiscoverability`, `admin.teams.settings.setIcon`, `admin.usergroups.addChannels`, `admin.usergroups.addTeams`, `admin.usergroups.listChannels`, `admin.usergroups.removeChannels`, `admin.users.assign`, `admin.users.getExpiration`, `admin.users.session.clearSettings`, `admin.users.session.getSettings`, `admin.users.session.invalidate`, `admin.users.session.list`, `admin.users.session.resetBulk`, `admin.users.session.setSettings`, `admin.users.setExpiration`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup`, `admin.workflows.search`, `admin.workflows.unpublish` |
+| `admin` | 50 | `admin.analytics.getFile`, `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.conversations.bulkArchive`, `admin.conversations.bulkDelete`, `admin.conversations.bulkMove`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.getCustomRetention`, `admin.conversations.removeCustomRetention`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.setCustomRetention`, `admin.conversations.setTeams`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.create`, `admin.teams.settings.setIcon`, `admin.usergroups.addTeams`, `admin.users.assign`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup`, `admin.workflows.search`, `admin.workflows.unpublish` |
 | `agents` | 9 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView` |
 | `apps` | 3 | `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `blocks` | 1 | `blocks.validate` |

@@ -48,7 +48,23 @@ export function actorForUser(row: UserRow, kind: Actor['kind'], scopes: Set<stri
 // ── Browser sessions ────────────────────────────────────────────────────────
 
 /** How long a sign-in lasts: the workspace's setting (`session_duration_days`), 30 days by default. */
-export function sessionTtl(ctx: Ctx): number {
+/** Session settings an admin set for one person (admin.users.session.setSettings), if any. */
+function personalSession(ctx: Ctx, userId: string | undefined): { duration?: number; browserQuit?: boolean } {
+  if (!userId) return {};
+  try {
+    const prefs = JSON.parse(ctx.db.get<{ prefs: string }>('SELECT prefs FROM users WHERE id = ?', userId)?.prefs ?? '{}') as { session_duration?: unknown; session_browser_quit?: unknown };
+    return {
+      duration: typeof prefs.session_duration === 'number' ? prefs.session_duration : undefined,
+      browserQuit: prefs.session_browser_quit === true,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function sessionTtl(ctx: Ctx, userId?: string): number {
+  const personal = personalSession(ctx, userId).duration;
+  if (personal) return personal;
   try {
     const days = (JSON.parse(ctx.team()?.prefs ?? '{}') as { session_duration_days?: unknown }).session_duration_days;
     return typeof days === 'number' && days >= 1 && days <= 365 ? Math.round(days * 86_400) : SESSION_TTL;
@@ -66,7 +82,7 @@ export function createSession(ctx: Ctx, userId: string, userAgent: string, ip: s
     userId,
     userAgent.slice(0, 200),
     now,
-    now + sessionTtl(ctx),
+    now + sessionTtl(ctx, userId),
     now,
     ip,
   );
@@ -77,10 +93,12 @@ export function destroySession(ctx: Ctx, token: string): void {
   ctx.db.run('DELETE FROM sessions WHERE token_hash = ?', sha256(token));
 }
 
-export function sessionCookie(ctx: Ctx, token: string | null): string {
+export function sessionCookie(ctx: Ctx, token: string | null, userId?: string): string {
   const flags = `Path=/; HttpOnly; SameSite=Lax${ctx.config.cookieSecure ? '; Secure' : ''}`;
   if (token === null) return `${SESSION_COOKIE}=; ${flags}; Max-Age=0`;
-  return `${SESSION_COOKIE}=${token}; ${flags}; Max-Age=${sessionTtl(ctx)}`;
+  // "End the session when the browser closes": a cookie without Max-Age.
+  if (personalSession(ctx, userId).browserQuit) return `${SESSION_COOKIE}=${token}; ${flags}`;
+  return `${SESSION_COOKIE}=${token}; ${flags}; Max-Age=${sessionTtl(ctx, userId)}`;
 }
 
 export function readSessionToken(req: IncomingMessage): string | null {

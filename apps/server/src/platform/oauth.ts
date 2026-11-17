@@ -37,7 +37,7 @@ export const USER_SCOPES = new Set([
   // Workspace administration through a user token (team.billableInfo, team.accessLogs, team.integrationLogs).
   'admin',
   // Admin API scopes: only an admin can approve them, for their own token.
-  'admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write', 'admin.barriers:read', 'admin.barriers:write',
+  'admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write', 'admin.barriers:read', 'admin.barriers:write', 'admin.usergroups:read', 'admin.usergroups:write',
 ]);
 export const BOT_SCOPES = new Set([...DEFAULT_BOT_SCOPES, 'usergroups:read', 'bookmarks:read', 'bookmarks:write', 'reminders:write', 'dnd:read']);
 

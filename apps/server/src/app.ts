@@ -43,6 +43,7 @@ import { installInboundEmail } from './inbound/email.ts';
 import { installChannelTemplates } from './channel-templates/index.ts';
 import { installDlp } from './dlp/index.ts';
 import { installLegal } from './legal/index.ts';
+import { installMoreAdminApi } from './admin-api/extras.ts';
 import { installAdminApi } from './admin-api/index.ts';
 import { installBarriers } from './barriers/index.ts';
 import { installAttention } from './attention/index.ts';
@@ -141,6 +142,7 @@ export function createApp(config: Config): App {
   installDlp(kernel);
   installLegal(kernel);
   installAdminApi(kernel);
+  installMoreAdminApi(kernel);
   installBarriers(kernel);
   installAccounts(kernel);
   // Keep last: the audit log wraps the methods every module above registered.
