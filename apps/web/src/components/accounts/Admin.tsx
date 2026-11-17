@@ -24,14 +24,14 @@ export function InviteRequests() {
   const pending = useAccounts((state) => state.pendingRequests);
   const [requests, setRequests] = useState<InviteRequest[] | null>(null);
   const refresh = (): void => {
-    call('client.inviteRequests.list')
+    call('client.admin.inviteRequests.list')
       .then((result) => setRequests(result.requests as InviteRequest[]))
       .catch(() => setRequests([]));
   };
   useEffect(refresh, [pending]);
   if (!requests || requests.length === 0) return null;
   const decide = async (request: InviteRequest, approve: boolean): Promise<void> => {
-    const result: Json = await attempt(() => call(approve ? 'client.inviteRequests.approve' : 'client.inviteRequests.deny', { id: request.id }));
+    const result: Json = await attempt(() => call(approve ? 'client.admin.inviteRequests.approve' : 'client.admin.inviteRequests.deny', { id: request.id }));
     if (result && approve) toast(result.email_sent ? S.accounts.inviteSent(request.email) : S.saved);
     refresh();
     void refreshPendingRequests();

@@ -136,7 +136,7 @@ export async function refreshPermissions(): Promise<void> {
 
 export async function refreshPendingRequests(): Promise<void> {
   try {
-    const result = await call('client.inviteRequests.list');
+    const result = await call('client.admin.inviteRequests.list');
     setAccounts({ pendingRequests: (result.requests as unknown[]).length });
   } catch {
     setAccounts({ pendingRequests: 0 });

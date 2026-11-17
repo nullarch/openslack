@@ -152,12 +152,12 @@ Registered by `installAccounts(kernel)`, last in `createApp`.
 |---|---|
 | `client.status` | Adds `mail_enabled`, `identity_providers: [{ id, label }]`, `two_factor_setup_required` |
 | `client.boot` | Adds `permissions`, `usergroups`, `profile_fields`, `vapid_public_key`, `signup_domains`, `mail_enabled`, and `web_public` on channels open to the web. Guests receive only the people they can see |
-| `client.signin`, `client.signin.withCode`, `client.password.reset` | Answer `{ user_id }`, or `{ two_factor_required: true }` with an HttpOnly `tfa` cookie; then `client.signin.twoFactor { code }` |
-| `client.signin.sendCode { email }`, `client.password.sendReset { email }` | Mail a code or link; the same answer whether or not the address exists |
-| `client.twoFactor.status / begin / enable / disable / regenerateBackupCodes` | Authenticator setup and backup codes |
+| `client.signin`, `client.signin.withCode`, `client.account.resetPassword` | Answer `{ user_id }`, or `{ two_factor_required: true }` with an HttpOnly `tfa` cookie; then `client.signin.twoFactor { code }` |
+| `client.signin.sendCode { email }`, `client.account.sendPasswordReset { email }` | Mail a code or link; the same answer whether or not the address exists |
+| `client.security.twoFactor.status / begin / enable / disable / regenerateBackupCodes` | Authenticator setup and backup codes |
 | `GET /auth/<provider>/start?invite=` → `/auth/<provider>/callback` | Sign in with `oidc`, `google` or `github`; redirects to `/` or `/signin?error=<code>` / `/signin?step=two-factor` |
 | `client.invites.create { email?, guest?, channels?, guest_expires_in_days? }` | Answers `{ invite, email_sent }` |
-| `client.inviteRequests.create / list / approve / deny` | Requests when only admins invite; admins hear `invite_requests_changed` |
+| `client.inviteRequests.create`, `client.admin.inviteRequests.list / approve / deny` | Requests when only admins invite; admins hear `invite_requests_changed` |
 | `client.admin.settings`, `client.admin.updateSettings` | `who_can_*` (`everyone` / `admins`), `signup_domains`, `default_channels`, `require_2fa`, `public_invite_code`, `public_file_links`; tabs hear `team_prefs_changed` and refetch `client.permissions` |
 | `client.admin.setTeamIcon { file_id? }`, `client.admin.setProfileFields { fields }`, `client.admin.setAccountType { user, type }`, `client.admin.setChannelWeb { channel, web_public, web_files }`, `admin.conversations.convertToPrivate { channel_id }` | Administration |
 | `team.profile.get`, `users.profile.set { profile: { fields } }`, `usergroups.*` | Slack's shapes |

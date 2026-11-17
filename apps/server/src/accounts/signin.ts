@@ -131,9 +131,9 @@ export function twoFactorPending(ctx: Ctx, userId: string): boolean {
 export const TWO_FACTOR_SETUP_METHODS = new Set([
   'client.status',
   'client.signout',
-  'client.twoFactor.status',
-  'client.twoFactor.begin',
-  'client.twoFactor.enable',
+  'client.security.twoFactor.status',
+  'client.security.twoFactor.begin',
+  'client.security.twoFactor.enable',
 ]);
 
 // ── Mail codes ──────────────────────────────────────────────────────────────
@@ -242,7 +242,7 @@ export function registerSignIn(registry: Registry): void {
     return { ...finishSignIn(ctx, user, req, res) };
   });
 
-  registry.addPublic('client.password.sendReset', async ({ ctx, args, req }) => {
+  registry.addPublic('client.account.sendPasswordReset', async ({ ctx, args, req }) => {
     ctx.requireTeam();
     if (!mailEnabled(ctx)) fail('mail_not_configured');
     const email = validEmail(args.req('email'));
@@ -260,7 +260,7 @@ export function registerSignIn(registry: Registry): void {
     return {};
   });
 
-  registry.addPublic('client.password.reset', async ({ ctx, args, req, res }) => {
+  registry.addPublic('client.account.resetPassword', async ({ ctx, args, req, res }) => {
     // `<user id>-<secret>`: ids never contain a dash, and a dot would read as a file extension in the path.
     const raw = args.req('token');
     const dash = raw.indexOf('-');
@@ -286,14 +286,14 @@ export function registerSignIn(registry: Registry): void {
 
   // ── Two-factor settings ───────────────────────────────────────────────────
 
-  registry.add('client.twoFactor.status', { auth: 'session' }, ({ ctx, actor }) => {
+  registry.add('client.security.twoFactor.status', { auth: 'session' }, ({ ctx, actor }) => {
     const user = requireUser(ctx, actor.userId);
     const left =
       ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM backup_codes WHERE user_id = ? AND used = 0', user.id)?.n ?? 0;
     return { enabled: user.totp_enabled === 1, required: teamPrefs(ctx).require_2fa === true, backup_codes_left: left };
   });
 
-  registry.add('client.twoFactor.begin', { auth: 'session' }, ({ ctx, actor }) => {
+  registry.add('client.security.twoFactor.begin', { auth: 'session' }, ({ ctx, actor }) => {
     const user = requireUser(ctx, actor.userId);
     if (user.totp_enabled === 1) fail('already_enabled');
     const secret = newTotpSecret();
@@ -302,7 +302,7 @@ export function registerSignIn(registry: Registry): void {
     return { secret, otpauth_url: otpauthUrl(secret, user.email ?? user.name, `${team.name} (${BRAND.name})`) };
   });
 
-  registry.add('client.twoFactor.enable', { auth: 'session' }, ({ ctx, actor, args }) => {
+  registry.add('client.security.twoFactor.enable', { auth: 'session' }, ({ ctx, actor, args }) => {
     const user = requireUser(ctx, actor.userId);
     if (user.totp_enabled === 1) fail('already_enabled');
     if (!user.totp_secret) fail('not_started');
@@ -312,14 +312,14 @@ export function registerSignIn(registry: Registry): void {
     return { backup_codes: newBackupCodes(ctx, user.id) };
   });
 
-  registry.add('client.twoFactor.regenerateBackupCodes', { auth: 'session' }, ({ ctx, actor, args }) => {
+  registry.add('client.security.twoFactor.regenerateBackupCodes', { auth: 'session' }, ({ ctx, actor, args }) => {
     const user = requireUser(ctx, actor.userId);
     if (user.totp_enabled !== 1) fail('not_enabled');
     if (!checkSecondFactor(ctx, user, args.req('code'))) fail('invalid_code');
     return { backup_codes: newBackupCodes(ctx, user.id) };
   });
 
-  registry.add('client.twoFactor.disable', { auth: 'session' }, ({ ctx, actor, args }) => {
+  registry.add('client.security.twoFactor.disable', { auth: 'session' }, ({ ctx, actor, args }) => {
     const user = requireUser(ctx, actor.userId);
     if (user.totp_enabled !== 1) fail('not_enabled');
     if (teamPrefs(ctx).require_2fa) fail('required_by_workspace');

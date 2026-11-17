@@ -17,7 +17,7 @@ describe('without mail', () => {
     const status = await new Session(t.base).ok('client.status');
     assert.equal(status.mail_enabled, false);
     assert.equal((await new Session(t.base).call('client.signin.sendCode', { email: 'owner@acme.test' })).error, 'mail_not_configured');
-    assert.equal((await new Session(t.base).call('client.password.sendReset', { email: 'owner@acme.test' })).error, 'mail_not_configured');
+    assert.equal((await new Session(t.base).call('client.account.sendPasswordReset', { email: 'owner@acme.test' })).error, 'mail_not_configured');
     const { invite, email_sent } = await owner.ok('client.invites.create', { email: 'new@acme.test' });
     assert.equal(email_sent, false);
     assert.match(invite.url, /\/join\//);
@@ -89,17 +89,17 @@ describe('with mail', () => {
   test('a password reset link sets a new password, signs out old sessions and works once', async () => {
     const member = await addMember(t, owner, 'Rey Reset');
     const browser = new Session(t.base);
-    await browser.ok('client.password.sendReset', { email: 'rey.reset@acme.test' });
+    await browser.ok('client.account.sendPasswordReset', { email: 'rey.reset@acme.test' });
     const mail = await sink.next((item) => item.to.includes('rey.reset@acme.test') && /Reset/.test(item.subject));
     const token = /\/reset\/([A-Za-z0-9_.-]+)/.exec(mail.text)![1]!;
     assert.ok(token.startsWith(`${member.userId}-`));
 
-    assert.equal((await browser.call('client.password.reset', { token, password: 'short' })).error, 'password_too_short');
-    await browser.ok('client.password.reset', { token, password: 'a brand new password' });
+    assert.equal((await browser.call('client.account.resetPassword', { token, password: 'short' })).error, 'password_too_short');
+    await browser.ok('client.account.resetPassword', { token, password: 'a brand new password' });
     assert.equal((await browser.ok('auth.test')).user_id, member.userId);
     // The session from before the reset is gone.
     assert.equal((await member.call('auth.test')).error, 'invalid_auth');
-    assert.equal((await new Session(t.base).call('client.password.reset', { token, password: 'another new password' })).error, 'invalid_token');
+    assert.equal((await new Session(t.base).call('client.account.resetPassword', { token, password: 'another new password' })).error, 'invalid_token');
     const again = new Session(t.base);
     await again.ok('client.signin', { email: 'rey.reset@acme.test', password: 'a brand new password' });
   });

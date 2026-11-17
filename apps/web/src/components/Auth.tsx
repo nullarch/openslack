@@ -180,7 +180,7 @@ export function SignIn() {
         {mode === 'reset' ? (
           <form
             onSubmit={run(async () => {
-              await call('client.password.sendReset', { email: email.trim() });
+              await call('client.account.sendPasswordReset', { email: email.trim() });
               setMode('reset-sent');
             })}
           >
@@ -285,7 +285,7 @@ export function ResetPassword({ token }: { token: string }) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    call('client.password.reset', { token, password })
+    call('client.account.resetPassword', { token, password })
       .then(async (result) => {
         if (result.two_factor_required) {
           window.location.assign('/signin?step=two-factor');

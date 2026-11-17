@@ -64,19 +64,19 @@ describe('workspace settings', () => {
     await ownerStream.next((event) => event.type === 'invite_requests_changed' && event.pending === 1);
     ownerStream.close();
     assert.equal((await member.call('client.inviteRequests.create', { email: 'pal@acme.test' })).error, 'already_requested');
-    assert.equal((await member.call('client.inviteRequests.list')).error, 'not_allowed');
+    assert.equal((await member.call('client.admin.inviteRequests.list')).error, 'not_allowed');
     assert.equal((await owner.call('client.inviteRequests.create', { email: 'x@acme.test' })).error, 'can_invite_directly');
 
-    const { requests } = await owner.ok('client.inviteRequests.list');
+    const { requests } = await owner.ok('client.admin.inviteRequests.list');
     assert.deepEqual(requests.map((item: Json) => [item.email, item.reason, item.requested_by]), [['pal@acme.test', 'New designer', member.userId]]);
-    const approved = await owner.ok('client.inviteRequests.approve', { id: request.id });
+    const approved = await owner.ok('client.admin.inviteRequests.approve', { id: request.id });
     assert.equal(approved.invite.email, 'pal@acme.test');
     await new Session(t.base).ok('client.signup', { code: approved.invite.code, email: 'pal@acme.test', password: 'long enough pw', real_name: 'Pal' });
 
     const second = await member.ok('client.inviteRequests.create', { email: 'nope@acme.test' });
-    await owner.ok('client.inviteRequests.deny', { id: second.request.id });
-    assert.equal((await owner.call('client.inviteRequests.approve', { id: second.request.id })).error, 'request_not_found');
-    assert.deepEqual((await owner.ok('client.inviteRequests.list')).requests, []);
+    await owner.ok('client.admin.inviteRequests.deny', { id: second.request.id });
+    assert.equal((await owner.call('client.admin.inviteRequests.approve', { id: second.request.id })).error, 'request_not_found');
+    assert.deepEqual((await owner.ok('client.admin.inviteRequests.list')).requests, []);
     await owner.ok('client.admin.updateSettings', { who_can_invite: 'everyone' });
   });
 

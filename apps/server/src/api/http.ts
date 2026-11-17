@@ -181,8 +181,8 @@ const SIGN_IN_METHODS = new Set([
   'client.signin.twoFactor',
   'client.signin.sendCode',
   'client.signin.withCode',
-  'client.password.sendReset',
-  'client.password.reset',
+  'client.account.sendPasswordReset',
+  'client.account.resetPassword',
 ]);
 
 async function handleApi(

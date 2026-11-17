@@ -53,7 +53,7 @@ function TwoFactorSection() {
   const [setting, setSetting] = useState(false);
   const [codes, setCodes] = useState<string[] | null>(null);
   const refresh = (): void => {
-    call('client.twoFactor.status')
+    call('client.security.twoFactor.status')
       .then(setStatus)
       .catch(() => setStatus({ enabled: false }));
   };
@@ -65,11 +65,11 @@ function TwoFactorSection() {
   };
   const disable = async (): Promise<void> => {
     const code = await ask(S.accounts.twoFactorDisablePrompt);
-    if (code && (await attempt(() => call('client.twoFactor.disable', { code })))) refresh();
+    if (code && (await attempt(() => call('client.security.twoFactor.disable', { code })))) refresh();
   };
   const regenerate = async (): Promise<void> => {
     const code = await ask(S.accounts.backupNew);
-    const result = code ? await attempt(() => call('client.twoFactor.regenerateBackupCodes', { code })) : undefined;
+    const result = code ? await attempt(() => call('client.security.twoFactor.regenerateBackupCodes', { code })) : undefined;
     if (result) setCodes(result.backup_codes as string[]);
   };
 

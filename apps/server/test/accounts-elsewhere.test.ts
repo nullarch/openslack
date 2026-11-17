@@ -79,8 +79,8 @@ describe('account rules elsewhere', () => {
     assert.equal(await consent(member), true);
 
     // Two-factor sign-in becomes required: until the member sets it up, apps cannot be signed into either.
-    const secret = (await owner.ok('client.twoFactor.begin')).secret as string;
-    await owner.ok('client.twoFactor.enable', { code: totpAt(secret, currentStep()) });
+    const secret = (await owner.ok('client.security.twoFactor.begin')).secret as string;
+    await owner.ok('client.security.twoFactor.enable', { code: totpAt(secret, currentStep()) });
     await owner.ok('client.admin.updateSettings', { require_2fa: true });
     assert.equal(await consent(member), false);
     assert.equal(await consent(owner), true);

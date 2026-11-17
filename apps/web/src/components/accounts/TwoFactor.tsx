@@ -54,7 +54,7 @@ export function TwoFactorSetup({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    call('client.twoFactor.begin')
+    call('client.security.twoFactor.begin')
       .then((result) => setSecret({ secret: result.secret, otpauth_url: result.otpauth_url }))
       .catch((failure: unknown) => setError(errorText(failure)));
   }, []);
@@ -66,7 +66,7 @@ export function TwoFactorSetup({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await call('client.twoFactor.enable', { code: code.trim() });
+      const result = await call('client.security.twoFactor.enable', { code: code.trim() });
       setCodes(result.backup_codes as string[]);
     } catch (failure) {
       setError(errorText(failure));

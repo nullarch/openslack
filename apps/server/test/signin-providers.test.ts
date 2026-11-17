@@ -152,14 +152,14 @@ describe('two-factor sign-in', () => {
   });
 
   test('turning it on: an authenticator code proves the secret, and backup codes come once', async () => {
-    const begun = await owner.ok('client.twoFactor.begin');
+    const begun = await owner.ok('client.security.twoFactor.begin');
     secret = begun.secret;
     assert.match(begun.otpauth_url, /^otpauth:\/\/totp\/.+secret=[A-Z2-7]+/);
-    assert.equal((await owner.call('client.twoFactor.enable', { code: '000000' === code(secret) ? '111111' : '000000' })).error, 'invalid_code');
-    const enabled = await owner.ok('client.twoFactor.enable', { code: code(secret) });
+    assert.equal((await owner.call('client.security.twoFactor.enable', { code: '000000' === code(secret) ? '111111' : '000000' })).error, 'invalid_code');
+    const enabled = await owner.ok('client.security.twoFactor.enable', { code: code(secret) });
     assert.equal(enabled.backup_codes.length, 10);
     assert.match(enabled.backup_codes[0], /^[a-z0-9]{5}-[a-z0-9]{5}$/);
-    const status = await owner.ok('client.twoFactor.status');
+    const status = await owner.ok('client.security.twoFactor.status');
     assert.deepEqual([status.enabled, status.backup_codes_left], [true, 10]);
     (globalThis as { backupCodes?: string[] }).backupCodes = enabled.backup_codes;
   });
@@ -190,7 +190,7 @@ describe('two-factor sign-in', () => {
   });
 
   test('provider sign-in also asks for the second factor', async () => {
-    await owner.ok('client.twoFactor.status');
+    await owner.ok('client.security.twoFactor.status');
     idp.person = { sub: 'sso-owner', email: 'owner@acme.test', email_verified: true, name: 'Owner' };
     const start = await fetch(`${t.base}/auth/oidc/start`, { redirect: 'manual' });
     const done = await fetch(idp.approve(start.headers.get('location')!).replace(/^http:\/\/localhost:\d+/, t.base), { redirect: 'manual' });
@@ -209,12 +209,12 @@ describe('two-factor sign-in', () => {
     assert.equal((await member.call('client.boot')).error, 'two_factor_setup_required');
     assert.equal((await member.ok('client.status')).two_factor_setup_required, true);
     await assert.rejects(member.connect());
-    const begun = await member.ok('client.twoFactor.begin');
-    await member.ok('client.twoFactor.enable', { code: code(begun.secret) });
+    const begun = await member.ok('client.security.twoFactor.begin');
+    await member.ok('client.security.twoFactor.enable', { code: code(begun.secret) });
     await member.ok('conversations.list');
-    assert.equal((await member.call('client.twoFactor.disable', { code: code(begun.secret, 1) })).error, 'required_by_workspace');
+    assert.equal((await member.call('client.security.twoFactor.disable', { code: code(begun.secret, 1) })).error, 'required_by_workspace');
     await owner.ok('client.admin.updateSettings', { require_2fa: false });
-    await member.ok('client.twoFactor.disable', { code: code(begun.secret, 1) });
-    assert.equal((await member.ok('client.twoFactor.status')).enabled, false);
+    await member.ok('client.security.twoFactor.disable', { code: code(begun.secret, 1) });
+    assert.equal((await member.ok('client.security.twoFactor.status')).enabled, false);
   });
 });

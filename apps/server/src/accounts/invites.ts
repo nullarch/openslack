@@ -243,12 +243,12 @@ export function registerInvites(registry: Registry): void {
     return { request: requestToApi(ctx, id) };
   });
 
-  registry.add('client.inviteRequests.list', { auth: 'admin' }, ({ ctx }) => {
+  registry.add('client.admin.inviteRequests.list', { auth: 'admin' }, ({ ctx }) => {
     const rows = ctx.db.all<{ id: string }>("SELECT id FROM invite_requests WHERE status = 'pending' ORDER BY created");
     return { requests: rows.map((row) => requestToApi(ctx, row.id)) };
   });
 
-  registry.add('client.inviteRequests.approve', { auth: 'admin' }, async ({ ctx, actor, args, req }) => {
+  registry.add('client.admin.inviteRequests.approve', { auth: 'admin' }, async ({ ctx, actor, args, req }) => {
     const request = pendingRequest(ctx, args.req('id'));
     const invite = createInvite(ctx, { email: request.email, createdBy: actor.userId, expiresInDays: 30, maxUses: 1 });
     ctx.db.run(
@@ -262,7 +262,7 @@ export function registerInvites(registry: Registry): void {
     return { invite: inviteToApi(origin(ctx, req), invite), email_sent: sent };
   });
 
-  registry.add('client.inviteRequests.deny', { auth: 'admin' }, ({ ctx, actor, args }) => {
+  registry.add('client.admin.inviteRequests.deny', { auth: 'admin' }, ({ ctx, actor, args }) => {
     const request = pendingRequest(ctx, args.req('id'));
     ctx.db.run(
       "UPDATE invite_requests SET status = 'denied', decided_by = ?, decided = ? WHERE id = ?",
