@@ -164,6 +164,10 @@ Supported: listing and filtering users (`userName`, `externalId`, `emails`), cre
 
 Set `CLAMAV_URL=tcp://clamav:3310` to have every upload checked by a ClamAV daemon (for example the `clamav/clamav-debian` container, which also runs on ARM) before anyone can see it. An infected file is deleted and the upload fails with `file_infected`. If the daemon cannot be reached the upload is refused (`scan_unavailable`); `CLAMAV_FAIL_OPEN=1` accepts it unscanned instead. Files larger than `CLAMAV_MAX_MB` (25, clamd's default stream limit) are not scanned; raise both together if you need to.
 
+## Audit log
+
+Changes to people, roles, apps, channels and workspace settings, and every sign-in (including failed ones), are recorded with who, when, from which address and with what browser or tool. Admins read it with `client.admin.audit.list`; for a SIEM or a script, make a token with `client.admin.auditToken` and read `GET /audit/v1/logs` (the shape of Slack's Audit Logs API: `limit`, `cursor`, `oldest`, `latest`, `action`, `actor`, `entity`). Arguments are reduced to identifiers; passwords and tokens are never written to it.
+
 ## Retention
 
 By default everything is kept. Workspace owners can set how many days messages in channels, direct messages and files are kept with the `client.admin.setRetention` API method (`{"retention": {"messages_days": 365, "dm_days": 90, "files_days": 365}}`; `0` keeps forever, `dm_days: null` follows channels). `client.admin.retention` shows the policy and, with `preview`, how much a policy would delete. Deletion starts when the policy is saved and then runs hourly; it cannot be undone. A thread whose first message is past the limit but has newer replies keeps a "deleted" placeholder so the replies stay reachable.

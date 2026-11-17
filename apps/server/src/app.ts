@@ -27,6 +27,7 @@ import { installScim } from './scim/index.ts';
 import { installRetention } from './retention/index.ts';
 import { installStats } from './stats/index.ts';
 import { installModeration } from './moderation/index.ts';
+import { installAudit } from './audit/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installMcp } from './mcp/index.ts';
 import { installPlatform } from './platform/index.ts';
@@ -106,6 +107,8 @@ export function createApp(config: Config): App {
   installRetention(kernel);
   installStats(kernel);
   installModeration(kernel);
+  // Keep last: the audit log wraps the methods every module above registered.
+  installAudit(kernel);
   gateway.start(ctx);
 
   const server = createHttpServer(ctx, { registry, router, upgrades, rateLimitPerMinute: DEFAULT_API_RATE_LIMIT });

@@ -595,4 +595,21 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX message_reports_open ON message_reports(status, created);
   `,
+
+  /* 14: audit log — who did what to the workspace, and when */ `
+  CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY,
+    created INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    actor_type TEXT NOT NULL,
+    actor_id TEXT,
+    entity_type TEXT,
+    entity_id TEXT,
+    details TEXT NOT NULL DEFAULT '{}',
+    ip TEXT,
+    ua TEXT
+  );
+  CREATE INDEX audit_log_created ON audit_log(created);
+  CREATE INDEX audit_log_action ON audit_log(action, created);
+  `,
 ];
