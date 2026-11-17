@@ -59,6 +59,15 @@
       "view_submission"
     ]
   },
+  "bolt-js-oauth": {
+    "sdk": "@slack/bolt 5.1.0",
+    "methods": [
+      "auth.test",
+      "chat.postMessage",
+      "search.messages"
+    ],
+    "events": []
+  },
   "bolt-js-socket": {
     "sdk": "@slack/bolt 5.1.0, @slack/web-api 8.4.0",
     "methods": [
