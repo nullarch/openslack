@@ -27,9 +27,18 @@ async function registration(): Promise<ServiceWorkerRegistration | null> {
 export async function pushState(): Promise<PushState> {
   if (!supported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'blocked';
-  const reg = await registration();
-  const subscription = await reg?.pushManager.getSubscription();
-  return subscription ? 'on' : 'off';
+  // A subscription needs the permission, so without it there is nothing to look
+  // up; asking anyway wedges the page in WebKit builds with no push service.
+  if (Notification.permission !== 'granted') return 'off';
+  try {
+    const reg = await registration();
+    const subscription = await reg?.pushManager.getSubscription();
+    return subscription ? 'on' : 'off';
+  } catch {
+    // The API is there but no push service answers (headless browsers, some
+    // private modes): WebKit throws IndexSizeError, Firefox an AbortError.
+    return 'unsupported';
+  }
 }
 
 function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {

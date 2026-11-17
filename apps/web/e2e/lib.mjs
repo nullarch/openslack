@@ -134,7 +134,8 @@ async function debugDump(browser) {
   for (const context of browser.contexts()) {
     for (const page of context.pages()) {
       index += 1;
-      await page.screenshot({ path: join(shots, `failure-${index}.png`) }).catch(() => undefined);
+      // A page that stopped responding must not hold up the report.
+      await page.screenshot({ path: join(shots, `failure-${index}.png`), timeout: 5000 }).catch(() => undefined);
       console.log(`  page ${index}: ${page.url()}`);
     }
   }
@@ -169,8 +170,13 @@ export async function run(main, launchOptions = {}) {
     await debugDump(browser);
     process.exitCode = 1;
   } finally {
-    await browser?.close().catch(() => undefined);
+    // A browser with a page that stopped responding can fail to close; do not wait on it forever.
+    const closed = await Promise.race([browser ? browser.close().then(() => true, () => true) : true, sleep(15_000).then(() => false)]);
     stopAll();
+    if (!closed) {
+      console.error('  the browser did not close; exiting');
+      process.exit(process.exitCode || 1);
+    }
   }
 }
 
