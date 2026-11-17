@@ -1,3 +1,4 @@
+import { clientIp } from '../../core/network.ts';
 import type { BootData, Role, Team } from '@app/shared';
 import type { Ctx } from '../../ctx.ts';
 import {
@@ -162,7 +163,7 @@ export function registerClient(registry: Registry): void {
     );
     ctx.invalidateTeam();
 
-    const token = createSession(ctx, owner.id, String(req.headers['user-agent'] ?? ''), req.socket.remoteAddress ?? null);
+    const token = createSession(ctx, owner.id, String(req.headers['user-agent'] ?? ''), clientIp(ctx, req));
     res.setHeader('set-cookie', sessionCookie(ctx, token));
     return { user_id: owner.id, team_id: ctx.requireTeam().id };
   });

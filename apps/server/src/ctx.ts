@@ -33,6 +33,10 @@ export interface Config {
   inboundEmailDomain?: string | null;
   /** Shared secret the mail provider sends with each inbound message. */
   inboundEmailSecret?: string | null;
+  /** How many reverse proxies add an X-Forwarded-For entry in front of the server (0: none, use the socket address). */
+  trustProxy?: number;
+  /** Ignore the workspace's IP allowlist (recovery after locking yourself out). */
+  ipAllowlistDisabled?: boolean;
   /** Sender address for outgoing mail. */
   mailFrom?: string;
   /** External sign-in providers configured by the operator. */

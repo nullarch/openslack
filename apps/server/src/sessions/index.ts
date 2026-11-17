@@ -1,5 +1,6 @@
 import type { Kernel } from '../app.ts';
 import { readSessionToken, sessionTtl } from '../core/auth.ts';
+import { allowlistPolicy, clientIp, inRanges, parseCidr } from '../core/network.ts';
 import { fail } from '../core/errors.ts';
 import { sha256 } from '../core/ids.ts';
 import { getUser } from '../core/users.ts';
@@ -100,6 +101,24 @@ export function installSessions(kernel: Kernel): void {
   });
 
   kernel.registry.add('client.admin.sessionSettings', { auth: 'admin' }, () => ({ session_duration_days: Math.round(sessionTtl(ctx) / 86_400) }));
+
+  /** The IP allowlist, and the address this request comes from (to see what to allow). */
+  kernel.registry.add('client.admin.ipAllowlist', { auth: 'admin' }, ({ req }) => ({ ...allowlistPolicy(ctx), your_address: clientIp(ctx, req), disabled_by_server: Boolean(ctx.config.ipAllowlistDisabled) }));
+
+  /** Owners set it; a list that would shut out the owner setting it is refused. Empty turns it off. */
+  kernel.registry.add('client.admin.setIpAllowlist', { auth: 'admin' }, ({ actor, args, req }) => {
+    if (actor.role !== 'owner' && actor.role !== 'primary_owner') fail('not_allowed');
+    const cidrs = args.list('cidrs').map((value) => value.trim()).filter(Boolean);
+    if (cidrs.length > 100) fail('invalid_arguments', { arg: 'cidrs' });
+    const bad = cidrs.find((cidr) => !parseCidr(cidr));
+    if (bad) fail('invalid_cidr', { cidr: bad });
+    const here = clientIp(ctx, req);
+    if (cidrs.length && !inRanges(cidrs, here)) fail('would_lock_out', { your_address: here });
+    const policy = { cidrs, applies_to_tokens: args.bool('applies_to_tokens') };
+    ctx.db.run("UPDATE team SET prefs = json_set(prefs, '$.ip_allowlist', json(?)) WHERE id = ?", JSON.stringify(policy), ctx.requireTeam().id);
+    ctx.invalidateTeam();
+    return policy;
+  });
 
   /** How long a sign-in lasts, 1–365 days; shortening it also shortens sessions already open. */
   kernel.registry.add('client.admin.setSessionDuration', { auth: 'admin' }, ({ args }) => {

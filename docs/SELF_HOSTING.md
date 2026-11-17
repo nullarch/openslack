@@ -204,6 +204,10 @@ Set `CLAMAV_URL=tcp://clamav:3310` to have every upload checked by a ClamAV daem
 
 Tools that manage a Slack workspace through its admin API work here too: `admin.users.*` (list, roles, invite, remove, session reset), `admin.conversations.*` (search, rename, archive, delete, posting rules) and `admin.teams.settings.*`. They need an admin's user token with the `admin.*` scopes, from an OAuth install that only an admin can approve; the token can never do more than that admin could in the web client, and everything it does is in the audit log.
 
+## IP allowlist
+
+Owners can limit where the workspace may be used from: a list of address ranges (`client.admin.setIpAllowlist {"cidrs": ["203.0.113.0/24", "2001:db8::/32"]}`). Browsers, sign-in and the live connection from other addresses are refused with `access_denied`; API tokens too when `applies_to_tokens` is set. A list that would shut out the owner setting it is refused, and `IP_ALLOWLIST_DISABLED=1` lifts it if you lock yourself out anyway. Behind a reverse proxy, set `TRUST_PROXY` to the number of proxies in front of the server so the client's own address (from `X-Forwarded-For`) is used here, in sessions and in the audit log.
+
 ## Audit log
 
 Changes to people, roles, apps, channels and workspace settings, and every sign-in (including failed ones), are recorded with who, when, from which address and with what browser or tool. Admins read it with `client.admin.audit.list`; for a SIEM or a script, make a token with `client.admin.auditToken` and read `GET /audit/v1/logs` (the shape of Slack's Audit Logs API: `limit`, `cursor`, `oldest`, `latest`, `action`, `actor`, `entity`). Arguments are reduced to identifiers; passwords and tokens are never written to it.

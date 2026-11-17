@@ -1,3 +1,4 @@
+import { clientIp } from '../core/network.ts';
 import type { IncomingMessage } from 'node:http';
 import { sendJson } from '../api/http.ts';
 import type { Args, Call } from '../api/registry.ts';
@@ -72,6 +73,7 @@ const ACTIONS: Record<string, string | ((args: Args, ok: boolean) => string)> = 
   'admin.users.session.reset': 'user_session_reset',
   'client.admin.sessions.resetAll': 'all_sessions_reset',
   'client.admin.setSessionDuration': 'session_duration_changed',
+  'client.admin.setIpAllowlist': 'ip_allowlist_changed',
   'client.sessions.revoke': 'session_revoked',
   'client.sessions.revokeOthers': 'other_sessions_revoked',
   'usergroups.create': 'user_group_created',
@@ -98,9 +100,6 @@ interface AuditRow {
   ua: string | null;
 }
 
-function clientIp(req: IncomingMessage): string | null {
-  return req.socket.remoteAddress ?? null;
-}
 
 /** What was acted on, from the arguments or (for creations) the result. */
 function entityOf(args: Args, result: Record<string, unknown> | void): { type: string; id: string } | null {
@@ -130,7 +129,7 @@ export function recordAuditEvent(ctx: Kernel['ctx'], entry: { action: string; ac
     'user',
     entry.actorId,
     JSON.stringify(entry.details ?? {}),
-    clientIp(entry.req),
+    clientIp(ctx, entry.req),
     String(entry.req.headers['user-agent'] ?? '').slice(0, 300) || null,
   );
 }
@@ -167,7 +166,7 @@ export function installAudit(kernel: Kernel): void {
       entity?.type ?? null,
       entity?.id ?? null,
       JSON.stringify(details),
-      clientIp(call.req),
+      clientIp(ctx, call.req),
       String(call.req.headers['user-agent'] ?? '').slice(0, 300) || null,
     );
   };

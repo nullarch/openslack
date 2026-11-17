@@ -1,3 +1,4 @@
+import { clientIp } from '../core/network.ts';
 import { randomInt } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BRAND } from '@app/shared';
@@ -76,7 +77,7 @@ export function finishSignIn(ctx: Ctx, user: UserRow, req: IncomingMessage, res:
     res.setHeader('set-cookie', cookie(ctx, CHALLENGE_COOKIE, token, CHALLENGE_TTL));
     return { two_factor_required: true };
   }
-  const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''), req.socket.remoteAddress ?? null);
+  const token = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''), clientIp(ctx, req));
   res.setHeader('set-cookie', [sessionCookie(ctx, token), cookie(ctx, CHALLENGE_COOKIE, null, 0)]);
   return { user_id: user.id };
 }
@@ -201,7 +202,7 @@ export function registerSignIn(registry: Registry): void {
       fail('invalid_code');
     }
     ctx.db.run('DELETE FROM login_challenges WHERE token_hash = ?', challenge.token_hash);
-    const session = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''), req.socket.remoteAddress ?? null);
+    const session = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''), clientIp(ctx, req));
     res.setHeader('set-cookie', [sessionCookie(ctx, session), cookie(ctx, CHALLENGE_COOKIE, null, 0)]);
     return { user_id: user.id };
   });

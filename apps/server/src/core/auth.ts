@@ -1,3 +1,4 @@
+import { addressAllowed } from './network.ts';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Actor, Ctx } from '../ctx.ts';
@@ -161,6 +162,8 @@ export interface AuthResult {
   invalid: boolean;
   /** The credential was a rotating token past its expiry. */
   expired?: boolean;
+  /** The credential is valid but this address is outside the workspace's IP allowlist. */
+  addressRefused?: boolean;
 }
 
 /**
@@ -174,11 +177,13 @@ export function authenticate(ctx: Ctx, req: IncomingMessage, tokenArg: string | 
   if (token) {
     const actor = tokenActor(ctx, token);
     if (actor === 'expired') return { actor: null, invalid: true, expired: true };
+    if (actor && !addressAllowed(ctx, req, 'token')) return { actor: null, invalid: true, addressRefused: true };
     return { actor, invalid: actor === null };
   }
   const session = readSessionToken(req);
   if (session) {
     const actor = sessionActor(ctx, session);
+    if (actor && !addressAllowed(ctx, req, 'session')) return { actor: null, invalid: true, addressRefused: true };
     return { actor, invalid: actor === null };
   }
   return { actor: null, invalid: false };

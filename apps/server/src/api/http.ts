@@ -1,3 +1,4 @@
+import { addressAllowed } from '../core/network.ts';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -210,7 +211,9 @@ async function handleApi(
       throw new ApiError('unknown_method', { req_method: name });
     }
 
-    const { actor, invalid, expired } = authenticate(ctx, req, args.str('token'));
+    const { actor, invalid, expired, addressRefused } = authenticate(ctx, req, args.str('token'));
+    // Signing in from outside the workspace's allowed addresses is refused before the password is checked.
+    if (addressRefused || (SIGN_IN_METHODS.has(name) && !addressAllowed(ctx, req, 'signin'))) throw new ApiError('access_denied', { detail: 'ip_not_allowed' });
     if (def.auth !== 'none') {
       if (!actor) throw new ApiError(expired ? 'token_expired' : invalid ? 'invalid_auth' : 'not_authed');
       if (actor.kind === 'session') {

@@ -70,6 +70,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     smtpUrl: env.SMTP_URL?.trim() || null,
     inboundEmailDomain: env.INBOUND_EMAIL_DOMAIN?.trim().toLowerCase() || null,
     inboundEmailSecret: env.INBOUND_EMAIL_SECRET?.trim() || null,
+    trustProxy: Number(env.TRUST_PROXY ?? 0) || 0,
+    ipAllowlistDisabled: env.IP_ALLOWLIST_DISABLED === '1',
     mailFrom: env.MAIL_FROM?.trim() || undefined,
     identityProviders: identityProvidersFromEnv(env),
     metricsToken: env.METRICS_TOKEN?.trim() || null,
