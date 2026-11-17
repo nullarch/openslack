@@ -3,6 +3,7 @@ import type { MethodDef } from '../api/registry.ts';
 import { ApiError } from '../core/errors.ts';
 import { installExport } from '../export/export.ts';
 import { installPublicPages } from '../public/pages.ts';
+import { installPush, vapid } from '../push/webpush.ts';
 import { mailEnabled } from '../core/mail.ts';
 import { getUser } from '../core/users.ts';
 import { expireGuests, guestExpired } from '../core/guests.ts';
@@ -40,6 +41,7 @@ export function installAccounts(kernel: Kernel): void {
   installOAuth(kernel);
   installExport(kernel);
   installPublicPages(kernel);
+  installPush(kernel);
 
   // Expired guests lose access the moment they next call, and in a sweep every minute.
   registry.guards.push((name, actor) => {
@@ -71,6 +73,7 @@ export function installAccounts(kernel: Kernel): void {
     permissions: permissionsFor(ctx, actor.userId),
     signup_domains: teamPrefs(ctx).signup_domains ?? [],
     usergroups: groupsForBoot(ctx, actor.userId),
+    vapid_public_key: vapid(ctx).publicKey,
     profile_fields: profileFields(ctx, false).map((row) => ({ id: row.id, label: row.label, hint: row.hint, type: row.type, possible_values: row.possible_values ? JSON.parse(row.possible_values) : null })),
   }));
 }
