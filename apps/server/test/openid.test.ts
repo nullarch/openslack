@@ -36,7 +36,10 @@ describe('Sign in with this workspace (OpenID Connect)', () => {
     `${t.base}/openid/connect/authorize?${new URLSearchParams({ response_type: 'code', scope: 'openid profile email', client_id: info.client_id, redirect_uri: redirect, state: 'st', nonce: 'n-123', ...params })}`;
 
   const signIn = async (params: Record<string, string> = {}): Promise<string> => {
-    const html = await (await fetch(authorizeUrl(params), { headers: { cookie: owner.cookie } })).text();
+    const consent = await fetch(authorizeUrl(params), { headers: { cookie: owner.cookie } });
+    // Browsers apply form-action to the redirect after the POST, so the app's address must be allowed.
+    assert.match(consent.headers.get('content-security-policy')!, /form-action 'self' https:\/\/wiki\.example\.com;/);
+    const html = await consent.text();
     assert.match(html, /Sign in to Team Wiki with your/);
     const token = /name="form_token" value="([0-9a-f]+)"/.exec(html)![1]!;
     const approved = await fetch(authorizeUrl(params), {

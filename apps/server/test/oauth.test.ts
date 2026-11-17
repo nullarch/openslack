@@ -31,10 +31,17 @@ describe('OAuth v2 install flow: refusals', () => {
     assert.equal((await owner.call('client.apps.update', { app: info.app.id, redirect_urls: ['javascript:alert(1)'] })).error, 'invalid_redirect_urls');
   });
 
-  test('a signed-out visitor gets a sign-in form; the consent page cannot be framed', async () => {
-    const page = await fetch(authorizeUrl({}));
-    assert.equal(page.status, 200);
-    assert.match(await page.text(), /Sign in to continue/);
+  test('a signed-out visitor is sent to the web sign-in, which brings them back; the consent page cannot be framed', async () => {
+    const signedOut = await fetch(authorizeUrl({}), { redirect: 'manual' });
+    assert.equal(signedOut.status, 302);
+    const target = new URL(signedOut.headers.get('location')!, t.base);
+    assert.equal(target.pathname, '/signin');
+    assert.equal(target.searchParams.get('next'), `/oauth/v2/authorize?${new URL(authorizeUrl({})).searchParams}`);
+    // There is no password form here any more: two-factor and single sign-on rules cannot be skipped.
+    const posted = await fetch(authorizeUrl({}), { method: 'POST', redirect: 'manual', headers: { origin: t.base, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ decision: 'signin', email: 'owner@acme.test', password: 'x' }) });
+    assert.equal(posted.status, 302);
+    assert.equal(new URL(posted.headers.get('location')!, t.base).pathname, '/signin');
+    const page = await fetch(authorizeUrl({}), { headers: { cookie: owner.cookie } });
     assert.equal(page.headers.get('x-frame-options'), 'DENY');
   });
 

@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BRAND } from '@app/shared';
 import { isSameOrigin, parseBody, readBody } from '../api/http.ts';
 import type { Kernel } from '../app.ts';
-import { actorForUser, createSession, createToken, readSessionToken, sessionCookie, verifyPassword, authenticate } from '../core/auth.ts';
+import { actorForUser, createToken, readSessionToken, authenticate } from '../core/auth.ts';
 import { fail } from '../core/errors.ts';
 import { newSecret, sha256 } from '../core/ids.ts';
 import { getUser, isAdmin, type UserRow } from '../core/users.ts';
@@ -54,7 +54,11 @@ export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 }
 
-export function page(res: ServerResponse, status: number, title: string, body: string): void {
+/**
+ * A small server-rendered page. `formTargets` are origins a form on it may end up at: the app's
+ * redirect URL, since browsers apply `form-action` to the redirect that follows the POST too.
+ */
+export function page(res: ServerResponse, status: number, title: string, body: string, formTargets: string[] = []): void {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} · ${escapeHtml(BRAND.name)}</title>
 <style>
@@ -74,7 +78,7 @@ export function page(res: ServerResponse, status: number, title: string, body: s
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
     'x-frame-options': 'DENY',
-    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+    'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'${formTargets.map((origin) => ` ${origin}`).join('')}; frame-ancestors 'none'`,
   });
   res.end(html);
 }
@@ -164,31 +168,22 @@ export function installOauth(kernel: Kernel): void {
            ${blocked ? '' : '<button class="primary" type="submit" name="decision" value="allow">Allow</button>'}
          </div>
        </form>`,
+      [new URL(details.redirectUri).origin],
     );
   };
 
-  const renderSignIn = (res: ServerResponse, query: string, error = ''): void => {
-    page(
-      res,
-      200,
-      'Sign in',
-      `<h1>Sign in to continue</h1><p>An app is asking to be installed in ${escapeHtml(ctx.requireTeam().name)}.</p>
-       ${error ? `<p class="error">${escapeHtml(error)}</p>` : ''}
-       <form method="post" action="/oauth/v2/authorize?${escapeHtml(query)}">
-         <input type="hidden" name="decision" value="signin">
-         <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required>
-         <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
-         <div class="row"><button class="primary" type="submit">Sign in</button></div>
-       </form>`,
-    );
-  };
+  /**
+   * Not signed in: the web client's own sign-in brings the person back here, so every rule
+   * it applies (two-factor, single sign-on, guest expiry) applies to installing an app too.
+   */
+  const toSignIn = (res: ServerResponse, query: string): void => redirectTo(res, `/signin?${new URLSearchParams({ next: `/oauth/v2/authorize?${query}` })}`);
 
   kernel.router.add('GET', /^\/oauth\/v2\/authorize$/, ({ req, res, url }) => {
     if (!ctx.team()) return errorPage(res, 'This server has not been set up yet.');
     const details = inspect(url.searchParams, res);
     if (!details) return;
     const who = signedIn(req);
-    if (!who) return renderSignIn(res, url.searchParams.toString());
+    if (!who) return toSignIn(res, url.searchParams.toString());
     renderConsent(res, url.searchParams.toString(), who.user, who.session, details);
   });
 
@@ -200,18 +195,9 @@ export function installOauth(kernel: Kernel): void {
     const form = parseBody(String(req.headers['content-type'] ?? 'application/x-www-form-urlencoded'), await readBody(req, 64 * 1024));
     const query = url.searchParams.toString();
 
-    if (form.decision === 'signin') {
-      const email = String(form.email ?? '').trim().toLowerCase();
-      const user = ctx.db.get<UserRow>('SELECT * FROM users WHERE email = ? AND is_bot = 0', email);
-      const valid = await verifyPassword(String(form.password ?? ''), user?.password_hash ?? null);
-      if (!user || !valid || user.deleted === 1) return renderSignIn(res, query, 'That email and password do not match an active account.');
-      const session = createSession(ctx, user.id, String(req.headers['user-agent'] ?? ''));
-      res.setHeader('set-cookie', sessionCookie(ctx, session));
-      return renderConsent(res, query, user, session, details);
-    }
 
     const who = signedIn(req);
-    if (!who) return renderSignIn(res, query);
+    if (!who) return toSignIn(res, query);
     if (!sameToken(String(form.form_token ?? ''), formToken(who.session))) return errorPage(res, 'The form expired. Open the install link again.');
 
     const back = (params: Record<string, string>): void =>

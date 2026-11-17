@@ -843,3 +843,306 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+/* Administration: seven tabs scroll sideways on narrow screens instead of wrapping */
+.admin-modal .tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.admin-modal .tabs button {
+  white-space: nowrap;
+  flex: none;
+}
+
+/* ── Analytics: stat tiles and charts (data-viz palette, validated for both surfaces) ── */
+.analytics {
+  --viz-s1: #2a78d6;
+  --viz-s2: #eb6834;
+  --viz-s3: #1baf7a;
+  --viz-single: var(--primary);
+  --viz-grid: var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+:root[data-theme='dark'] .analytics {
+  --viz-s1: #3987e5;
+  --viz-s2: #d95926;
+  --viz-s3: #199e70;
+  --viz-single: #4ea3bf;
+}
+
+.analytics-range {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  align-self: flex-start;
+}
+
+.analytics-range button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.analytics-range button.is-active {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.stat-label {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.stat-value {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stat-note {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.viz-card {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.viz-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.viz-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.viz-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viz-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: currentColor;
+}
+
+.viz-swatch.viz-s1 { color: var(--viz-s1); }
+.viz-swatch.viz-s2 { color: var(--viz-s2); }
+.viz-swatch.viz-s3 { color: var(--viz-s3); }
+
+.viz-plot {
+  position: relative;
+}
+
+.viz-plot svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.viz-grid {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.viz-tick {
+  fill: var(--text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-mark.viz-s1 { fill: var(--viz-s1); }
+.viz-mark.viz-s2 { fill: var(--viz-s2); }
+.viz-mark.viz-s3 { fill: var(--viz-s3); }
+.viz-mark.viz-single { fill: var(--viz-single); }
+
+.viz-hit {
+  fill: transparent;
+  cursor: default;
+}
+
+g.is-hover .viz-hit {
+  fill: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.viz-tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-size: 12.5px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.viz-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.viz-tooltip-row b {
+  margin-left: auto;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-table-wrap {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.viz-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.viz-table th {
+  text-align: left;
+  color: var(--text-2);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.viz-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-table td:first-child {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Audit log, reports, retention, tokens ── */
+.audit-tools {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.audit-tools .field {
+  margin: 0;
+  min-width: 200px;
+}
+
+.audit-table td:first-child {
+  white-space: nowrap;
+}
+
+.report-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.report-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.report-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+
+.report-excerpt {
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reports-admin .row-actions,
+.service-tokens .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.retention-setting,
+.service-tokens {
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.retention-setting legend,
+.service-tokens legend {
+  padding: 0;
+}
+
+.service-token-made {
+  margin-top: 10px;
+}

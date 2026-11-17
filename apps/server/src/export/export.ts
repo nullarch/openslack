@@ -1,3 +1,4 @@
+import { recordAuditEvent } from '../audit/index.ts';
 import type { Writable } from 'node:stream';
 import type { Kernel } from '../app.ts';
 import { authenticate } from '../core/auth.ts';
@@ -154,6 +155,7 @@ export function installExport(kernel: Kernel): void {
       return;
     }
     const team = ctx.requireTeam();
+    recordAuditEvent(ctx, { action: 'workspace_exported', actorId: actor.userId, req, details: { files: url.searchParams.get('files') !== '0' } });
     const stamp = new Date().toISOString().slice(0, 10);
     res.writeHead(200, {
       'content-type': 'application/zip',

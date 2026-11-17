@@ -11,6 +11,8 @@ import { Avatar, Button, CopyField, Field, IconButton, Modal, Spinner } from '..
 import { confirmDialog } from './confirm';
 import { ResponsesAdmin } from '../workflows/ResponsesAdmin';
 import { AppStepsSetting } from '../workflows/AppSteps';
+import { AnalyticsAdmin } from '../admin/Analytics';
+import { AuditAdmin, ReportsAdmin, RetentionSetting, ServiceTokens } from '../admin/Governance';
 import { ConfigTokenSetting, ManifestCreate, ManifestEditor } from '../AppManifest';
 import { GuestControls, InviteRequests, WorkspaceSettings } from '../accounts/Admin';
 
@@ -662,6 +664,9 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
     { id: 'emoji', label: S.admin.emoji },
     { id: 'apps', label: S.admin.apps },
     { id: 'workspace', label: S.admin.workspace },
+    { id: 'analytics', label: S.admin.analytics },
+    { id: 'reports', label: S.admin.reports },
+    { id: 'audit', label: S.admin.audit },
   ];
   return (
     <Modal title={S.admin.title} onClose={closeModal} width={720} className="admin-modal">
@@ -681,8 +686,13 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
             <WorkspaceSettings />
             <MessagePolicyAdminGuard />
             <ResponsesAdmin />
+            <RetentionSetting />
+            <ServiceTokens />
           </>
         ) : null}
+        {tab === 'analytics' ? <AnalyticsAdmin /> : null}
+        {tab === 'reports' ? <ReportsAdmin /> : null}
+        {tab === 'audit' ? <AuditAdmin /> : null}
       </div>
     </Modal>
   );

@@ -64,8 +64,32 @@ export function setOnBooted(hook: () => void): void {
 /** Further work to start once the workspace is loaded, and again after a reconnect. */
 export const afterBoot: (() => void)[] = [];
 
+/**
+ * Server pages that send people here to sign in (an app's install or "sign in
+ * with this workspace" page) pass where to go back to as `?next=`. Only those
+ * same-origin paths are honoured.
+ */
+const RETURN_PATH = /^\/(oauth|openid)\/[\w/.-]*(\?[^#]*)?$/;
+
+function rememberReturnPath(): void {
+  if (window.location.pathname !== '/signin') return;
+  const next = new URLSearchParams(window.location.search).get('next');
+  if (next && RETURN_PATH.test(next)) sessionStorage.setItem('after-signin-page', next);
+}
+
+/** After signing in: back to the server page that asked for it, if one did. Returns true when leaving. */
+function returnToServerPage(): boolean {
+  const next = sessionStorage.getItem('after-signin-page');
+  if (!next) return false;
+  sessionStorage.removeItem('after-signin-page');
+  if (!RETURN_PATH.test(next)) return false;
+  window.location.assign(next);
+  return true;
+}
+
 export async function start(): Promise<void> {
   window.addEventListener('popstate', () => void applyRoute(parseRoute(window.location)));
+  rememberReturnPath();
   try {
     const status = await call('client.status');
     set({ publicTeam: status.team });
@@ -132,6 +156,7 @@ export async function boot(): Promise<void> {
   for (const hook of afterBoot) hook();
   void loadCommands();
 
+  if (returnToServerPage()) return;
   const saved = sessionStorage.getItem('after-signin');
   sessionStorage.removeItem('after-signin');
   let route = get().route;

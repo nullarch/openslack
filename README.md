@@ -24,7 +24,9 @@ docker run -p 3000:3000 -v openslack:/data ghcr.io/nullarch/openslack
 - **Your Slack apps keep working.** Point an existing Bolt app at OpenSlack and it receives events, posts Block Kit messages, handles button clicks and slash commands. [What is supported](docs/COMPATIBILITY.md) is generated from what the official SDKs actually exercised.
 - **Agents you already run can move over.** [OpenClaw](https://github.com/openclaw/openclaw)'s official Slack plugin connects with one environment variable, `SLACK_API_URL` ([how it was checked](compat/openclaw/README.md)).
 - **Agents are first-class.** Rate limits are yours to set, message streaming works, and there is a built-in [MCP](https://modelcontextprotocol.io) endpoint at `/mcp` with search, read and post tools that respect each token's permissions.
-- **Bring your history.** A Slack export imports with users, channels, threads, reactions and pins, keeping the original ids so mentions and links still resolve.
+- **Paste your app's manifest.** Name, bot, slash commands, shortcuts, events and scopes come from the same JSON manifest you use on Slack (`apps.manifest.*` works too), and token rotation behaves as it does there.
+- **Bring your history.** A Slack export imports with users, channels, threads, reactions and pins, keeping the original ids so mentions and links still resolve. Mattermost and Discord exports import too.
+- **The admin features are in the free edition.** Single sign-on (OpenID Connect, Google, GitHub), two-factor sign-in, SCIM provisioning, an audit log in the shape of Slack's Audit Logs API, retention, guests and analytics. Other tools can also use the workspace to sign people in.
 - **One process, one folder.** Node.js and a data directory holding a SQLite file and your uploads. Back up the folder and you have backed up everything.
 - **Nothing held back.** Apache-2.0. No user cap, no history limit, no paid edition, no telemetry.
 
@@ -61,16 +63,18 @@ claude mcp add --transport http team http://localhost:3000/mcp --header "Authori
 
 Tools: `search_messages`, `read_channel`, `read_thread`, `list_channels`, `list_users`, `post_message`, `add_reaction`.
 
-## Import from Slack
+## Import from Slack, Mattermost or Discord
 
 Export your workspace from Slack (Workspace settings → Import/Export Data), create your OpenSlack workspace, then:
 
 ```bash
 openslack import-slack ./export.zip                   # messages, threads, reactions, pins
 openslack import-slack ./export.zip --download-files  # also fetch the files
+openslack import-mattermost ./export.zip              # mmctl export create
+openslack import-discord ./exports/                   # DiscordChatExporter JSON
 ```
 
-People from the export sign in by accepting an invite with the same email address and find their history waiting.
+People from the export sign in by accepting an invite with the same email address and find their history waiting. [Moving from Slack](docs/MIGRATING_FROM_SLACK.md) has the details.
 
 ## Run from source
 
@@ -119,7 +123,7 @@ The others are mature products with years of production use and far more feature
 - [Architecture](docs/ARCHITECTURE.md): layout, data model and contracts
 - [Compatibility](docs/COMPATIBILITY.md): supported methods and events
 - [Moving from Slack](docs/MIGRATING_FROM_SLACK.md): export, import, invite, repoint bots
-- [Self-hosting](docs/SELF_HOSTING.md): configuration, reverse proxy, backups
+- [Self-hosting](docs/SELF_HOSTING.md): configuration, sign-in, provisioning, retention, scanning, Kubernetes, backups
 - [Product requirements](PRD.md): scope and phases
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 

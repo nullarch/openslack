@@ -142,7 +142,8 @@ export function installModeration(kernel: Kernel): void {
     else list.delete(target.id);
     prefs.hidden_users = [...list];
     ctx.db.run('UPDATE users SET prefs = ? WHERE id = ?', JSON.stringify(prefs), self.id);
-    ctx.bus.emit({ event: { type: 'pref_change', name: 'hidden_users', value: prefs.hidden_users }, audience: { users: [self.id] }, clientOnly: true });
+    // Same shape as client.prefs.set: every device of this person gets the whole preference set.
+    ctx.bus.emit({ event: { type: 'pref_change', prefs, name: 'hidden_users', value: prefs.hidden_users }, audience: { users: [self.id] }, clientOnly: true });
     return { hidden_users: prefs.hidden_users };
   });
 }

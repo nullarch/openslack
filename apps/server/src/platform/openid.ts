@@ -227,6 +227,7 @@ export function installOpenId(kernel: Kernel): void {
            <button class="primary" type="submit" name="decision" value="allow">Continue</button>
          </div>
        </form>`,
+      [new URL(details.redirectUri).origin],
     );
   });
 

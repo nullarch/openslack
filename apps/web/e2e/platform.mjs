@@ -297,6 +297,32 @@ async function main(browser) {
     await maya.keyboard.press('Escape');
   });
 
+  await step('sign in with this workspace: a signed-out visitor signs in on the web and comes back to the consent page', async () => {
+    const redirect = 'https://wiki.example.com/auth/callback';
+    const app = await maya.evaluate(async (redirectUrl) => {
+      const post = async (method, body) => (await fetch(`/api/${method}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+      const created = await post('client.apps.create', { name: 'Team Wiki' });
+      await post('client.apps.update', { app: created.app.id, redirect_urls: [redirectUrl] });
+      return post('client.apps.info', { app: created.app.id });
+    }, redirect);
+    const stranger = await browser.newContext({ ...wide, colorScheme: 'light' });
+    const page = watch(await stranger.newPage());
+    const authorize = `${server.base}/openid/connect/authorize?${new URLSearchParams({ response_type: 'code', scope: 'openid profile email', client_id: app.client_id, redirect_uri: redirect, state: 'xyz' })}`;
+    await page.goto(authorize);
+    await page.waitForURL('**/signin**');
+    await page.fill('input[type="email"]', 'daniel@example.com');
+    await page.fill('input[type="password"]', 'demo-password');
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/openid/connect/authorize**');
+    await page.locator('h1', { hasText: 'Sign in to Team Wiki' }).waitFor();
+    const back = page.waitForRequest((request) => request.url().startsWith(redirect));
+    await page.locator('button', { hasText: 'Continue' }).click();
+    const callback = new URL((await back).url());
+    assert.equal(callback.searchParams.get('state'), 'xyz');
+    assert.ok(callback.searchParams.get('code'));
+    await stranger.close();
+  });
+
   void eventsUrl;
 }
 

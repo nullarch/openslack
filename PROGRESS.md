@@ -2,77 +2,80 @@
 
 Read this first. It says what exists, how it was verified, and what is next. The task board is `TODO.html`; scope and phases are in `PRD.md`.
 
-## State on 2026-11-16
+## State on 2026-11-17
 
-0.1 is feature-complete for the launch demo and runs end to end on one machine (macOS, Node 24). It is not published anywhere: the repository is private, nothing is on npm or a container registry.
-
-Everything below was built on 2026-11-16.
+Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (macOS, Node 24), and much of the 0.3 list too. Nothing is published: the repository is private and nothing is on npm or a container registry. Owner decisions that block a release are listed under *Next*.
 
 ### What exists
 
 | Area | What works |
 |---|---|
-| Server (`apps/server`) | One Node process, built-in SQLite. Workspaces, sessions, invites, roles; channels, private channels, DMs, group DMs; messages, threads, reactions, pins, files; read state and mention counts; search (FTS5 trigram, Korean/Japanese/Chinese included); client WebSocket with presence and typing |
-| Slack-compatible API | 70 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Same endpoints serve the web client and bots |
-| App platform (`src/platform`) | Apps and tokens, Events API over HTTP (signing, retries), Socket Mode, `block_actions`, `response_url`, slash commands, incoming webhooks, streamed messages (`chat.startStream` family), assistant thread status |
-| Web client (`apps/web`) | Setup, sign-in, invite sign-up; sidebar, conversation, thread and profile panels; composer with formatting, autocomplete and uploads; Block Kit and Markdown rendering; reactions, pins, permalinks; search and quick switcher; admin screens for members, emoji and apps; light and dark themes; phone layout |
-| Import (`src/importer`) | Slack export zip or folder: users, channels, DMs, messages, threads, reactions, pins, optional file download. Keeps original ids. Re-runnable |
-| MCP (`src/mcp`) | `/mcp` endpoint with seven tools, authorised by API tokens |
-| Packaging | `pnpm release` bundles the server into one file plus the web client (`packages/cli`, 3 MB). `Dockerfile`, `compose.yaml` |
-| Example | `examples/hello-agent`: a Bolt agent that streams a reply and handles a button |
+| Messaging | Channels (public, private, archived, converted either way), DMs and group DMs (a group DM can become a private channel), threads, reactions, pins, edits, scheduled send, reminders, drafts, bookmarks, saved items, sidebar sections, link previews, Block Kit and Markdown, `@here`/`@channel` and user-group mentions, posting permissions |
+| Attention | Activity, Threads, All unreads, Later views; mention counts; DND and notification schedules; desktop notifications; Web Push from the PWA (server side verified, browser delivery not) |
+| Files | Uploads with thumbnails the browser makes, audio/video/PDF in place, public links, S3-compatible storage, ClamAV scanning, search inside files (text, code, Word, Excel, PowerPoint, PDF) |
+| Search | Messages and files with Slack's modifiers, FTS5 trigram (Korean, Japanese, Chinese included), search tabs, AI answers when a model is connected |
+| Canvases and lists | Real-time co-editing (Yjs), comments, versions, sharing; lists with twelve column types, table and board views, CSV export; templates; `canvases.*`, `slackLists.*` |
+| Huddles | Audio, video, screen sharing and reactions through LiveKit |
+| AI (off until a model is connected) | Channel and thread summaries, daily recaps, search answers, translation, writing help, an Agents view; Claude by default |
+| Workflows | Builder with six triggers (shortcut, link, schedule, reaction, channel join, webhook), steps (message, form, add to channel, list item, webhook, branch, app-provided steps), run history, custom responses |
+| Accounts | Email and password, mailed sign-in codes, password reset, Google and GitHub sign-in, OpenID Connect single sign-on with accounts created on first use, two-factor (TOTP) that a workspace can require, guests (multi- and single-channel, expiry), user groups, invite requests, allowed email domains, profile fields |
+| Administration | Members, roles, deactivation; workspace settings and permissions; custom emoji; apps; analytics; audit log (also at `/audit/v1/logs`); message reports and hiding a person; retention; export of the whole workspace; SCIM 2.0 user provisioning; tokens for provisioning and audit collectors |
+| Slack-compatible app platform | 129 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Events API over HTTP and Socket Mode, RTM, interactivity, modals, App Home, shortcuts, slash commands, unfurls, streaming, assistant threads, incoming webhooks, OAuth v2 installs, token rotation, app manifests (`apps.manifest.*`), "Sign in with this workspace" (OpenID Connect, Slack's claim names) |
+| MCP | `/mcp` endpoint on the official SDK v2 (protocol 2026-07-28 and 2025 clients), tools that respect each token's permissions |
+| Import | Slack export (zip or folder), Mattermost bulk export, Discord (DiscordChatExporter JSON). Re-runnable |
+| Clients | Web client (light and dark, phone layout, installable PWA), public read-only channel pages, desktop app (Electron: badge, several servers, deep links, automatic updates) |
+| Operations | One process with built-in SQLite; `/metrics` (Prometheus) and JSON logs; backup and restore test script; Docker image, Helm chart, Render and Fly files; docs site (VitePress) |
 
 ### How it was verified
 
 Run these to reproduce.
 
-| Check | Command | Result |
+| Check | Command | Result on 2026-11-17 |
 |---|---|---|
-| Types | `pnpm typecheck` | clean in all packages |
-| Unit and integration tests | `pnpm test` | 114 pass: shared 12, web 9, server 67, compatibility harness 26 |
-| Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript over Socket Mode and over HTTP, Bolt for Python over Socket Mode |
-| Browser tests | `pnpm --filter @app/web e2e` | 36 steps, two browsers, system Chrome: the core flows, then files (audio, video, PDF, paste), profile photo, role change and deactivation, webhooks, token rotation |
-| Agent round trip in the UI | `pnpm --filter @app/web e2e:agent` | A real Bolt agent: mention in the browser → streamed reply → button click answered; a slash command acknowledged privately and answered in the channel |
-| Published package | `npm pack` in `packages/cli`, install the tarball in an empty folder, `npx openslack` | Starts, serves the client, no dependencies installed. Also run in a `node:24-slim` container (Linux arm64): setup, a message, a Korean search |
-| Docker image | `docker build .`, then `docker run -p 3000:3000 -e SEED_DEMO=1 …` | 170 MB image, runs as a non-root user, serves the client and the API |
-| Brand rule | `pnpm check:brand` | The product name appears only in `packages/shared/src/brand.ts` |
-
-Measured on an Apple-silicon laptop: about 140 MB of memory at rest, about 750 bytes of database per message including the search index, about 6,000 messages written per second.
+| Types, brand rule | `pnpm typecheck`, `pnpm check:brand` | clean |
+| Unit and integration tests | `pnpm test` | server 278+, compat 61, shared 19, web 10, all passing |
+| Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases and lists, `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
+| Browser tests | `pnpm --filter @app/web e2e` | ten files in system Chrome: smoke, files and people, platform, attention, huddles (real LiveKit), AI, workflows, canvases, accounts, agent round trip. Several also run in Playwright's WebKit and Firefox |
+| Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
+| Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
+| Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
+| Published package, Docker image | `npm pack` + install in an empty folder; `docker build` | start and serve (last checked 2026-11-16, Linux arm64 and x64) |
 
 ### Not verified
 
-- Windows and x64 Linux. Everything ran on macOS and in Linux arm64 containers on the same machine.
-- The release workflow (`.github/workflows/release.yml`) has never run.
-- Bolt for Python over HTTP.
-- A real Slack export. The importer is tested against a hand-written export that follows the documented format, including a zip made with the system `zip`.
-- Which third-party agents (OpenClaw, Codex, Claude Code's Slack integration) can be repointed. Only apps we wrote with Bolt have been run.
-- Browsers other than Chrome, and real phones.
-- In the Apps screen: HTTP delivery settings (event and interactivity URLs) and app-level token rotation. Select and overflow menus answered by a real app (only buttons made the round trip).
-- Load: nothing has been run with many concurrent connections.
+- A real Slack export, Mattermost export or Discord export (formats followed from their sources; hand-made fixtures).
+- Real Google, GitHub or third-party OpenID Connect sign-in (a fake identity provider in tests); real SMTP delivery (a fake mail server); browser push delivery.
+- SCIM against a real Okta or Entra ID tenant (their request shapes are reproduced in tests).
+- The Helm chart on a real cluster; Render and Fly deployments; the release workflow; Windows as a server host.
+- Real phones and Safari as an app (Playwright's WebKit only).
+- Load beyond one machine: the server is one process by design (`TODO.html` t030 covers sharing it).
 
 ## Decisions taken while building
 
-- **SQLite instead of PostgreSQL.** A required database server would break the one-command install. Data access stays inside `src/core`.
-- **Text area composer** that writes Slack `mrkdwn`, not a WYSIWYG editor.
-- **MCP through the official SDK** (`@modelcontextprotocol/sdk` 1.x, protocol versions up to 2025-11-25). The 2026-07-28 revision of the protocol is not handled yet.
-- **Where the platform differs from Slack on purpose:** a bot is told about a mention in a public channel even when it has not joined; an app with no event subscriptions receives every event type; Socket Mode is the default for a new app; a new bot token gets a broad fixed scope set. `docs/COMPATIBILITY.md` and the platform fork's notes in the merge commit have the full list.
+- **SQLite instead of PostgreSQL.** A required database server would break the one-command install. Data access stays inside the server's modules.
+- **Migrations are positional.** Branches built in parallel each appended one; merging puts them in a fixed order (10 workflows, 11 manifests and rotation, 12 analytics, 13 reports, 14 audit log, 15 file text, 16 canvases and lists, 17 accounts). A migration's SQL never depends on its number.
+- **The audit log wraps API methods** rather than every module calling it: `installAudit` must stay the last install in `app.ts`, and new admin methods named `client.admin.*` (or `client.account.*`, `client.security.*`) are covered without further work.
+- **Slack's names where Slack has them**, `client.*` for the rest. Claim names in ID tokens, the audit log shape and the manifest schema follow Slack's so tools written for Slack work.
+- **Where the platform differs from Slack on purpose:** a bot hears mentions in public channels it has not joined; Socket Mode is the default for a new app; a manifest's request URL is used only once it passes the verification handshake; scopes this server does not grant are refused in manifests rather than ignored. `docs/COMPATIBILITY.md` has the full list.
+- **No new runtime dependency without a reason in the commit:** the server added `yjs`/`y-protocols`/`lib0` (co-editing) and `nodemailer` (SMTP); scanning, PDF/Office text, SCIM, OIDC signing and the manifest validator use Node built-ins only.
 
 ## Traps found
 
-- A WebSocket upgrade with `Origin: null` crashed the process (URL parsing threw inside the upgrade handler). Fixed and tested; keep `isSameOrigin()` as the only place that parses `Origin`.
-- `git add -A` in the repository root once staged agent worktrees under `.claude/`. `.claude/` is now ignored.
-- Node prints an "experimental" warning for `node:sqlite`. The published command filters it; from source it is visible and harmless.
+- A WebSocket upgrade with `Origin: null` crashed the process. Keep `isSameOrigin()` as the only place that parses `Origin`.
+- `git add -A` in the repository root once staged agent worktrees under `.claude/`. `.claude/` is ignored.
+- Never extract files into a project directory to inspect them: pulling `package.json` out of the packaged desktop app overwrote the real one, and it was deleted in a commit (restored in e5ed825).
+- VitePress reads `{{…}}` in inline code as a Vue expression; inline code is rendered `v-pre` in `docs/.vitepress/config.mts`.
+- Playwright's WebKit has no push service: `pushManager.getSubscription()` throws `IndexSizeError` and freezes the page. Only ask for a subscription once notification permission is granted.
+- A browser test whose page froze never exited (`browser.close()` hung). `e2e/lib.mjs` now bounds the failure screenshot and the close.
 - pnpm lockfile conflicts on every branch merge: take either side and run `pnpm install`.
-- The timestamp clock once mixed the wall clock with unaligned sub-millisecond digits, so a stamp could repeat or go backwards and a message posted right after someone joined could count as already read. It showed up as a test that failed about one run in six. `Clock.now()` is now the only source and strictly increases.
-- A deactivated account kept its open WebSocket and went on receiving events. The gateway now closes it.
-- Driving every screen in a real browser found twelve bugs that unit and API tests had not. Treat a path no test drives as broken.
-- Channel mention badges include mentions made inside threads, whose timestamps are later than the channel's newest message. `conversations.mark` clears them when the reader is caught up.
+- The timestamp clock once went backwards; `Clock.now()` is the only source and strictly increases.
+- Driving every screen in a real browser keeps finding bugs that API tests miss. Treat a path no test drives as broken.
 
 ## Next
 
 In order. Details and owners are in `TODO.html`.
 
-1. Owner decisions: public demo server, when to make the repository public, npm publishing.
-2. Verify on a clean Linux machine: `npx`, `docker run`, a real Slack export.
-3. Try real third-party agents against it and document only what works.
-4. Record the 30-second demo.
-5. Then the 0.2 list: modals, link previews, Activity and Threads views, mail, Korean strings, public web-readable channels.
+1. Owner decisions: public demo server, when to make the repository public, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app.
+2. Run against real exports and real identity providers; try real third-party agents and document only what works.
+3. Korean strings, accessibility pass, remaining preferences, email notifications for missed mentions.
+4. Then the larger items: several processes sharing one database, shared channels between servers, native mobile apps.

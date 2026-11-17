@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readBody } from '../api/http.ts';
 import type { Kernel } from '../app.ts';
+import { defaultChannels } from '../accounts/invites.ts';
 import { authenticate, createToken, hashPassword } from '../core/auth.ts';
+import { addMember } from '../core/conversations.ts';
 import { nowSeconds } from '../core/ids.ts';
 import { createUser, emitUserChange, getUser, isAdmin, uniqueHandle, userToApi, type UserRow } from '../core/users.ts';
 
@@ -300,6 +302,8 @@ export function installScim(kernel: Kernel): void {
         await apply(created, { userName, ...(typeof body.externalId === 'string' ? { externalId: body.externalId } : {}), ...('active' in body ? { active: body.active } : {}) });
         const user = getUser(ctx, created.id)!;
         ctx.bus.emit({ event: { type: 'team_join', user: userToApi(ctx, user), event_ts: ctx.clock.eventTs() }, audience: { all: true } });
+        // Like someone joining by invite: into the general channel and the workspace's default channels.
+        for (const conv of defaultChannels(ctx)) addMember(ctx, conv, user.id);
         return send(res, 201, toScim(user));
       }
       if (!id) throw new ScimError(405, `${method} is not supported here`);

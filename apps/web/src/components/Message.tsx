@@ -1,9 +1,10 @@
 import type { Message, Reaction } from '@app/shared';
-import { AlarmClock, BellOff, BellRing, Bookmark, Copy, EyeOff, Forward, Link2, MessageSquareText, MoreHorizontal, Pencil, Pin, PinOff, Share2, SmilePlus, Trash2 } from 'lucide-react';
+import { AlarmClock, BellOff, BellRing, Bookmark, Copy, EyeOff, Flag, Forward, Link2, MessageSquareText, MoreHorizontal, Pencil, Pin, PinOff, Share2, SmilePlus, Trash2 } from 'lucide-react';
 import { canDeleteOwn, canEditMessage, remindAbout, setThreadFollow, toggleSaved } from '../lib/attention';
 import { RemindMenu } from './views/Later';
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
+  attempt,
   deleteMessage,
   discardFailed,
   editMessage,
@@ -16,6 +17,7 @@ import {
   toast,
   toggleReaction,
 } from '../lib/actions';
+import { call } from '../lib/api';
 import { useShallow } from 'zustand/react/shallow';
 import { composeGroups } from '../lib/accounts';
 import { decodeMessage, encodeMessage } from '../lib/compose';
@@ -25,7 +27,7 @@ import { S } from '../strings';
 import { HuddleCard } from './Huddle';
 import { AiMessageItems, AiTranslation } from './ai/AiControls';
 import { Attachments, Blocks } from './blocks';
-import { confirmDialog } from './dialogs/confirm';
+import { confirmDialog, promptDialog } from './dialogs/confirm';
 import { Files } from './files';
 import { DocCards } from './docs';
 import { Emoji, Mrkdwn } from './text';
@@ -341,6 +343,20 @@ function Toolbar({ channel, message, inThread, onOpenChange }: ToolbarProps) {
               }}
             />
           ) : null}
+          {!own && message.subtype !== 'tombstone' ? (
+            <MenuItem
+              icon={<Flag size={16} />}
+              label={S.messages.actions.report}
+              onSelect={() => {
+                change(null);
+                void promptDialog({ title: S.messages.reportTitle, label: S.messages.reportLabel, initial: '', multiline: true, confirmLabel: S.messages.reportSend }).then(async (note) => {
+                  if (note === null) return;
+                  const done = await attempt(() => call('client.messages.report', { channel, ts: message.ts, reason: 'other', note: note.trim() }));
+                  if (done) toast(S.messages.reported);
+                });
+              }}
+            />
+          ) : null}
           <MessageShortcutItems channel={channel} ts={message.ts} onDone={() => change(null)} />
           <AiMessageItems channel={channel} message={message} inThread={inThread} onDone={() => change(null)} />
           {canDelete ? (
@@ -398,6 +414,9 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
   const saved = useStore((state) => state.att.saved[`${channel}:${message.ts}`] === 'in_progress');
   const collapsed = useStore((state) => Boolean(state.att.collapsed[channel]));
   const [menuOpen, setMenuOpen] = useState(false);
+  // People this viewer chose to hide: their messages fold to one line until asked for.
+  const hiddenAuthor = useStore((state) => Boolean(message.user && Array.isArray(state.prefs.hidden_users) && (state.prefs.hidden_users as string[]).includes(message.user)));
+  const [revealed, setRevealed] = useState(false);
 
   if (isSystem(message)) {
     return (
@@ -406,6 +425,20 @@ export const MessageRow = memo(function MessageRow({ channel, message, compact =
         <div className="msg-system-text">
           <Mrkdwn text={message.text} inline />
           <time title={fullDateTime(message.ts)}>{clock(message.ts)}</time>
+        </div>
+      </div>
+    );
+  }
+
+  if (hiddenAuthor && !revealed) {
+    return (
+      <div className={`msg msg-system is-hidden-author ${highlighted ? 'is-highlighted' : ''}`} data-ts={message.ts}>
+        <span className="msg-gutter" />
+        <div className="msg-system-text">
+          {S.messages.hiddenAuthor}{' '}
+          <button type="button" className="link-btn" onClick={() => setRevealed(true)}>
+            {S.messages.showHidden}
+          </button>
         </div>
       </div>
     );

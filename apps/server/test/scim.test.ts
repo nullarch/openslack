@@ -63,6 +63,8 @@ describe('SCIM provisioning', () => {
 
     const dana = new Session(t.base);
     await dana.ok('client.signin', { email: 'dana.kim@acme.test', password: 'a long enough password' });
+    const channels = (await dana.ok('client.boot')).channels;
+    assert.ok(channels.some((channel: Json) => channel.is_general), 'joins the general channel, as an invited person does');
     const users = (await owner.ok('users.list')).members;
     assert.equal(users.find((user: Json) => user.id === created.body.id).real_name, 'Dana Kim');
 

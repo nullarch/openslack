@@ -31,6 +31,7 @@ const AUDITED = [
   /^files\.(sharedPublicURL|revokePublicURL)$/,
   /^(oauth\.v2\.access|openid\.connect\.token|tooling\.tokens\.rotate|auth\.revoke)$/,
   /^client\.messages\.report$/,
+  /^usergroups\.(create|update|disable|enable|users\.update)$/,
 ];
 /** Reading is not changing. */
 const READ_ONLY = /\.(list|info|get|stats|limits|unknownMethods|retention|export|validate|home|homeOpened|preview|test)$/;
@@ -68,6 +69,14 @@ const ACTIONS: Record<string, string | ((args: Args, ok: boolean) => string)> = 
   'files.sharedPublicURL': 'file_public_link_created',
   'files.revokePublicURL': 'file_public_link_revoked',
   'client.messages.report': 'message_reported',
+  'usergroups.create': 'user_group_created',
+  'usergroups.update': 'user_group_changed',
+  'usergroups.disable': 'user_group_disabled',
+  'usergroups.enable': 'user_group_enabled',
+  'usergroups.users.update': 'user_group_members_changed',
+  'admin.conversations.convertToPrivate': 'channel_converted_to_private',
+  'client.admin.inviteRequests.approve': 'invite_request_approved',
+  'client.admin.inviteRequests.deny': 'invite_request_denied',
   'client.admin.reports.resolve': (args) => (args.str('action') === 'remove' ? 'reported_message_removed' : 'report_dismissed'),
 };
 
@@ -105,6 +114,20 @@ function entityOf(args: Args, result: Record<string, unknown> | void): { type: s
   if (channel) return { type: 'channel', id: channel };
   if (args.str('report')) return { type: 'report', id: args.str('report')! };
   return null;
+}
+
+/** For actions that are not API methods (a download route, say): write one entry directly. */
+export function recordAuditEvent(ctx: Kernel['ctx'], entry: { action: string; actorId: string | null; req: IncomingMessage; details?: Record<string, unknown> }): void {
+  ctx.db.run(
+    'INSERT INTO audit_log (created, action, actor_type, actor_id, entity_type, entity_id, details, ip, ua) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?)',
+    nowSeconds(),
+    entry.action,
+    'user',
+    entry.actorId,
+    JSON.stringify(entry.details ?? {}),
+    clientIp(entry.req),
+    String(entry.req.headers['user-agent'] ?? '').slice(0, 300) || null,
+  );
 }
 
 export function installAudit(kernel: Kernel): void {

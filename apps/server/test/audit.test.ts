@@ -24,10 +24,14 @@ describe('audit log', () => {
     const stranger = new Session(t.base);
     assert.equal((await stranger.call('client.signin', { email: 'owner@acme.test', password: 'wrong password!' })).ok, false);
     await owner.ok('client.admin.stats', { days: 7 }); // reading is not recorded
+    const exported = await fetch(`${t.base}/admin/export.zip?files=0`, { headers: { cookie: owner.cookie } });
+    assert.equal(exported.status, 200);
+    await exported.arrayBuffer();
+    await owner.ok('usergroups.create', { name: 'Design', handle: 'design' });
 
     const { entries } = await owner.ok('client.admin.audit.list', { limit: 50 });
     const actions = entries.map((entry: Json) => entry.action);
-    for (const action of ['role_change_to_admin', 'user_deactivated', 'user_reactivated', 'app_installed', 'app_token_rotated', 'channel_created', 'user_login_failed']) {
+    for (const action of ['role_change_to_admin', 'user_deactivated', 'user_reactivated', 'app_installed', 'app_token_rotated', 'channel_created', 'user_login_failed', 'workspace_exported', 'user_group_created']) {
       assert.ok(actions.includes(action), `${action} in ${actions.join(', ')}`);
     }
     assert.ok(!actions.includes('client.admin.stats'));

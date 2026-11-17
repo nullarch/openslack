@@ -188,6 +188,22 @@ function roleLabel(user: User): string | null {
   return null;
 }
 
+/** Fold this person's messages away for me only (kept on the server, so every device agrees). */
+function HideToggle({ userId }: { userId: string }) {
+  const hidden = useStore((state) => Array.isArray(state.prefs.hidden_users) && (state.prefs.hidden_users as string[]).includes(userId));
+  return (
+    <Button
+      onClick={() =>
+        void attempt(() => call('client.users.setHidden', { user: userId, hidden: !hidden })).then((result) => {
+          if (result) useStore.setState((state) => ({ prefs: { ...state.prefs, hidden_users: result.hidden_users } }));
+        })
+      }
+    >
+      {hidden ? S.profile.unhide : S.profile.hide}
+    </Button>
+  );
+}
+
 export function ProfilePanel({ userId }: { userId: string }) {
   const user = useStore((state) => state.users[userId]);
   const self = useStore((state) => state.self);
@@ -249,6 +265,7 @@ export function ProfilePanel({ userId }: { userId: string }) {
               <Pencil size={16} /> {S.profile.edit}
             </Button>
           ) : null}
+          {!isSelf && !user.is_bot ? <HideToggle userId={user.id} /> : null}
         </div>
       </div>
     </PanelFrame>

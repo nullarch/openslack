@@ -49,7 +49,7 @@ export type Panel =
   | { kind: 'details'; channel: string; tab: 'about' | 'members' | 'pins' | 'files' }
   | null;
 
-export type AdminTab = 'members' | 'emoji' | 'apps' | 'workspace';
+export type AdminTab = 'members' | 'emoji' | 'apps' | 'workspace' | 'analytics' | 'audit' | 'reports';
 
 export type Modal =
   | { kind: 'createChannel' }
