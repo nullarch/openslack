@@ -38,6 +38,7 @@ import { installChannelTemplates } from './channel-templates/index.ts';
 import { installDlp } from './dlp/index.ts';
 import { installLegal } from './legal/index.ts';
 import { installAdminApi } from './admin-api/index.ts';
+import { installBarriers } from './barriers/index.ts';
 import { installAttention } from './attention/index.ts';
 import { installDocs } from './docs/index.ts';
 import { installMcp } from './mcp/index.ts';
@@ -128,6 +129,7 @@ export function createApp(config: Config): App {
   installDlp(kernel);
   installLegal(kernel);
   installAdminApi(kernel);
+  installBarriers(kernel);
   installAccounts(kernel);
   // Keep last: the audit log wraps the methods every module above registered.
   installAudit(kernel);

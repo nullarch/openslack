@@ -953,4 +953,15 @@ export const MIGRATIONS: string[] = [
     deleted INTEGER NOT NULL
   ) WITHOUT ROWID;
   `,
+
+  /* 23: information barriers — user groups that may not message or call each other directly */ `
+  CREATE TABLE barriers (
+    id TEXT PRIMARY KEY,
+    primary_usergroup_id TEXT NOT NULL,
+    barriered_from TEXT NOT NULL,
+    restricted_subjects TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    date_update INTEGER NOT NULL
+  );
+  `,
 ];

@@ -208,6 +208,10 @@ Tools that manage a Slack workspace through its admin API work here too: `admin.
 
 Owners can limit where the workspace may be used from: a list of address ranges (`client.admin.setIpAllowlist {"cidrs": ["203.0.113.0/24", "2001:db8::/32"]}`). Browsers, sign-in and the live connection from other addresses are refused with `access_denied`; API tokens too when `applies_to_tokens` is set. A list that would shut out the owner setting it is refused, and `IP_ALLOWLIST_DISABLED=1` lifts it if you lock yourself out anyway. Behind a reverse proxy, set `TRUST_PROXY` to the number of proxies in front of the server so the client's own address (from `X-Forwarded-For`) is used here, in sessions and in the audit log.
 
+## Information barriers
+
+Admins can keep user groups from messaging or calling each other directly (Slack's `admin.barriers.*`): members of the primary group cannot open direct or group messages, or calls, with members of the groups it is barriered from, and direct conversations they already had are closed to writing. Group membership is read when it matters, so moving someone between groups takes effect at once. Shared channels are not affected, as on Slack.
+
 ## Audit log
 
 Changes to people, roles, apps, channels and workspace settings, and every sign-in (including failed ones), are recorded with who, when, from which address and with what browser or tool. Admins read it with `client.admin.audit.list`; for a SIEM or a script, make a token with `client.admin.auditToken` and read `GET /audit/v1/logs` (the shape of Slack's Audit Logs API: `limit`, `cursor`, `oldest`, `latest`, `action`, `actor`, `entity`). Arguments are reduced to identifiers; passwords and tokens are never written to it.

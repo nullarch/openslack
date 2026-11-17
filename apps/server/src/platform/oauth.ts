@@ -33,7 +33,7 @@ export const USER_SCOPES = new Set([
   'search:read', 'stars:read', 'team:read', 'users.profile:read', 'users.profile:write', 'users:read', 'users:read.email',
   'users:write', 'dnd:read', 'dnd:write', 'bookmarks:read', 'bookmarks:write', 'identify', 'calls:read', 'calls:write',
   // Admin API scopes: only an admin can approve them, for their own token.
-  'admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write',
+  'admin.users:read', 'admin.users:write', 'admin.conversations:read', 'admin.conversations:write', 'admin.teams:read', 'admin.teams:write', 'admin.invites:read', 'admin.invites:write', 'admin.barriers:read', 'admin.barriers:write',
 ]);
 export const BOT_SCOPES = new Set([...DEFAULT_BOT_SCOPES, 'usergroups:read', 'bookmarks:read', 'bookmarks:write', 'reminders:write', 'dnd:read']);
 

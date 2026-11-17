@@ -126,12 +126,13 @@ export function installCalls(kernel: Kernel): void {
   };
 
   // A call block names a call this server knows, and posting it records where the card is.
-  messageGuards.push((_ctx, input) => {
+  // Hook lists are shared by every server in the process: always use the context passed in.
+  messageGuards.push((ctx2, input) => {
     for (const block of input.blocks ?? []) {
       if ((block as { type?: string }).type !== 'call') continue;
       const callId = String((block as { call_id?: unknown }).call_id ?? '');
-      if (!ctx.db.get('SELECT 1 FROM calls WHERE id = ?', callId)) fail('invalid_blocks', { detail: `unknown call_id ${callId}` });
-      ctx.db.run('INSERT OR IGNORE INTO call_shares (call_id, conversation_id) VALUES (?, ?)', callId, input.conv.id);
+      if (!ctx2.db.get('SELECT 1 FROM calls WHERE id = ?', callId)) fail('invalid_blocks', { detail: `unknown call_id ${callId}` });
+      ctx2.db.run('INSERT OR IGNORE INTO call_shares (call_id, conversation_id) VALUES (?, ?)', callId, input.conv.id);
     }
   });
 

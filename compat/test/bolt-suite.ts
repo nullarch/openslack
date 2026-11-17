@@ -459,7 +459,7 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
         assert.equal(error.data.error, 'channel_not_found');
         return true;
       });
-      await assert.rejects(client.apiCall('admin.barriers.list', {}), (error: Json) => error.data.error === 'unknown_method');
+      await assert.rejects(client.apiCall('admin.functions.list', {}), (error: Json) => error.data.error === 'unknown_method');
       await assert.rejects(client.views.open({ trigger_id: '1.2.abc', view: { type: 'modal', title: { type: 'plain_text', text: 'x' }, blocks: [] } }), (error: Json) => error.data.error === 'invalid_trigger_id');
       await client.conversations.archive({ channel });
     });
