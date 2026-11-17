@@ -144,6 +144,9 @@ export interface FileObject {
   thumb_360?: string;
   thumb_360_w?: number;
   thumb_360_h?: number;
+  thumb_720?: string;
+  thumb_720_w?: number;
+  thumb_720_h?: number;
   alt_txt?: string;
   channels: string[];
   groups: string[];

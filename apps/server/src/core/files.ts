@@ -21,6 +21,8 @@ export interface FileRow {
   upload_secret: string | null;
   created: number;
   mode?: string;
+  /** JSON { w, h } of a thumbnail the uploading client made, stored under `<storage_key>_t`. */
+  thumb?: string | null;
 }
 
 interface TypeInfo {
@@ -158,13 +160,73 @@ export function fileToApi(ctx: Ctx, row: FileRow): FileObject {
   if (row.width && row.height) {
     file.original_w = row.width;
     file.original_h = row.height;
-    // No server-side resizing yet: the "thumbnail" is the original, with the size it should be drawn at.
-    const scale = Math.min(1, 360 / Math.max(row.width, row.height));
-    file.thumb_360 = file.url_private;
-    file.thumb_360_w = Math.round(row.width * scale);
-    file.thumb_360_h = Math.round(row.height * scale);
+    const thumb = parseThumb(row.thumb);
+    if (thumb) {
+      // The client-made thumbnail (up to 720 px) serves every thumbnail size we report.
+      const url = `${ctx.config.publicUrl}/files-tmb/${ctx.requireTeam().id}-${row.id}/720`;
+      const scale = Math.min(1, 360 / Math.max(thumb.w, thumb.h));
+      file.thumb_360 = url;
+      file.thumb_360_w = Math.round(thumb.w * scale);
+      file.thumb_360_h = Math.round(thumb.h * scale);
+      file.thumb_720 = url;
+      file.thumb_720_w = thumb.w;
+      file.thumb_720_h = thumb.h;
+    } else {
+      // No thumbnail: the original, with the size it should be drawn at.
+      const scale = Math.min(1, 360 / Math.max(row.width, row.height));
+      file.thumb_360 = file.url_private;
+      file.thumb_360_w = Math.round(row.width * scale);
+      file.thumb_360_h = Math.round(row.height * scale);
+    }
   }
   return file;
+}
+
+export function parseThumb(value: string | null | undefined): { w: number; h: number } | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as { w?: unknown; h?: unknown };
+    return typeof parsed.w === 'number' && typeof parsed.h === 'number' ? { w: parsed.w, h: parsed.h } : null;
+  } catch {
+    return null;
+  }
+}
+
+export const MAX_THUMB_BYTES = 1024 * 1024;
+export const MAX_THUMB_SIDE = 1440;
+
+/**
+ * Store a thumbnail the uploading client made for an image it is about to
+ * upload (browsers decode every format they display, so the server needs no
+ * image library). Accepted only while the upload is pending and only as PNG,
+ * JPEG or WebP no larger than MAX_THUMB_SIDE on either side.
+ */
+export async function receiveThumbnail(ctx: Ctx, id: string, secret: string, body: Readable): Promise<{ w: number; h: number }> {
+  const row = getFile(ctx, id);
+  if (!row || row.state !== 'pending' || !row.upload_secret || row.upload_secret !== secret) fail('invalid_upload');
+  if (!row.mimetype.startsWith('image/')) fail('not_an_image');
+  const key = `${row.storage_key}_t`;
+  try {
+    await ctx.storage.put(key, body, MAX_THUMB_BYTES);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'too_large') fail('thumbnail_too_large');
+    throw error;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of ctx.storage.read(key, { start: 0, end: 64 * 1024 - 1 })) chunks.push(chunk as Buffer);
+  const head = Buffer.concat(chunks);
+  const known =
+    (head.length > 4 && head.readUInt32BE(0) === 0x89504e47) ||
+    (head[0] === 0xff && head[1] === 0xd8) ||
+    head.toString('ascii', 8, 12) === 'WEBP';
+  const size = known ? parseImageSize(head) : null;
+  if (!size || size.width < 1 || size.height < 1 || size.width > MAX_THUMB_SIDE || size.height > MAX_THUMB_SIDE) {
+    await ctx.storage.remove(key);
+    fail('invalid_thumbnail');
+  }
+  const thumb = { w: size.width, h: size.height };
+  ctx.db.run('UPDATE files SET thumb = ? WHERE id = ?', JSON.stringify(thumb), id);
+  return thumb;
 }
 
 export function filesToApi(ctx: Ctx, ids: string[]): FileObject[] {
@@ -263,6 +325,7 @@ export async function receiveUpload(ctx: Ctx, id: string, secret: string, body: 
 export async function deleteFile(ctx: Ctx, row: FileRow): Promise<void> {
   ctx.db.run('DELETE FROM files WHERE id = ?', row.id);
   await ctx.storage.remove(row.storage_key);
+  if (row.thumb) await ctx.storage.remove(`${row.storage_key}_t`);
   ctx.bus.emit({
     event: { type: 'file_deleted', file_id: row.id, event_ts: ctx.clock.eventTs() },
     audience: { all: true },

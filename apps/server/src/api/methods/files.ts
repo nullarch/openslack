@@ -14,6 +14,7 @@ import {
   isInlineSafe,
   receiveUpload,
   type FileRow,
+  receiveThumbnail,
 } from '../../core/files.ts';
 import { messageToApi, postMessage } from '../../core/messages.ts';
 import { getUser, isAdmin } from '../../core/users.ts';
@@ -219,6 +220,37 @@ export function registerFileRoutes(ctx: Ctx, router: Router): void {
     const size = await receiveUpload(ctx, params[0]!, url.searchParams.get('secret') ?? '', await uploadStream(req));
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.end(`OK - ${size}`);
+  });
+
+  // A thumbnail made by the uploading browser, sent before the file itself (while the upload secret is valid).
+  router.add('POST', /^\/upload\/v1\/([A-Z0-9]+)\/thumb$/, async ({ req, res, url, params }) => {
+    const thumb = await receiveThumbnail(ctx, params[0]!, url.searchParams.get('secret') ?? '', req);
+    sendJson(res, 200, { ok: true, w: thumb.w, h: thumb.h });
+  });
+
+  router.add('GET', /^\/files-tmb\/[A-Z0-9]+-([A-Z0-9]+)\/\d+$/, async ({ req, res, params }) => {
+    const { actor } = authenticate(ctx, req, undefined);
+    const row = getFile(ctx, params[0]!);
+    if (!actor || !row || row.state === 'pending' || !row.thumb || !canAccessFile(ctx, row, actor.userId)) {
+      sendJson(res, 404, { ok: false, error: 'file_not_found' });
+      return;
+    }
+    const key = `${row.storage_key}_t`;
+    const size = await ctx.storage.size(key);
+    if (size === null) {
+      sendJson(res, 404, { ok: false, error: 'file_not_found' });
+      return;
+    }
+    const head: Buffer[] = [];
+    for await (const chunk of ctx.storage.read(key, { start: 0, end: 15 })) head.push(chunk as Buffer);
+    res.writeHead(200, {
+      'content-type': sniffImageType(Buffer.concat(head)),
+      'content-length': size,
+      'cache-control': 'private, max-age=604800, immutable',
+      'x-content-type-options': 'nosniff',
+      'content-security-policy': "default-src 'none'; sandbox",
+    });
+    ctx.storage.read(key).pipe(res);
   });
 
   router.add('GET', /^\/files-pri\/[A-Z0-9]+-([A-Z0-9]+)\/(download\/)?[^/]*$/, async ({ req, res, params }) => {

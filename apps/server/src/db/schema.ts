@@ -478,4 +478,8 @@ export const MIGRATIONS: string[] = [
   ) WITHOUT ROWID;
   CREATE INDEX agent_threads_recent ON agent_threads(app_id, last_activity);
   `,
+
+  /* 7: image thumbnails made by the uploading client — { w, h } of the stored thumbnail */ `
+  ALTER TABLE files ADD COLUMN thumb TEXT;
+  `,
 ];
