@@ -194,6 +194,14 @@
       "view_submission"
     ]
   },
+  "openid-connect": {
+    "sdk": "openid-client 6.8.9, @slack/web-api",
+    "methods": [
+      "openid.connect.token",
+      "openid.connect.userInfo"
+    ],
+    "events": []
+  },
   "rtm-node": {
     "sdk": "@slack/rtm-api 7.0.4, @slack/web-api 8.4.0",
     "methods": [
