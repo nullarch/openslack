@@ -125,7 +125,7 @@ export async function boot(): Promise<void> {
     route = parseRoute(url);
     window.history.replaceState(null, '', saved);
   }
-  if (route.name === 'conversation' || route.name === 'search' || route.name === 'view') await applyRoute(route);
+  if (route.name === 'conversation' || route.name === 'search' || route.name === 'view' || route.name === 'agents') await applyRoute(route);
   else goHome(true);
 }
 
