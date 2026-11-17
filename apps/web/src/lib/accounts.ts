@@ -16,6 +16,7 @@ export interface Permissions {
   at_channel: boolean;
   manage_usergroups: boolean;
   browse_channels: boolean;
+  public_file_links: boolean;
 }
 
 export interface UserGroup {
@@ -65,6 +66,7 @@ const EVERYTHING: Permissions = {
   at_channel: true,
   manage_usergroups: true,
   browse_channels: true,
+  public_file_links: true,
 };
 
 export const useAccounts = create<AccountsState>(() => ({

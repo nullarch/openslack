@@ -19,6 +19,8 @@ export interface TeamPrefs {
   require_2fa?: boolean;
   /** Invite code behind the "Join" button on public channel pages; null hides the button. */
   public_invite_code?: string | null;
+  /** Whether people may create public links to files (`files.sharedPublicURL`); on unless set to false. */
+  public_file_links?: boolean;
 }
 
 export type Permission =

@@ -142,9 +142,52 @@ describe('workspace settings', () => {
     await callWithToken(t.base, bot.token, 'chat.postMessage', { channel: '#general', text: 'deploy failed <!here>' }).then((result) => assert.equal(result.ok, true));
 
     const { permissions } = await member.ok('client.permissions');
-    assert.deepEqual(permissions, { create_channels: false, invite: true, manage_emoji: false, at_channel: false, manage_usergroups: true, browse_channels: true });
+    assert.deepEqual(permissions, {
+      create_channels: false,
+      invite: true,
+      manage_emoji: false,
+      at_channel: false,
+      manage_usergroups: true,
+      browse_channels: true,
+      public_file_links: true,
+    });
     await owner.ok('client.admin.updateSettings', { who_can_create_channels: 'everyone', who_can_manage_emoji: 'everyone', who_can_at_channel: 'everyone' });
     await member.ok('chat.postMessage', { channel: '#general', text: 'allowed again <!channel>' });
+  });
+
+  test('turning a group DM into a private channel follows who may create channels', async () => {
+    const third = await addMember(t, owner, 'Theo Third');
+    const group = (await member.ok('conversations.open', { users: `${owner.userId},${third.userId}` })).channel.id;
+    await owner.ok('client.admin.updateSettings', { who_can_create_channels: 'admins' });
+    assert.equal((await member.call('client.conversations.convertGroupDm', { channel: group, name: 'trio' })).error, 'restricted_action');
+    await owner.ok('client.admin.updateSettings', { who_can_create_channels: 'everyone' });
+    const { channel } = await member.ok('client.conversations.convertGroupDm', { channel: group, name: 'trio' });
+    assert.equal(channel.is_private, true);
+    assert.equal(channel.name, 'trio');
+  });
+
+  test('public file links can be turned off for the whole workspace', async () => {
+    const body = Buffer.from('board minutes');
+    const reserved = await member.ok('files.getUploadURLExternal', { filename: 'minutes.txt', length: body.length });
+    await fetch(reserved.upload_url, { method: 'POST', body });
+    const fileId = (await member.ok('files.completeUploadExternal', { files: [{ id: reserved.file_id }], channel_id: '#general' })).files[0].id;
+    const shared = await member.ok('files.sharedPublicURL', { file: fileId });
+    const path = new URL(shared.file.permalink_public).pathname;
+    assert.equal((await fetch(`${t.base}${path}`)).status, 200);
+
+    assert.equal((await member.call('client.admin.updateSettings', { public_file_links: false })).error, 'not_allowed');
+    const { settings } = await owner.ok('client.admin.updateSettings', { public_file_links: false });
+    assert.equal(settings.public_file_links, false);
+    assert.equal((await member.ok('client.permissions')).permissions.public_file_links, false);
+    // Links already handed out stop working, and no new ones are made.
+    assert.equal((await fetch(`${t.base}${path}`)).status, 404);
+    await member.ok('files.revokePublicURL', { file: fileId });
+    assert.equal((await member.call('files.sharedPublicURL', { file: fileId })).error, 'not_allowed');
+
+    await owner.ok('client.admin.updateSettings', { public_file_links: true });
+    await member.ok('files.sharedPublicURL', { file: fileId });
+    // The other settings in the same record are untouched.
+    assert.equal((await owner.ok('client.admin.settings')).settings.who_can_create_channels, 'everyone');
   });
 
   test('default channels: new people join them; private ones only by an admin who is in them', async () => {

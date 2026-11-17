@@ -75,6 +75,7 @@ interface Settings {
   signup_domains: string[];
   require_2fa: boolean;
   public_invite_code: string | null;
+  public_file_links: boolean;
   [permission: string]: unknown;
 }
 
@@ -280,6 +281,13 @@ export function WorkspaceSettings() {
           <span>
             {S.accounts.require2fa}
             <span className="field-hint">{S.accounts.require2faHint}</span>
+          </span>
+        </label>
+        <label className="check-row">
+          <input type="checkbox" checked={settings.public_file_links} onChange={(event) => void update({ public_file_links: event.target.checked })} />
+          <span>
+            {S.accounts.publicFileLinks}
+            <span className="field-hint">{S.accounts.publicFileLinksHint}</span>
           </span>
         </label>
       </section>

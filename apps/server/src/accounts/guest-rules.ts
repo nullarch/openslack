@@ -1,6 +1,6 @@
 import type { Kernel } from '../app.ts';
 import type { Call, MethodDef } from '../api/registry.ts';
-import { canSee, getConv, type MemberRow } from '../core/conversations.ts';
+import { canSee, getConv, memberIds, type MemberRow } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
 import { canSeeUser, isGuest, visibleUserIds } from '../core/guests.ts';
 import { nowSeconds } from '../core/ids.ts';
@@ -111,6 +111,27 @@ export function installGuestRules(kernel: Kernel): void {
           conv?.id ?? '',
         );
         if (elsewhere) fail('ura_max_channels', { user: userId });
+      }
+    }
+    return run(original, call);
+  });
+
+  // Turning a group DM into a private channel adds its guests to a channel:
+  // the same rules as inviting them, checked only for people already in it.
+  around(kernel, 'client.conversations.convertGroupDm', async (call, original) => {
+    const conv = getConv(ctx, call.args.str('channel') ?? '');
+    const members = conv?.kind === 'mpim' ? memberIds(ctx, conv.id) : [];
+    if (members.includes(call.actor.userId)) {
+      for (const userId of members) {
+        const user = getUser(ctx, userId);
+        if (!user || user.guest === '') continue;
+        if (!isAdmin(call.actor)) fail('restricted_action', { user: userId });
+        if (
+          user.guest === 'single' &&
+          ctx.db.get("SELECT 1 FROM members m JOIN conversations c ON c.id = m.conversation_id WHERE m.user_id = ? AND c.kind IN ('public', 'private')", userId)
+        ) {
+          fail('ura_max_channels', { user: userId });
+        }
       }
     }
     return run(original, call);

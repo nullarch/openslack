@@ -152,6 +152,8 @@ export const S = {
     domainsHint: 'Leave empty to allow any address. Invite links only admit these domains.',
     require2fa: 'Require two-factor sign-in for everyone',
     require2faHint: 'Turn it on for yourself first.',
+    publicFileLinks: 'Allow public links to files',
+    publicFileLinksHint: 'Anyone with such a link can download the file without signing in. Turning this off stops the links already shared.',
     joinLink: 'Join button on public pages',
     joinLinkNone: 'None (show Sign in)',
     joinLinkCreate: 'Create an open invite link for it',

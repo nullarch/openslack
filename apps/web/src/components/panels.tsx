@@ -19,6 +19,7 @@ import {
 import { call } from '../lib/api';
 import { conversation, conversationName, displayName, EMPTY_THREAD, threadKey, useStore, type LocalMessage } from '../lib/store';
 import { localTime } from '../lib/time';
+import { useAccounts } from '../lib/accounts';
 import { ChannelWebSettings } from './accounts/Admin';
 import { ProfileFieldFacts } from './accounts/Profile';
 import { S } from '../strings';
@@ -380,6 +381,7 @@ function PinsTab({ conv }: { conv: Conversation }) {
 
 function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage: boolean; isMember: boolean }) {
   const creator = useStore((state) => state.users[conv.creator ?? '']);
+  const canCreateChannels = useAccounts((state) => state.permissions.create_channels);
   const created = new Date(conv.created * 1000).toLocaleDateString(undefined, { dateStyle: 'long' });
 
   const editPurpose = async (): Promise<void> => {
@@ -454,7 +456,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
               <LogOut size={16} /> {S.details.leave}
             </button>
           ) : null}
-          {conv.is_mpim ? (
+          {conv.is_mpim && canCreateChannels ? (
             <button type="button" className="row-action" onClick={() => void convert()}>
               <Hash size={16} /> {S.details.convertToChannel}
             </button>

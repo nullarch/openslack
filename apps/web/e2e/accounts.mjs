@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { MailSink } from '../../server/test/mail-sink.ts';
 import { FakeIdentityProvider } from '../../server/test/fake-idp.ts';
 import { currentStep, totpAt } from '../../server/src/accounts/totp.ts';
-import { openChannel, run, send, shot, sideItem, signIn, skip, startServer, step, watch, wide } from './lib.mjs';
+import { openChannel, run, shot, sideItem, signIn, skip, startServer, step, watch, wide } from './lib.mjs';
 
 const code = (secret, offset = 0) => totpAt(secret.replace(/\s+/g, ''), currentStep() + offset);
 
@@ -136,6 +136,16 @@ async function main(browser) {
     await openAdmin(maya, 'Workspace');
     const settings = maya.locator('.workspace-settings');
     await settings.locator('.permission-row', { hasText: 'Who can create channels' }).locator('select').selectOption('admins');
+    // Public file links share the settings record with every other workspace setting.
+    const adminSettings = async () =>
+      (await (await maya.request.post(`${server.base}/api/client.admin.settings`, { data: {}, headers: { origin: server.base } })).json()).settings;
+    const links = settings.locator('.check-row', { hasText: 'Allow public links to files' }).locator('input');
+    await Promise.all([maya.waitForResponse((response) => response.url().includes('client.admin.updateSettings')), links.uncheck()]);
+    assert.equal((await adminSettings()).public_file_links, false);
+    await Promise.all([maya.waitForResponse((response) => response.url().includes('client.admin.updateSettings')), links.check()]);
+    const saved = await adminSettings();
+    assert.equal(saved.public_file_links, true);
+    assert.equal(saved.who_can_create_channels, 'admins');
     await settings.locator('button', { hasText: 'Add field' }).click();
     const field = settings.locator('.profile-field-row').last();
     await field.locator('input').first().fill('Team');

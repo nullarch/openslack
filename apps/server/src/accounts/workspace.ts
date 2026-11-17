@@ -19,6 +19,7 @@ function settingsToApi(ctx: Ctx): Record<string, unknown> {
     signup_domains: prefs.signup_domains ?? [],
     require_2fa: prefs.require_2fa === true,
     public_invite_code: prefs.public_invite_code ?? null,
+    public_file_links: prefs.public_file_links !== false,
   };
   for (const permission of PERMISSIONS) out[permission] = prefs[permission] ?? 'everyone';
   return out;
@@ -33,6 +34,7 @@ export function permissionsFor(ctx: Ctx, userId: string): Record<string, boolean
     at_channel: allowedTo(ctx, userId, 'who_can_at_channel'),
     manage_usergroups: allowedTo(ctx, userId, 'who_can_manage_usergroups'),
     browse_channels: user !== undefined && user.guest === '',
+    public_file_links: teamPrefs(ctx).public_file_links !== false,
   };
 }
 
@@ -168,7 +170,9 @@ export function installWorkspace(kernel: Kernel): void {
 
   // Workspace-wide permissions, enforced on every path that leads to the action.
   registry.guards.push((name, actor) => {
-    if (name === 'conversations.create' && !allowedTo(ctx, actor.userId, 'who_can_create_channels')) {
+    // Turning a group DM into a private channel creates a channel too.
+    const creates = name === 'conversations.create' || name === 'client.conversations.convertGroupDm';
+    if (creates && !allowedTo(ctx, actor.userId, 'who_can_create_channels')) {
       throw new ApiError('restricted_action');
     }
     if ((name === 'admin.emoji.add' || name === 'admin.emoji.addAlias') && !allowedTo(ctx, actor.userId, 'who_can_manage_emoji')) {
@@ -212,6 +216,7 @@ export function installWorkspace(kernel: Kernel): void {
       if (require && requireUser(ctx, actor.userId).totp_enabled !== 1) fail('two_factor_required_first');
       patch.require_2fa = require;
     }
+    if (args.has('public_file_links')) patch.public_file_links = args.bool('public_file_links');
     if (args.raw.public_invite_code !== undefined) {
       const code = args.str('public_invite_code') || null;
       if (code && !ctx.db.get("SELECT 1 FROM invites WHERE code = ? AND revoked = 0 AND email IS NULL AND guest = ''", code)) {

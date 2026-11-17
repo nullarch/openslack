@@ -138,6 +138,24 @@ describe('guests', () => {
     assert.deepEqual((await guest.ok('client.boot')).channels.filter((channel: Json) => channel.is_channel).map((channel: Json) => channel.name).sort(), ['project', 'secret']);
   });
 
+  test('a group DM with guests becomes a private channel only under the guest rules', async () => {
+    const solo = await signupGuest(t, owner, 'sam@agency.test', 'single', [project]);
+    const pia = await addMember(t, owner, 'Pia Project');
+    await owner.ok('conversations.invite', { channel: project, users: pia.userId });
+    const group = (await owner.ok('conversations.open', { users: `${solo.userId},${pia.userId}` })).channel.id;
+    // Guests create no channels; members do not add guests to one; a single-channel guest stays in one.
+    assert.equal((await solo.call('client.conversations.convertGroupDm', { channel: group, name: 'solo-room' })).error, 'restricted_action');
+    assert.equal((await pia.call('client.conversations.convertGroupDm', { channel: group, name: 'solo-room' })).error, 'restricted_action');
+    assert.equal((await owner.call('client.conversations.convertGroupDm', { channel: group, name: 'solo-room' })).error, 'ura_max_channels');
+    // Someone outside the conversation learns nothing about it.
+    assert.equal((await mina.call('client.conversations.convertGroupDm', { channel: group, name: 'solo-room' })).error, 'channel_not_found');
+
+    const withGuest = (await owner.ok('conversations.open', { users: `${guest.userId},${pia.userId}` })).channel.id;
+    assert.equal((await pia.call('client.conversations.convertGroupDm', { channel: withGuest, name: 'guest-room' })).error, 'restricted_action');
+    await owner.ok('client.conversations.convertGroupDm', { channel: withGuest, name: 'guest-room' });
+    assert.ok((await guest.ok('client.boot')).channels.some((channel: Json) => channel.name === 'guest-room'));
+  });
+
   test('a guest’s API token and MCP tools follow the same rules', async () => {
     const token = createToken(t.app.ctx, { kind: 'user', userId: guest.userId, scopes: ['search:read', 'channels:read', 'channels:history', 'users:read'] });
     const client = new Client({ name: 'test', version: '1' });
