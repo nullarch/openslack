@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   attach,
+  browserName,
   composer,
   errors,
   modifier,
@@ -158,7 +159,8 @@ async function main(browser) {
   const api = apiCaller(server.base);
 
   const mayaContext = await browser.newContext({ ...wide, colorScheme: 'light' });
-  await mayaContext.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.base });
+  // Only Chrome lets a test grant clipboard access; elsewhere the paste step uses a synthetic paste event.
+  if (browserName === 'chrome') await mayaContext.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.base });
   const maya = watch(await mayaContext.newPage());
   const daniel = watch(await (await browser.newContext({ ...wide, colorScheme: 'light' })).newPage());
   const mayaFiles = recordFileResponses(maya);
@@ -229,6 +231,13 @@ async function main(browser) {
     assert.ok(served.length > 0, 'the viewer requested the file');
     assert.ok(served.every((entry) => entry.status === 200 || entry.status === 206), JSON.stringify(served));
     assert.match(served[0].type, /^application\/pdf/);
+    // The rest needs a built-in PDF viewer. Playwright's Firefox has none (it downloads PDFs) and its
+    // WebKit does not expose the viewer as a frame, so outside Chrome the check ends here.
+    if (browserName !== 'chrome') {
+      await card.locator('.link-btn', { hasText: 'Hide preview' }).click();
+      await frame.waitFor({ state: 'detached' });
+      return;
+    }
     // …and the frame shows it, rather than a browser error page or a blocked-frame notice.
     const handle = daniel.frames().find((item) => item.url().includes('/hello.pdf'));
     assert.ok(handle, `a frame holds the PDF; frames: ${daniel.frames().map((item) => item.url()).join(', ')}`);
@@ -339,14 +348,26 @@ async function main(browser) {
     await full.waitFor({ state: 'detached' });
   });
 
-  await step('paste: an image on the clipboard becomes an attachment', async () => {
+  if (browserName === 'firefox') {
+    skip('paste: an image on the clipboard becomes an attachment', "Firefox drops files from a synthetic paste event and Playwright's Firefox has no clipboard access");
+  } else await step('paste: an image on the clipboard becomes an attachment', async () => {
     const picture = await png(maya, 200, 120, '#f5b63a');
-    await maya.evaluate(async (base64) => {
-      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) })]);
-    }, picture.toString('base64'));
     await composer(maya).click();
-    await maya.keyboard.press(`${modifier}+v`);
+    if (browserName === 'chrome') {
+      // The real clipboard and a real keyboard shortcut.
+      await maya.evaluate(async (base64) => {
+        const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) })]);
+      }, picture.toString('base64'));
+      await maya.keyboard.press(`${modifier}+v`);
+    } else {
+      await composer(maya).evaluate((input, base64) => {
+        const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+        const data = new DataTransfer();
+        data.items.add(new File([bytes], 'pasted.png', { type: 'image/png' }));
+        input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      }, picture.toString('base64'));
+    }
     const chip = maya.locator('.upload-chip');
     await chip.locator('.upload-sub', { hasText: /B$/ }).waitFor();
     assert.equal(await chip.locator('img').count(), 1, 'the pending attachment shows a thumbnail');
@@ -355,13 +376,15 @@ async function main(browser) {
     const pasted = row(daniel, 'Pasted from the clipboard').locator('.file-image img');
     await pasted.waitFor();
     assert.deepEqual(await pasted.evaluate((image) => image.decode().then(() => [image.naturalWidth, image.naturalHeight])), [200, 120]);
-    // Pasting text still pastes text.
-    await maya.evaluate(() => navigator.clipboard.writeText('plain words'));
-    await composer(maya).click();
-    await maya.keyboard.press(`${modifier}+v`);
-    assert.equal(await composer(maya).inputValue(), 'plain words');
-    assert.equal(await maya.locator('.upload-chip').count(), 0);
-    await composer(maya).fill('');
+    if (browserName === 'chrome') {
+      // Pasting text still pastes text.
+      await maya.evaluate(() => navigator.clipboard.writeText('plain words'));
+      await composer(maya).click();
+      await maya.keyboard.press(`${modifier}+v`);
+      assert.equal(await composer(maya).inputValue(), 'plain words');
+      assert.equal(await maya.locator('.upload-chip').count(), 0);
+      await composer(maya).fill('');
+    }
   });
 
   await step('profile photo: an upload replaces the generated avatar for someone else, and removing it brings it back', async () => {

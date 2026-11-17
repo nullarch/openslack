@@ -7,6 +7,7 @@ import { installDndPlaceholder } from './dnd-placeholder.ts';
 import { HttpDelivery } from './events-http.ts';
 import { installInteractivity } from './interactivity.ts';
 import { platformOptions } from './options.ts';
+import { RtmHub } from './rtm.ts';
 import { EphemeralStore, ResponseHooks } from './responses.ts';
 import { installShortcuts } from './shortcuts.ts';
 import { SocketHub } from './socket-mode.ts';
@@ -54,4 +55,5 @@ export function installPlatform(kernel: Kernel): void {
   new Streams(ctx, options).install(kernel);
   new AssistantThreads(ctx, options).install(kernel);
   installAdmin(kernel, sockets, http);
+  new RtmHub(ctx).install(kernel);
 }
