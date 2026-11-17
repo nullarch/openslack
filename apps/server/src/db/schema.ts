@@ -568,4 +568,12 @@ export const MIGRATIONS: string[] = [
     expires INTEGER NOT NULL
   );
   `,
+
+  /* 12: workspace analytics — which people were active on which day (UTC) */ `
+  CREATE TABLE activity_days (
+    day TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    PRIMARY KEY (day, user_id)
+  ) WITHOUT ROWID;
+  `,
 ];
