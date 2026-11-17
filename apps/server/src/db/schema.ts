@@ -562,6 +562,14 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX canvas_comments_doc ON canvas_comments(doc_id, created);
 
+  -- Uploaded images shown in a canvas: people who can open the canvas can load them.
+  CREATE TABLE doc_files (
+    doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+    file_id TEXT NOT NULL,
+    PRIMARY KEY (doc_id, file_id)
+  ) WITHOUT ROWID;
+  CREATE INDEX doc_files_file ON doc_files(file_id);
+
   -- People already told they were mentioned in a canvas.
   CREATE TABLE canvas_mentions (
     doc_id TEXT NOT NULL REFERENCES docs(id) ON DELETE CASCADE,

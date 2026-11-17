@@ -10,6 +10,7 @@ import { isSameOrigin } from '../api/http.ts';
 import type { Kernel } from '../app.ts';
 import { addActivity } from '../attention/activity.ts';
 import { authenticate } from '../core/auth.ts';
+import { canAccessFile, getFile } from '../core/files.ts';
 import { newId, nowSeconds } from '../core/ids.ts';
 import type { Ctx } from '../ctx.ts';
 import { accessOf, canWrite, emitDocChanged, getDoc, reindex, type DocRow } from './access.ts';
@@ -24,6 +25,8 @@ import { FIELD, fragmentToPlain, mentionedUsers } from './markdown.ts';
  * version is kept at most every few minutes of editing.
  *
  * Read-only viewers receive updates but anything they send is dropped.
+ * Sockets closed for good use 44xx codes (4403 access removed, 4404 deleted),
+ * which the y-websocket client treats as final and does not retry.
  */
 
 const MESSAGE_SYNC = 0;
@@ -49,6 +52,8 @@ interface Room {
   flushTimer: NodeJS.Timeout | null;
   unloadTimer: NodeJS.Timeout | null;
   lastEditor: string;
+  /** Everyone who changed the canvas since the last flush. */
+  editors: Set<string>;
   changedSinceVersion: boolean;
 }
 
@@ -88,7 +93,7 @@ export class CanvasHub {
     }
     const awareness = new awarenessProtocol.Awareness(doc);
     awareness.setLocalState(null);
-    room = { id, doc, awareness, connections: new Set(), pending: rows.length, flushTimer: null, unloadTimer: null, lastEditor: '', changedSinceVersion: false };
+    room = { id, doc, awareness, connections: new Set(), pending: rows.length, flushTimer: null, unloadTimer: null, lastEditor: '', editors: new Set(), changedSinceVersion: false };
     const current = room;
     doc.on('update', (update: Uint8Array, origin: Origin) => this.onUpdate(current, update, origin));
     awareness.on('update', ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
@@ -123,7 +128,7 @@ export class CanvasHub {
   drop(id: string): void {
     const room = this.rooms.get(id);
     if (!room) return;
-    for (const connection of room.connections) connection.socket.close(4004, 'canvas deleted');
+    for (const connection of room.connections) connection.socket.close(4404, 'canvas deleted');
     this.unload(room);
   }
 
@@ -133,7 +138,7 @@ export class CanvasHub {
     const doc = getDoc(this.ctx, id, 'canvas');
     if (!room) return;
     for (const connection of room.connections) {
-      if (!doc || !accessOf(this.ctx, doc, connection.userId)) connection.socket.close(4003, 'access removed');
+      if (!doc || !accessOf(this.ctx, doc, connection.userId)) connection.socket.close(4403, 'access removed');
     }
   }
 
@@ -143,6 +148,7 @@ export class CanvasHub {
     this.ctx.db.run('INSERT INTO canvas_updates (doc_id, data, user_id, created) VALUES (?, ?, ?, ?)', room.id, update, userId, nowSeconds());
     room.pending += 1;
     room.lastEditor = userId;
+    room.editors.add(userId);
     room.changedSinceVersion = true;
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
@@ -177,6 +183,9 @@ export class CanvasHub {
       }
     }
 
+    this.trackImages(doc.id, fragment, [...room.editors]);
+    room.editors.clear();
+
     if (room.changedSinceVersion) {
       const last = this.ctx.db.get<{ created: number }>('SELECT max(created) AS created FROM canvas_versions WHERE doc_id = ?', doc.id);
       if (!last?.created || nowSeconds() - last.created >= VERSION_EVERY_S) this.saveVersion(doc.id, editor, '');
@@ -184,6 +193,33 @@ export class CanvasHub {
 
     if (room.pending > COMPACT_AFTER) this.compact(room);
     emitDocChanged(this.ctx, { ...doc, plain }, 'content', { updated_by: editor });
+  }
+
+  /**
+   * Remember which uploaded files the canvas shows, so its readers may load
+   * them. A file counts only once everyone who just edited could read it
+   * already: pasting a link to someone else's file grants nothing.
+   */
+  private trackImages(docId: string, fragment: Y.XmlFragment, editors: string[]): void {
+    const ids = new Set<string>();
+    const visit = (node: Y.XmlElement | Y.XmlFragment): void => {
+      for (const child of node.toArray()) {
+        if (!(child instanceof Y.XmlElement)) continue;
+        if (child.nodeName === 'image') {
+          const match = /\/files-(?:pri|tmb)\/[A-Z0-9]+-(F[A-Z0-9]+)\//.exec(String(child.getAttribute('src') ?? ''));
+          if (match) ids.add(match[1]!);
+        } else visit(child);
+      }
+    };
+    visit(fragment);
+    const known = new Set(this.ctx.db.all<{ file_id: string }>('SELECT file_id FROM doc_files WHERE doc_id = ?', docId).map((row) => row.file_id));
+    for (const id of known) if (!ids.has(id)) this.ctx.db.run('DELETE FROM doc_files WHERE doc_id = ? AND file_id = ?', docId, id);
+    for (const id of ids) {
+      if (known.has(id)) continue;
+      const file = getFile(this.ctx, id);
+      if (!file || !editors.length || !editors.every((userId) => canAccessFile(this.ctx, file, userId))) continue;
+      this.ctx.db.run('INSERT OR IGNORE INTO doc_files (doc_id, file_id) VALUES (?, ?)', docId, id);
+    }
   }
 
   /** Keep the current state as a version people can look at and restore. */

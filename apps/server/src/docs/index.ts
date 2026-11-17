@@ -1,6 +1,7 @@
 import type { Kernel } from '../app.ts';
 import { activityResolvers } from '../attention/activity.ts';
 import { fail } from '../core/errors.ts';
+import { fileAccessHooks } from '../core/files.ts';
 import { newId, nowSeconds } from '../core/ids.ts';
 import { isAdmin } from '../core/users.ts';
 import type { Ctx } from '../ctx.ts';
@@ -19,6 +20,14 @@ export { createListItem } from './lists.ts';
  * who may open what, `hub.ts` for live editing, and the Slack-shaped methods
  * in `canvases.ts` and `lists.ts`.
  */
+/** Images in a canvas load for everyone who can open that canvas. */
+function canvasFileAccess(ctx: Ctx, fileId: string, userId: string): boolean {
+  return ctx.db.all<{ doc_id: string }>('SELECT doc_id FROM doc_files WHERE file_id = ?', fileId).some((row) => {
+    const doc = getDoc(ctx, row.doc_id);
+    return doc !== undefined && accessOf(ctx, doc, userId) !== null;
+  });
+}
+
 export function installDocs(kernel: Kernel): CanvasHub {
   const { ctx, registry } = kernel;
   const hub = new CanvasHub(ctx);
@@ -195,6 +204,8 @@ export function installDocs(kernel: Kernel): CanvasHub {
     if (row.created_by !== actor.userId && !isAdmin(actor)) fail('access_denied');
     c.db.run('DELETE FROM doc_templates WHERE id = ?', args.req('template_id'));
   });
+
+  if (!fileAccessHooks.includes(canvasFileAccess)) fileAccessHooks.push(canvasFileAccess);
 
   // ── Activity ──────────────────────────────────────────────────────────────
 

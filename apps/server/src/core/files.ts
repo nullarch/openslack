@@ -253,7 +253,13 @@ export function shareFiles(ctx: Ctx, ids: string[], conversationId: string, ts: 
   }
 }
 
-/** A file is readable by its uploader and by anyone who can see a conversation it was shared in. */
+/**
+ * Other places a file can be shown (an image in a canvas) register a check
+ * here: it returns true when `userId` may read the file through that place.
+ */
+export const fileAccessHooks: ((ctx: Ctx, fileId: string, userId: string) => boolean)[] = [];
+
+/** A file is readable by its uploader, by anyone who can see a conversation it was shared in, and through `fileAccessHooks`. */
 export function canAccessFile(ctx: Ctx, row: FileRow, userId: string): boolean {
   if (row.user_id === userId) return true;
   const shares = ctx.db.all<{ conversation_id: string }>(
@@ -264,7 +270,7 @@ export function canAccessFile(ctx: Ctx, row: FileRow, userId: string): boolean {
     const conv = getConv(ctx, share.conversation_id);
     if (conv && canSee(ctx, conv, userId)) return true;
   }
-  return false;
+  return fileAccessHooks.some((hook) => hook(ctx, row.id, userId));
 }
 
 export interface PendingUpload {

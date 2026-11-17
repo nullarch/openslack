@@ -355,7 +355,8 @@ export function registerCanvases(registry: Registry, hub: CanvasHub): void {
     Y.applyUpdate(snapshot, row.state);
     const markdown = fragmentToMarkdown(snapshot.getXmlFragment(FIELD));
     snapshot.destroy();
-    return { version: { title: row.title, created: row.created, created_by: row.created_by, markdown } };
+    // `state` is the Yjs update itself, so the client can show the version exactly as it was.
+    return { version: { title: row.title, created: row.created, created_by: row.created_by, markdown, state: Buffer.from(row.state).toString('base64') } };
   });
 
   registry.add('client.canvases.versions.restore', { auth: 'session' }, ({ ctx, actor, args }) => {

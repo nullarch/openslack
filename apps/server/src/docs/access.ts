@@ -103,7 +103,7 @@ export function accessList(ctx: Ctx, docId: string): { principal: string; level:
 /** Tell everyone who can open the document that something changed; clients refetch through the API. */
 export function emitDocChanged(ctx: Ctx, doc: DocRow, change: string, extra: Record<string, unknown> = {}): void {
   ctx.bus.emit({
-    event: { type: 'doc_changed', kind: doc.kind, id: doc.id, change, ...extra },
+    event: { type: 'doc_changed', kind: doc.kind, id: doc.id, conversation_id: doc.conversation_id, change, ...extra },
     audience: { users: audienceOf(ctx, doc) },
     clientOnly: true,
   });

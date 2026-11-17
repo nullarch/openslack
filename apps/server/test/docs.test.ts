@@ -103,6 +103,8 @@ async function until(check: () => boolean | Promise<boolean>, timeoutMs = 3000):
 }
 
 const md = (markdown: string): Json => ({ type: 'markdown', markdown });
+// A 2×2 PNG.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGP8z8Dwn4GBgYGJAQoYGBgAGwQBAfMqSXQAAAAASUVORK5CYII=', 'base64');
 
 describe('canvases', () => {
   let test_: TestApp;
@@ -263,7 +265,7 @@ describe('canvases', () => {
 
     // Losing access closes the open copy.
     await owner.ok('canvases.access.delete', { canvas_id: id, user_ids: [outsider.userId] });
-    assert.equal(await viewer.closed, 4003);
+    assert.equal(await viewer.closed, 4403);
     viewer.close();
     a.close();
     b.close();
@@ -349,6 +351,32 @@ describe('canvases', () => {
     await owner.ok('canvases.create', { title: 'Private mention', channel_id: secret, document_content: md(`psst ![](@${mina.userId})`) });
     assert.equal((await mina.ok('client.activity.list', {})).items.filter((item: Json) => item.type === 'canvas_mention').length, 1);
     stream.close();
+  });
+
+  test('an uploaded image in a canvas loads for the canvas\'s readers and nobody else', async () => {
+    const upload = async (who: Session): Promise<Json> => {
+      const reserved = await who.ok('files.getUploadURLExternal', { filename: 'pixel.png', length: PNG.length });
+      await fetch(reserved.upload_url, { method: 'POST', body: PNG });
+      return (await who.ok('files.completeUploadExternal', { files: [{ id: reserved.file_id, title: 'pixel' }] })).files[0];
+    };
+    const image = await upload(owner);
+    const path = new URL(image.url_private).pathname;
+    const load = async (who: Session): Promise<number> => (await fetch(`${test_.base}${path}`, { headers: { cookie: who.cookie } })).status;
+    assert.equal(await load(mina), 404);
+    const { canvas_id: id } = await owner.ok('canvases.create', { title: 'With image', document_content: md(`Look:\n\n![pixel](${path})`) });
+    assert.match((await owner.ok('client.canvases.content', { canvas_id: id })).content, /!\[pixel\]\(\/files-pri\//);
+    assert.equal(await load(mina), 404);
+    await owner.ok('canvases.access.set', { canvas_id: id, access_level: 'read', user_ids: [mina.userId] });
+    assert.equal(await load(mina), 200);
+    assert.equal(await load(jun), 404);
+
+    // Putting someone else's file into your own canvas grants nobody anything.
+    const other = await upload(jun);
+    const otherPath = new URL(other.url_private).pathname;
+    const { canvas_id: mine } = await mina.ok('canvases.create', { title: 'Borrowed', document_content: md(`![x](${otherPath})`) });
+    await mina.ok('canvases.access.set', { canvas_id: mine, access_level: 'read', user_ids: [outsider.userId] });
+    assert.equal((await fetch(`${test_.base}${otherPath}`, { headers: { cookie: mina.cookie } })).status, 404);
+    assert.equal((await fetch(`${test_.base}${otherPath}`, { headers: { cookie: outsider.cookie } })).status, 404);
   });
 
   test('link cards: what a canvas link shows depends on who looks', async () => {
