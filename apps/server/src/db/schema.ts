@@ -964,4 +964,17 @@ export const MIGRATIONS: string[] = [
     date_update INTEGER NOT NULL
   );
   `,
+
+  /* 24: the built-in assistant's memory — facts each person chose to keep, and proposals awaiting their answer */ `
+  CREATE TABLE assistant_memories (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    state TEXT NOT NULL,
+    source_channel TEXT,
+    source_ts TEXT,
+    created INTEGER NOT NULL
+  );
+  CREATE INDEX assistant_memories_user ON assistant_memories (user_id, state, created);
+  `,
 ];

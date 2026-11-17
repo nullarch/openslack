@@ -1,12 +1,13 @@
 // Browser test for the AI features, against a stand-in Claude Messages API
 // (no credentials, no cost): connect a model, summarise a thread, answer a
 // search question with citations, translate a message, rewrite a draft,
-// set up a daily recap, and open the Agents view.
+// set up a daily recap, talk to the assistant and keep a memory, and open the
+// Agents view.
 //
 //   pnpm --filter @app/web build && node e2e/ai.mjs
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { composer, openChannel, row, run, shot, signIn, sideItem, startServer, step, watch, wide } from './lib.mjs';
+import { composer, openChannel, row, run, send, shot, signIn, sideItem, startServer, step, watch, wide } from './lib.mjs';
 
 /** The stand-in: answers by what the request is for, streaming like the real API. */
 async function fakeClaude() {
@@ -25,6 +26,7 @@ async function fakeClaude() {
       else if (system.includes('connection works')) text = 'ready';
       else if (system.includes('daily recap')) text = '### #general\n- Release 2.4 ships Thursday [1].';
       else if (system.includes('answer a question')) text = 'The code freeze is Wednesday at 18:00 UTC [1].';
+      else if (system.includes('built-in assistant')) text = 'The code freeze is Wednesday at 18:00 UTC [1].\n<remember>Maya runs the release.</remember>';
       else {
         const cited = [...prompt.matchAll(/^\[(\d+)\]/gm)].map((match) => `[${match[1]}]`).slice(0, 2);
         text = `**Where it stands**\n\n- Atlas found the rounding bug and has a fix ready ${cited.join('')}\n- Daniel agreed half-even is right for tax ${cited[1] ?? ''}`;
@@ -186,6 +188,31 @@ async function main(browser) {
       await row(maya, 'Release 2.4 ships Thursday').waitFor();
       assert.match(await row(maya, 'Release 2.4 ships Thursday').locator('a').first().getAttribute('href'), /\/archives\//);
       await shot(maya, 'ai-recap-dm');
+    });
+
+    await step('assistant: ask in its direct message, keep what it proposes only by choice, forget it in Preferences', async () => {
+      await maya.locator('.side-nav[data-view="assistant"]').click();
+      await maya.locator('.conv-head', { hasText: 'Assistant' }).waitFor();
+      await send(maya, 'When is the code freeze? I run the release.');
+      const answer = row(maya, 'The code freeze is Wednesday at 18:00 UTC');
+      await answer.waitFor();
+      assert.equal(await answer.getByText('<remember>').count(), 0);
+      assert.match(await answer.locator('a').first().getAttribute('href'), /\/archives\//);
+      await answer.getByText('Remember this? Maya runs the release.').waitFor();
+      await shot(maya, 'ai-assistant');
+      await answer.getByRole('button', { name: 'Remember', exact: true }).click();
+      await answer.getByText('Remembered: Maya runs the release.').waitFor();
+      await maya.locator('.me-strip').click();
+      await maya.locator('.menu-item', { hasText: 'Preferences' }).click();
+      const memory = maya.locator('.assistant-memory');
+      await memory.locator('li', { hasText: 'Maya runs the release.' }).waitFor();
+      await memory.locator('input').fill('I prefer short answers');
+      await memory.getByRole('button', { name: 'Add' }).click();
+      await memory.locator('li', { hasText: 'I prefer short answers' }).waitFor();
+      await memory.locator('li', { hasText: 'Maya runs the release.' }).getByRole('button').click();
+      await memory.locator('li', { hasText: 'Maya runs the release.' }).waitFor({ state: 'detached' });
+      await shot(maya, 'ai-assistant-memory');
+      await maya.keyboard.press('Escape');
     });
 
     await step('agents view: an app working in a thread shows its status and the thread', async () => {

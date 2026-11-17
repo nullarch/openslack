@@ -123,7 +123,7 @@ Checked: the server and the web client against LiveKit 1.13.11 run directly (`li
 
 ## AI features
 
-Summaries, daily recaps, answers above search results, translation, writing help and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.
+Summaries, daily recaps, answers above search results, translation, writing help, a built-in assistant with memory, and the Agents view. **They are off until an admin connects a model** under **Workspace menu → AI settings**; until then every AI request is refused and the server makes no outbound request for them. There is no telemetry either way.
 
 | Setting | Meaning |
 |---|---|
@@ -138,6 +138,7 @@ What leaves the server, and only when a person asks:
 - **Summaries** (a thread, or a channel's unread messages or today) and **search answers** send the messages being summarised, or the messages that person's own search found. Everything goes through the same visibility checks as the API: someone who cannot read a private channel or DM can never get it into a summary, an answer or a recap. The answer streams to that person only and is not stored.
 - **Translation** sends the one message being translated, plus the viewer's language. **Help me write** sends the draft being edited; the result goes back into the composer and is never sent on its own.
 - **Daily recaps** run on the server at each person's chosen local time and send the new messages from the channels they picked, checked against what they can read at that moment. The recap arrives as a direct message from a built-in "Recaps" bot. The schedule is stored in the database, so a restart only delays a recap until the server is back.
+- **The assistant** (sidebar → Assistant) is a built-in bot each person talks to in a direct message. Each reply sends that person's message, the last twenty turns of the conversation, what they asked it to remember, and the workspace messages their own search finds for the key words of the message. It streams into the conversation and cites messages as links. It never keeps anything on its own: the model may only propose a fact, shown under the reply with **Remember** and **Not now**, so a message quoted from the workspace cannot plant a memory. People see, add and delete their memories under **Preferences → What the assistant remembers**; nobody else can read them, admins included (the API has no method for it).
 
 Requests to the Claude API ask for the API's server-side fallback (`fallbacks: "default"`): if the model declines a request, the API retries it on another model within the same call.
 

@@ -7,7 +7,7 @@ import { ApiError, call, type Json } from './api';
  * features are optional, and everything here is private to this viewer.
  */
 
-export type AiFeature = 'summaries' | 'recaps' | 'search_answers' | 'translate' | 'writing';
+export type AiFeature = 'summaries' | 'recaps' | 'search_answers' | 'translate' | 'writing' | 'assistant';
 
 export interface Citation {
   n: number;

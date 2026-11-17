@@ -9,7 +9,7 @@ import { Button, Field, IconButton, Modal, Spinner } from '../ui';
 import { AiText, CitationList } from './AiControls';
 import { formatDateTime } from '../../lib/time';
 
-const FEATURES: AiFeature[] = ['summaries', 'recaps', 'search_answers', 'translate', 'writing'];
+const FEATURES: AiFeature[] = ['summaries', 'recaps', 'search_answers', 'translate', 'writing', 'assistant'];
 
 /** The floating sheet a summary streams into. Only this viewer sees it. */
 function ResultSheet() {

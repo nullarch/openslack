@@ -1,3 +1,4 @@
+import { AssistantNavItem } from './ai/Assistant';
 import type { Conversation } from '@app/shared';
 import {
   AtSign,
@@ -252,6 +253,7 @@ function SideNav() {
       <NavItem view="files" icon={<FileStack size={16} />} />
       <NavItem view="canvases" icon={<FileText size={16} />} />
       <NavItem view="lists" icon={<ListChecks size={16} />} />
+      <AssistantNavItem />
     </nav>
   );
 }

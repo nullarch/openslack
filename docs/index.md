@@ -27,7 +27,7 @@ features:
   - title: Bring your history
     details: Import Slack, Mattermost and Discord exports with threads, reactions and pins; mentions still resolve.
   - title: Calls and AI, on your terms
-    details: Huddles with audio, video and screen sharing through LiveKit; summaries, recaps and search answers through the model you connect, off until you do.
+    details: Huddles with audio, video and screen sharing through LiveKit; summaries, recaps, search answers and an assistant that remembers what you let it, through the model you connect, off until you do.
   - title: Nothing held back
     details: Apache-2.0, one edition. No user cap, no history limit, no telemetry.
 ---

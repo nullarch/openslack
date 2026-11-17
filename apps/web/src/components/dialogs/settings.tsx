@@ -1,3 +1,4 @@
+import { AssistantMemoryPref } from '../ai/Assistant';
 import { Smile } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { attempt, closeModal, openModal, setPrefs } from '../../lib/actions';
@@ -207,6 +208,7 @@ export function PreferencesDialog() {
       </fieldset>
       <NotificationPrefs />
       <KeywordsPref />
+      <AssistantMemoryPref />
     </Modal>
   );
 }
