@@ -1,14 +1,14 @@
 import { Bot, Pencil, Square } from 'lucide-react';
 import { useEffect } from 'react';
 import { attempt, toast } from '../../lib/actions';
-import { loadSessions, renameSession, stopSession, useAgentSessions } from '../../lib/agentSessions';
+import { loadSessions, renameSession, sessionKey, stopSession, useAgentSessions } from '../../lib/agentSessions';
 import { S } from '../../strings';
 import { promptDialog } from '../dialogs/confirm';
 import { Button, IconButton } from '../ui';
 
-/** The state of the agents working in a thread, its title, and Stop while they work. */
+/** The state of the agents working in a thread (or, with `threadTs` empty, a code channel), its title, and Stop while they work. */
 export function AgentSessionBar({ channel, threadTs }: { channel: string; threadTs: string }) {
-  const session = useAgentSessions((state) => state.byThread[`${channel}:${threadTs}`]);
+  const session = useAgentSessions((state) => state.byThread[sessionKey(channel, threadTs)]);
   useEffect(() => {
     void loadSessions(channel);
   }, [channel]);

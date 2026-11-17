@@ -21,6 +21,7 @@ import { createStorage } from './core/storage.ts';
 import type { Config, Ctx, TeamRow } from './ctx.ts';
 import { Db } from './db/db.ts';
 import { installClips } from './clips/index.ts';
+import { installCodeChannels } from './platform/code-channels.ts';
 import { installCompatExtras } from './platform/compat-extras.ts';
 import { installFeaturedWorkflows } from './workflows/featured.ts';
 import { installRemoteFiles } from './platform/remote-files.ts';
@@ -121,7 +122,8 @@ export function createApp(config: Config): App {
   installMcp(kernel);
   installHuddles(kernel);
   installAi(kernel);
-  installDocs(kernel);
+  // Code channels keep canvases as view tabs, so they come after the canvases they use.
+  installCodeChannels(kernel, installDocs(kernel));
   installWorkflows(kernel);
   installScim(kernel);
   installRetention(kernel);

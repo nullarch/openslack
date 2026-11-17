@@ -220,6 +220,7 @@ export const DEFAULT_BOT_SCOPES = [
   'chat:write',
   'chat:write.customize',
   'chat:write.public',
+  'code_channels:manage',
   'commands',
   'emoji:read',
   'files:read',

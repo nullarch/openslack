@@ -167,6 +167,23 @@ export const jaRest = {
     },
   },
 
+  code: {
+    tabs: 'メッセージ、ビュー、キャンバス、リスト',
+    contextBar: 'この作業について',
+    opensNewTab: '新しいタブで開きます',
+    actionSent: 'エージェントに送信しました。',
+    diff: '差分',
+    frameTitle: (name: string) => `エージェントのビュー: ${name}`,
+    files: (n: number) => `${n} 個のファイルを変更`,
+    lineCounts: (added: number, removed: number) => `${added} 行を追加、${removed} 行を削除`,
+    noChanges: 'この差分に変更された行はありません。',
+    binary: 'バイナリファイル',
+    renamed: (from: string) => `${from} から名前を変更`,
+    pullRequest: 'プルリクエスト',
+    openPullRequest: 'プルリクエストを開く',
+    gone: 'このビューは削除されました。',
+    viewFailed: 'このビューを読み込めませんでした。',
+  },
   huddles: {
     background: '背景',
     effects: { none: 'なし', blur: 'ぼかし', 'blur-strong': '強めのぼかし', dusk: '夕暮れ', meadow: '草原' },

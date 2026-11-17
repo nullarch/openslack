@@ -54,7 +54,7 @@ export function installPlatform(kernel: Kernel): void {
   installShortcuts(kernel, interactivity);
   const views = new Views(interactivity, delivery);
   views.install(kernel);
-  setPlatformServices(ctx, { views, delivery });
+  setPlatformServices(ctx, { views, delivery, interactivity });
   new Unfurls(delivery).install(kernel);
   installWebhooks(kernel);
   new Streams(ctx, options).install(kernel);

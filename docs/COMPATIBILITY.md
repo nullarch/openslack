@@ -18,7 +18,7 @@ The harness in `compat/` starts a server and runs apps built with the official S
 | `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 | `openid-connect` | openid-client 6.8.9, @slack/web-api | 2 | 0 |
 | `rtm-node` | @slack/rtm-api 7.0.4, @slack/web-api 8.4.0 | 2 | 3 |
-| `web-api-extras` | @slack/web-api 8.4.0 | 14 | 0 |
+| `web-api-extras` | @slack/web-api 8.4.0 | 25 | 0 |
 | `web-api-manifest` | @slack/web-api 8.4.0, @slack/bolt 5.1.0 | 8 | 0 |
 | `web-api-remote-files` | @slack/web-api 8.4.0 | 6 | 0 |
 
@@ -58,9 +58,10 @@ An app receives events for conversations its bot user belongs to, and workspace-
 |---|---|---|
 | `app_mention` | ✓ | ✓ |
 | `message.channels` | ✓ | ✓ |
-| `message.groups` |  |  |
+| `message.groups` |  | ✓ |
 | `message.im` | ✓ | ✓ |
 | `message.mpim` |  |  |
+| `message.session` |  | ✓ |
 | `reaction_added` | ✓ | ✓ |
 | `reaction_removed` |  |  |
 | `pin_added` |  |  |
@@ -79,6 +80,7 @@ An app receives events for conversations its bot user belongs to, and workspace-
 | `app_home_opened` | ✓ | ✓ |
 | `agent_session_stopped` |  | ✓ |
 | `agent_session_title_changed` |  | ✓ |
+| `code_channel_action` |  | ✓ |
 | `link_shared` | ✓ | ✓ |
 | `function_executed` | ✓ |  |
 | `subteam_created` |  |  |
@@ -100,7 +102,7 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **219 supported**, 78 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **228 supported**, 69 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -165,8 +167,17 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **219 supported**, 78 n
 | `admin.users.setRegular` |  | ✓ |  |
 | `admin.workflows.search` |  | ✓ | Workflow Builder workflows only; fields this server has no notion of are empty. |
 | `admin.workflows.unpublish` |  | ✓ |  |
-| `agents.sessions.rename` | ✓ | ✓ | Thread sessions only; the title is not a channel name. |
-| `agents.sessions.setStatus` | ✓ | ✓ | Thread sessions only: `thread_ts` is required (no code channels yet). Display overrides (`icon_*`, `username`) are accepted and not shown. |
+| `agents.conversations.archive` | ✓ | ✓ | The summary is posted by the agent as a reply on the origin message. |
+| `agents.conversations.create` | ✓ | ✓ | Any app may create code channels (no `feature_disabled`); the workspace’s channel-creation setting applies. Without `name` the channel is named after the first line of the origin message; the card in the origin thread is a reply from the agent linking the channel. |
+| `agents.conversations.getCanvas` | ✓ | ✓ | Any canvas the agent can open; comment `ts` values are built from the time a comment was written. |
+| `agents.conversations.listViews` | ✓ | ✓ | Entries also carry `type`, and `canvas_id` for canvas views. |
+| `agents.conversations.removeView` | ✓ | ✓ |  |
+| `agents.conversations.setCanvasContent` | ✓ | ✓ | A section is a top-level block: unchanged blocks are left as they are, so comments on them stay attached. At most 400,000 characters and 1,000 blocks. |
+| `agents.conversations.setCommands` | ✓ | ✓ | When two agents offer the same name, the composer offers and runs the one registered first. `should_escape` is stored; the text is sent as typed. Apps without Socket Mode receive commands at `features.code_channels.slash_command_url` from their manifest, else their interactivity URL. |
+| `agents.conversations.setProperties` | ✓ | ✓ | The deprecated `title` sets the session title without renaming the channel. |
+| `agents.conversations.setView` | ✓ | ✓ | HTML runs in a frame with scripts but no access to the page, and loads only the declared `resource_domains` (no built-in CDN list); `connect_domains` is stored, not honored, as on Slack. `pull_request` views show a link to `pr_url`. `file_id` names no file. |
+| `agents.sessions.rename` | ✓ | ✓ | In a code channel the channel takes the title as its name: lowercased, other characters become `-`. |
+| `agents.sessions.setStatus` | ✓ | ✓ | In a code channel the channel is the session (`thread_ts` not allowed); elsewhere `thread_ts` is required. A bot in a code channel becomes one of its agents by reporting a status there. Display overrides (`icon_*`, `username`) are accepted and not shown. |
 | `api.test` |  |  |  |
 | `apps.connections.open` | ✓ | ✓ | A bot token gets `missing_scope` rather than `not_allowed_token_type`. |
 | `apps.event.authorizations.list` | ✓ | ✓ |  |
@@ -331,7 +342,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **219 supported**, 78 n
 | Family | Count | Methods |
 |---|---|---|
 | `admin` | 42 | `admin.apps.activities.list`, `admin.apps.approve`, `admin.apps.approved.list`, `admin.apps.clearResolution`, `admin.apps.config.lookup`, `admin.apps.config.set`, `admin.apps.mcp.servers.list`, `admin.apps.mcp.servers.permissions.list`, `admin.apps.mcp.servers.permissions.set`, `admin.apps.requests.cancel`, `admin.apps.requests.list`, `admin.apps.restrict`, `admin.apps.restricted.list`, `admin.apps.uninstall`, `admin.auth.policy.assignEntities`, `admin.auth.policy.getEntities`, `admin.auth.policy.removeEntities`, `admin.conversations.bulkMove`, `admin.conversations.disconnectShared`, `admin.conversations.ekm.listOriginalConnectedChannelInfo`, `admin.conversations.restrictAccess.addGroup`, `admin.conversations.restrictAccess.listGroups`, `admin.conversations.restrictAccess.removeGroup`, `admin.conversations.setTeams`, `admin.functions.list`, `admin.functions.permissions.lookup`, `admin.functions.permissions.set`, `admin.roles.addAssignments`, `admin.roles.listAssignments`, `admin.roles.removeAssignments`, `admin.slackbot.skills.list`, `admin.slackbot.skills.publish`, `admin.slackbot.skills.setAutoEnabled`, `admin.slackbot.skills.unpublish`, `admin.teams.create`, `admin.teams.settings.setIcon`, `admin.usergroups.addTeams`, `admin.users.assign`, `admin.users.unsupportedVersions.export`, `admin.workflows.collaborators.add`, `admin.workflows.collaborators.remove`, `admin.workflows.permissions.lookup` |
-| `agents` | 9 | `agents.conversations.archive`, `agents.conversations.create`, `agents.conversations.getCanvas`, `agents.conversations.listViews`, `agents.conversations.removeView`, `agents.conversations.setCanvasContent`, `agents.conversations.setCommands`, `agents.conversations.setProperties`, `agents.conversations.setView` |
 | `apps` | 3 | `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `blocks` | 1 | `blocks.validate` |
 | `conversations` | 9 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
@@ -356,5 +366,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **219 supported**, 78 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 194 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 198 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

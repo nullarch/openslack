@@ -1,8 +1,9 @@
 import type { Kernel } from '../app.ts';
-import { getMember, resolveConv } from '../core/conversations.ts';
+import { getMember, resolveConv, type ConvRow } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
 import { requireUser } from '../core/users.ts';
-import { getApp, requireApp } from './apps.ts';
+import { agentCommandUrl, getAgentChannel } from './agent-state.ts';
+import { getApp, requireApp, type AppRow } from './apps.ts';
 import { deliverInteractive, liveConv, payloadChannelName, type Interactivity } from './interactivity.ts';
 import { isHttpUrl } from './net.ts';
 import { hasContent, readResponseContent } from './responses.ts';
@@ -13,6 +14,15 @@ interface CommandRow {
   url: string | null;
   description: string;
   usage_hint: string;
+}
+
+/** A command an agent offers in one code channel (`agents.conversations.setCommands`). */
+interface AgentCommandRow {
+  conversation_id: string;
+  app_id: string;
+  name: string;
+  description: string;
+  argument_hint: string;
 }
 
 /** Slash command names: a slash, then lowercase letters, digits, `-` or `_`. */
@@ -63,11 +73,45 @@ export function installCommands(kernel: Kernel, deps: Interactivity): void {
     if (result.changes === 0) fail('command_not_found');
   });
 
-  /** Every slash command, for the composer's autocomplete. */
-  kernel.registry.add('client.commands.list', { auth: 'session' }, () => {
+  /**
+   * Every slash command, for the composer's autocomplete: the apps' commands,
+   * then those agents offer in the code channels the caller is in (with `channel_id`).
+   */
+  kernel.registry.add('client.commands.list', { auth: 'session' }, ({ actor }) => {
     const rows = ctx.db.all<CommandRow>('SELECT * FROM commands ORDER BY command');
-    return { commands: rows.map((row) => commandToApi(row, getApp(ctx, row.app_id)?.name ?? '')) };
+    const agentRows = ctx.db.all<AgentCommandRow>(
+      `SELECT c.* FROM agent_commands c JOIN members m ON m.conversation_id = c.conversation_id AND m.user_id = ?
+       ORDER BY c.conversation_id, c.created, c.position`,
+      actor.userId,
+    );
+    return {
+      commands: [
+        ...rows.map((row) => commandToApi(row, getApp(ctx, row.app_id)?.name ?? '')),
+        ...agentRows.map((row) => ({
+          command: `/${row.name}`,
+          description: row.description,
+          usage_hint: row.argument_hint,
+          url: null,
+          app_id: row.app_id,
+          app_name: getApp(ctx, row.app_id)?.name ?? '',
+          channel_id: row.conversation_id,
+        })),
+      ],
+    };
   });
+
+  /** The command a name means here: an agent's command in this code channel first, then an app's. */
+  const findCommand = (conv: ConvRow, command: string): { app: AppRow; url: string | null } => {
+    if (getAgentChannel(ctx, conv.id)) {
+      const offered = ctx.db.get<AgentCommandRow>('SELECT * FROM agent_commands WHERE conversation_id = ? AND name = ? ORDER BY created, position LIMIT 1', conv.id, command.slice(1));
+      const agent = offered ? getApp(ctx, offered.app_id) : undefined;
+      if (agent) return { app: agent, url: agentCommandUrl(agent) };
+    }
+    const row = ctx.db.get<CommandRow>('SELECT * FROM commands WHERE command = ?', command);
+    const app = row ? getApp(ctx, row.app_id) : undefined;
+    if (!row || !app) fail('command_not_found');
+    return { app, url: row.url };
+  };
 
   /**
    * A person ran a slash command. The command payload goes to its app; an
@@ -78,9 +122,7 @@ export function installCommands(kernel: Kernel, deps: Interactivity): void {
     const conv = resolveConv(ctx, actor, args.req('channel', 'channel_not_found'));
     if (!getMember(ctx, conv.id, actor.userId)) fail('not_in_channel');
     const command = normalizeCommand(args.req('command'));
-    const row = ctx.db.get<CommandRow>('SELECT * FROM commands WHERE command = ?', command);
-    const app = row ? getApp(ctx, row.app_id) : undefined;
-    if (!row || !app) fail('command_not_found');
+    const { app, url } = findCommand(conv, command);
 
     const user = requireUser(ctx, actor.userId);
     const team = ctx.requireTeam();
@@ -101,7 +143,7 @@ export function installCommands(kernel: Kernel, deps: Interactivity): void {
     };
     // Slack has no commands inside threads; when the client runs one there, answer there.
     const threadTs = args.ts('thread_ts');
-    const answer = await deliverInteractive(deps, app, 'slash_commands', payload, row.url);
+    const answer = await deliverInteractive(deps, app, 'slash_commands', payload, url);
     if (answer && typeof answer === 'object') {
       const body = { ...(answer as Record<string, unknown>) };
       if (threadTs && body.thread_ts === undefined) body.thread_ts = threadTs;

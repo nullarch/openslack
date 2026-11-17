@@ -28,6 +28,7 @@ export const SUBSCRIBABLE_EVENTS = [
   'message.groups',
   'message.im',
   'message.mpim',
+  'message.session',
   'reaction_added',
   'reaction_removed',
   'pin_added',
@@ -46,6 +47,7 @@ export const SUBSCRIBABLE_EVENTS = [
   'app_home_opened',
   'agent_session_stopped',
   'agent_session_title_changed',
+  'code_channel_action',
   'link_shared',
   'function_executed',
   'subteam_created',
@@ -84,7 +86,14 @@ export function selectEvents(ctx: Ctx, app: AppRow, busEvent: BusEvent): Selecte
     if (!conv) return [];
     const member = isMember(conv.id);
     const selected: Selected[] = [];
-    if (member) selected.push({ subscription: MESSAGE_SUBSCRIPTION[conv.kind], event });
+    if (member) {
+      // An app subscribed to `message.session` hears code channels through it, once (not also as message.channels).
+      const session =
+        (conv.kind === 'public' || conv.kind === 'private') &&
+        parseList(app.bot_events).includes('message.session') &&
+        ctx.db.get('SELECT 1 FROM agent_channels WHERE conversation_id = ?', conv.id) !== undefined;
+      selected.push({ subscription: session ? 'message.session' : MESSAGE_SUBSCRIPTION[conv.kind], event });
+    }
     const subtype = typeof event.subtype === 'string' ? event.subtype : undefined;
     const plainPost = subtype === undefined || MENTIONABLE_SUBTYPES.has(subtype);
     if (plainPost && conv.kind !== 'im' && event.user !== bot && (member || conv.kind === 'public') && mentions(event, bot)) {

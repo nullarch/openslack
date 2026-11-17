@@ -376,6 +376,32 @@ export function removeMember(ctx: Ctx, conv: ConvRow, userId: string): boolean {
   return true;
 }
 
+/** Archive a channel: the system line, the flag, and `channel_archive` for everyone who sees it. */
+export function archiveConversation(ctx: Ctx, conv: ConvRow, actorId: string): void {
+  postSystemMessage(ctx, conv, actorId, 'channel_archive', `<@${actorId}> archived the channel`);
+  ctx.db.run('UPDATE conversations SET is_archived = 1, updated = ? WHERE id = ?', nowSeconds(), conv.id);
+  ctx.bus.emit({
+    event: { type: 'channel_archive', channel: conv.id, user: actorId, event_ts: ctx.clock.eventTs() },
+    audience: conv.kind === 'public' ? { all: true } : { conversation: conv.id },
+  });
+}
+
+/** Rename a channel to an already normalized, checked name; fails with `name_taken`. */
+export function renameConversation(ctx: Ctx, conv: ConvRow, actorId: string, name: string): void {
+  if (name === conv.name) return;
+  if (ctx.db.get("SELECT 1 FROM conversations WHERE name = ? AND kind IN ('public', 'private')", name)) fail('name_taken');
+  ctx.db.run('UPDATE conversations SET name = ?, updated = ? WHERE id = ?', name, nowSeconds(), conv.id);
+  ctx.bus.emit({
+    event: {
+      type: 'channel_rename',
+      channel: { id: conv.id, name, name_normalized: name, created: conv.created, is_channel: true },
+      event_ts: ctx.clock.eventTs(),
+    },
+    audience: conv.kind === 'public' ? { all: true } : { conversation: conv.id },
+  });
+  postSystemMessage(ctx, conv, actorId, 'channel_name', `<@${actorId}> has renamed the channel from "${conv.name}" to "${name}"`, { old_name: conv.name, name });
+}
+
 /** Channel settings may be changed by workspace admins, the channel's creator and its managers. */
 export function canManage(conv: ConvRow, actor: Actor, ctx?: Ctx): boolean {
   if (isAdmin(actor) || conv.creator === actor.userId) return true;

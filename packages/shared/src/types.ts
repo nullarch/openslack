@@ -104,15 +104,56 @@ export interface Conversation {
   is_muted?: boolean;
   /** ext: which messages notify the viewer here. `default` follows the workspace default (mentions). */
   notify_level?: 'default' | 'all' | 'mentions' | 'nothing';
-  /** Slack's channel properties; only posting restrictions are used here. */
+  /** Slack's channel properties: posting restrictions, and what a code channel (an agent's channel) shows. */
   properties?: {
     posting_restrictions?: { type: string[] };
     threads_restrictions?: { type: string[] };
     at_channel_restricted?: boolean;
     at_here_restricted?: boolean;
+    agent_session?: AgentSessionProperty;
+    code_channel?: CodeChannelProperty;
+    agent_resource?: { url?: string; resource_type?: string; title?: string; provider?: string };
+    record_channel?: { record_id: string; record_type: 'agent_channel' };
   };
   /** ext: channel managers. */
   managers?: string[];
+}
+
+/** The session of a code channel: one for the whole channel, shared by its agents. */
+export interface AgentSessionProperty {
+  status: 'active' | 'processing' | 'suspended' | 'closed';
+  encoded_agent_bot_user_ids: string[];
+  title: string;
+  origin_link?: { channel_id: string; ts: string };
+}
+
+/** An entry of a code channel's context bar (`agents.conversations.setProperties`). */
+export interface ContextBarItem {
+  key: string;
+  label: string;
+  icon?: 'branch' | 'folder' | 'hierarchy' | 'life-ring' | 'link' | 'globe' | 'terminal' | 'code' | 'search' | 'lock';
+  url?: string;
+  item_type: 'info' | 'action';
+  bot_user_id: string;
+}
+
+/** A view tab of a code channel (`agents.conversations.setView`). */
+export interface AgentSessionView {
+  view_id: string;
+  type: 'html' | 'diff' | 'block_kit' | 'canvas' | 'pull_request';
+  file_id: string;
+  view_key?: string;
+  name: string;
+  date_added: number;
+  content_version: number;
+  /** ext: the canvas a canvas view shows. */
+  canvas_id?: string;
+}
+
+export interface CodeChannelProperty {
+  context_bar_items?: ContextBarItem[];
+  summary_message?: { message_ts: string; thread_ts?: string };
+  agent_session_views?: AgentSessionView[];
 }
 
 export interface Reaction {

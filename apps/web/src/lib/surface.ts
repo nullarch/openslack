@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
 /**
- * Where Block Kit is drawn — a message, a modal or a Home tab — and what using
+ * Where Block Kit is drawn — a message, a modal, a Home tab or a code channel's view tab — and what using
  * an element there does. Elements read the surface from context, keep what the
  * person chose in its state bag (sent as `state.values`), and ask it to deliver
  * actions and load options for external menus.
@@ -49,7 +49,8 @@ export class StateBag {
 }
 
 export interface Surface {
-  kind: 'message' | 'modal' | 'home';
+  /** `tab`: a Block Kit view of a code channel. */
+  kind: 'message' | 'modal' | 'home' | 'tab';
   /** Deliver a `block_actions` entry to the app (with this surface's state). */
   act: (action: Record<string, unknown>) => Promise<void>;
   /** Options for an external menu. */

@@ -72,7 +72,8 @@ function extend(ctx: Ctx, conv: ConvRow, out: Conversation): void {
     properties.at_channel_restricted = true;
     properties.at_here_restricted = true;
   }
-  if (Object.keys(properties).length > 0) out.properties = properties;
+  // Other modules add properties too (code channels): merge, never replace.
+  if (Object.keys(properties).length > 0) out.properties = { ...out.properties, ...properties };
   const list = managers(ctx, conv.id);
   if (list.length > 0) out.managers = list;
 }

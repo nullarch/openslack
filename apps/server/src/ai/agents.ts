@@ -110,7 +110,8 @@ export function installAgents(kernel: Kernel): void {
       : [];
     const agents = [];
     for (const app of apps) {
-      const rows = ctx.db.all<ThreadRow>('SELECT * FROM agent_threads WHERE app_id = ? ORDER BY last_activity DESC LIMIT 100', app.id);
+      // Threads only: a code channel's session (thread_ts '') is the channel itself.
+      const rows = ctx.db.all<ThreadRow>("SELECT * FROM agent_threads WHERE app_id = ? AND thread_ts != '' ORDER BY last_activity DESC LIMIT 100", app.id);
       if (!app.connected && rows.length === 0) continue;
       const threads = [];
       for (const row of rows) {
