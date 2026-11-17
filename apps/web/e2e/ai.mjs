@@ -99,6 +99,8 @@ async function main(browser) {
       const sent = claude.requests.at(-1);
       assert.equal(sent.body.model, 'claude-opus-5-5');
       assert.equal(sent.body.fallbacks, 'default');
+      assert.equal(sent.headers['x-api-key'], 'sk-ant-browser-test-9876');
+      assert.equal(sent.headers.authorization, undefined);
       await shot(maya, 'ai-settings');
       await maya.keyboard.press('Escape');
       await dialog.waitFor({ state: 'detached' });

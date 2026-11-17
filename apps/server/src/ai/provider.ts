@@ -54,13 +54,19 @@ class ClaudeProvider implements AiProvider {
   private readonly model: string;
 
   constructor(settings: ProviderSettings) {
-    this.client = new Anthropic({
-      // An empty key still lets the SDK fall back to ANTHROPIC_API_KEY or an `ant auth login` profile.
-      ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
-      ...(settings.baseUrl ? { baseURL: settings.baseUrl } : {}),
-      maxRetries: 2,
-      timeout: 5 * 60_000,
-    });
+    const common = { ...(settings.baseUrl ? { baseURL: settings.baseUrl } : {}), maxRetries: 2, timeout: 5 * 60_000 };
+    this.client = settings.apiKey
+      ? new Anthropic({
+          ...common,
+          apiKey: settings.apiKey,
+          // SDK 1.x sends an API key as `Authorization: Bearer`. The API accepts either header, but a
+          // gateway in front of it (the base URL above) may read only `X-Api-Key`, so the key goes
+          // there and nowhere else, as the SDK's migration guide shows for proxies.
+          defaultHeaders: { 'X-Api-Key': settings.apiKey, Authorization: null },
+        })
+      : // Deliberately supported: with no key saved, the server's own environment credential is used
+        // (ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, or an `ant auth login` profile), sent as the SDK sends it.
+        new Anthropic(common);
     this.model = settings.model || DEFAULT_CLAUDE_MODEL;
   }
 

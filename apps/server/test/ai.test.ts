@@ -77,8 +77,9 @@ describe('AI features', () => {
     assert.equal(check.reply, 'ready');
     const sent = claude.requests.at(-1)!;
     assert.match(sent.url, /^\/v1\/messages/);
-    // SDK 1.x sends the key as a bearer token; earlier versions used x-api-key.
-    assert.ok(sent.headers.authorization === 'Bearer sk-ant-test-secret-1234' || sent.headers['x-api-key'] === 'sk-ant-test-secret-1234');
+    // An API key goes out in X-Api-Key only (SDK 1.x would otherwise send it as a bearer token).
+    assert.equal(sent.headers['x-api-key'], 'sk-ant-test-secret-1234');
+    assert.equal(sent.headers.authorization, undefined);
     assert.equal(sent.body.model, 'claude-opus-5-5');
     assert.equal(sent.body.stream, true);
     // Server-side fallback is requested on the Claude path.
