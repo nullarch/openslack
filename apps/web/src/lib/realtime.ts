@@ -19,6 +19,7 @@ import {
   setThreadTitle,
 } from './actions';
 import { call, type Json } from './api';
+import { handleAttentionEvent, loadAttention } from './attention';
 import { maybeNotify } from './notify';
 import { currentId, get, set, type LocalMessage } from './store';
 import { applyTheme } from './theme';
@@ -122,6 +123,7 @@ async function resync(): Promise<void> {
     set({ convs: current && state.convs[current] ? { [current]: state.convs[current] } : {}, threads: {} });
     if (current && !state.convs[current]?.hasNewer) await loadLatest(current);
     if (state.panel?.kind === 'thread') await loadThread(state.panel.channel, state.panel.ts);
+    await loadAttention();
   } catch {
     // Still offline or signed out; the reconnect loop handles it.
   }
@@ -245,6 +247,8 @@ function handle(event: Json): void {
         topic: channel.topic,
         purpose: channel.purpose,
         is_archived: channel.is_archived,
+        properties: channel.properties,
+        managers: channel.managers,
       });
       break;
     }
@@ -321,6 +325,7 @@ function handle(event: Json): void {
       set((state) => ({ appConnections: { ...state.appConnections, [event.app_id]: Boolean(event.connected) } }));
       break;
     default:
+      handleAttentionEvent(event);
       break;
   }
 }

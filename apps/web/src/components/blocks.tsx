@@ -3,7 +3,10 @@ import { Check, MoreHorizontal, X } from 'lucide-react';
 import { Component, createContext, lazy, Suspense, useContext, useRef, useState, type ReactNode } from 'react';
 import { clickBlockAction } from '../lib/actions';
 import { asset } from '../lib/api';
+import { removePreview } from '../lib/attention';
+import { useStore } from '../lib/store';
 import { S } from '../strings';
+import { Files } from './files';
 import { Broadcast, ChannelLink, DateToken, Emoji, Link, Mrkdwn, PlainText, UserMention } from './text';
 import { MenuItem, Popover } from './ui';
 
@@ -538,6 +541,16 @@ function safeRender(block: Block, index: number): ReactNode {
 
 const NAMED_COLORS: Record<string, string> = { good: '#2eb67d', warning: '#ecb22e', danger: '#e01e5a' };
 
+/** A permalink this server made, rebased onto the address the page was loaded from. */
+function ownLink(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+  } catch {
+    return url;
+  }
+}
+
 function barColor(value: unknown): string | undefined {
   if (typeof value !== 'string' || !value) return undefined;
   if (NAMED_COLORS[value]) return NAMED_COLORS[value];
@@ -546,6 +559,7 @@ function barColor(value: unknown): string | undefined {
 }
 
 export function Attachments({ attachments, channel, message }: { attachments: Attachment[]; channel: string; message: Message }) {
+  const canRemovePreview = useStore((state) => state.self?.id === message.user || Boolean(state.self?.is_admin));
   return (
     <div className="attachments">
       {attachments.map((raw, index) => {
@@ -553,15 +567,30 @@ export function Attachments({ attachments, channel, message }: { attachments: At
         const fields: Any[] = Array.isArray(attachment.fields) ? attachment.fields : [];
         const hasBody =
           attachment.author_name || attachment.title || attachment.text || fields.length > 0 || attachment.image_url || attachment.footer || attachment.blocks;
+        // A link preview the server made (not a forwarded message, not an app's own attachment).
+        const preview = typeof attachment.original_url === 'string' && !attachment.is_share;
+        const shared = attachment.is_share === true;
         return (
-          <div key={index} className="attachment-wrap">
+          <div key={index} className={`attachment-wrap ${preview ? 'is-preview' : ''} ${shared ? 'is-share' : ''}`}>
             {attachment.pretext ? <Mrkdwn text={String(attachment.pretext)} /> : null}
             {hasBody ? (
               <div className="attachment" style={{ ['--bar' as string]: barColor(attachment.color) ?? 'var(--line-strong)' }}>
+                {preview && canRemovePreview ? (
+                  <button
+                    type="button"
+                    className="attachment-remove"
+                    aria-label={S.att.preview.remove}
+                    title={S.att.preview.remove}
+                    onClick={() => void removePreview(channel, message.ts, String(attachment.original_url))}
+                  >
+                    <X size={14} />
+                  </button>
+                ) : null}
                 <div className="attachment-main">
+                  {preview && attachment.service_name ? <div className="attachment-service">{String(attachment.service_name)}</div> : null}
                   {attachment.author_name ? (
                     <div className="attachment-author">
-                      {attachment.author_icon ? <img src={String(attachment.author_icon)} alt="" loading="lazy" /> : null}
+                      {attachment.author_icon ? <img src={asset(String(attachment.author_icon))} alt="" loading="lazy" /> : null}
                       {attachment.author_link ? <Link url={String(attachment.author_link)}>{String(attachment.author_name)}</Link> : String(attachment.author_name)}
                     </div>
                   ) : null}
@@ -576,7 +605,12 @@ export function Attachments({ attachments, channel, message }: { attachments: At
                       )}
                     </div>
                   ) : null}
-                  {attachment.text ? <Mrkdwn text={String(attachment.text)} /> : null}
+                  {shared && Array.isArray(attachment.message_blocks) && attachment.message_blocks[0]?.message?.blocks ? (
+                    <Blocks blocks={attachment.message_blocks[0].message.blocks as Block[]} fallbackText={String(attachment.text ?? '')} channel={channel} message={message} />
+                  ) : attachment.text ? (
+                    <Mrkdwn text={String(attachment.text)} />
+                  ) : null}
+                  {shared && Array.isArray(attachment.files) && attachment.files.length > 0 ? <Files files={attachment.files} /> : null}
                   {Array.isArray(attachment.blocks) ? (
                     <Blocks blocks={attachment.blocks as Block[]} fallbackText={String(attachment.fallback ?? '')} channel={channel} message={message} />
                   ) : null}
@@ -591,19 +625,34 @@ export function Attachments({ attachments, channel, message }: { attachments: At
                     </div>
                   ) : null}
                   {attachment.image_url ? (
-                    <a href={String(attachment.image_url)} target="_blank" rel="noopener noreferrer">
-                      <img className="attachment-image" src={String(attachment.image_url)} alt="" loading="lazy" />
+                    <a href={String(attachment.title_link ?? attachment.image_url)} target="_blank" rel="noopener noreferrer">
+                      <img
+                        className="attachment-image"
+                        src={asset(String(attachment.image_url))}
+                        alt=""
+                        loading="lazy"
+                        width={typeof attachment.image_width === 'number' ? attachment.image_width : undefined}
+                        height={typeof attachment.image_height === 'number' ? attachment.image_height : undefined}
+                      />
                     </a>
                   ) : null}
                   {attachment.footer ? (
                     <div className="attachment-footer">
-                      {attachment.footer_icon ? <img src={String(attachment.footer_icon)} alt="" loading="lazy" /> : null}
-                      <Mrkdwn text={String(attachment.footer)} inline />
+                      {attachment.footer_icon ? <img src={asset(String(attachment.footer_icon))} alt="" loading="lazy" /> : null}
+                      {shared && attachment.from_url ? (
+                        <span className="attachment-origin">
+                          <Link url={ownLink(String(attachment.from_url))}>
+                            <Mrkdwn text={String(attachment.footer)} inline />
+                          </Link>
+                        </span>
+                      ) : (
+                        <Mrkdwn text={String(attachment.footer)} inline />
+                      )}
                       {attachment.ts ? <DateToken timestamp={Number(attachment.ts)} fallback="" /> : null}
                     </div>
                   ) : null}
                 </div>
-                {attachment.thumb_url ? <img className="attachment-thumb" src={String(attachment.thumb_url)} alt="" loading="lazy" /> : null}
+                {attachment.thumb_url ? <img className="attachment-thumb" src={asset(String(attachment.thumb_url))} alt="" loading="lazy" /> : null}
               </div>
             ) : null}
           </div>

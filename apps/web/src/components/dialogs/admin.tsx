@@ -615,6 +615,41 @@ function WorkspaceAdmin() {
   );
 }
 
+function MessagePolicyAdminGuard() {
+  const isAdmin = useStore((state) => Boolean(state.self?.is_admin));
+  return isAdmin ? <MessagePolicyAdmin /> : null;
+}
+
+/** How long people may edit their messages, and who may delete them. */
+function MessagePolicyAdmin() {
+  const policy = useStore((state) => state.att.messagePolicy);
+  const save = async (patch: Record<string, unknown>): Promise<void> => {
+    const result = await attempt(() => call('client.admin.setMessagePolicy', patch));
+    if (result) toast(S.saved);
+  };
+  const windows = [-1, 0, 5, 15, 60, 1440, 10080];
+  return (
+    <fieldset className="pref-group message-policy">
+      <legend>{S.att.policy.title}</legend>
+      <Field label={S.att.policy.editWindow}>
+        <select value={policy.msg_edit_window_mins} onChange={(event) => void save({ msg_edit_window_mins: Number(event.target.value) })}>
+          {windows.map((value) => (
+            <option key={value} value={value}>
+              {value === -1 ? S.att.policy.always : value === 0 ? S.att.policy.never : S.att.policy.minutes(value)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label={S.att.policy.deletion}>
+        <select value={policy.allow_message_deletion} onChange={(event) => void save({ allow_message_deletion: event.target.value })}>
+          <option value="everyone">{S.att.policy.deletionEveryone}</option>
+          <option value="admins">{S.att.policy.deletionAdmins}</option>
+        </select>
+      </Field>
+    </fieldset>
+  );
+}
+
 export function AdminDialog({ tab }: { tab: AdminTab }) {
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'members', label: S.admin.members },
@@ -635,7 +670,12 @@ export function AdminDialog({ tab }: { tab: AdminTab }) {
         {tab === 'members' ? <MembersAdmin /> : null}
         {tab === 'emoji' ? <EmojiAdmin /> : null}
         {tab === 'apps' ? <AppsAdmin /> : null}
-        {tab === 'workspace' ? <WorkspaceAdmin /> : null}
+        {tab === 'workspace' ? (
+          <>
+            <WorkspaceAdmin />
+            <MessagePolicyAdminGuard />
+          </>
+        ) : null}
       </div>
     </Modal>
   );

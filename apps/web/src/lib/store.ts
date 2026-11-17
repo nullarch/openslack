@@ -46,7 +46,7 @@ export interface ThreadState {
 export type Panel =
   | { kind: 'thread'; channel: string; ts: string }
   | { kind: 'profile'; user: string }
-  | { kind: 'details'; channel: string; tab: 'about' | 'members' | 'pins' }
+  | { kind: 'details'; channel: string; tab: 'about' | 'members' | 'pins' | 'files' }
   | null;
 
 export type AdminTab = 'members' | 'emoji' | 'apps' | 'workspace';
@@ -62,7 +62,60 @@ export type Modal =
   | { kind: 'switcher' }
   | { kind: 'image'; file: FileObject }
   | { kind: 'addPeople'; channel: string }
+  | { kind: 'forward'; channel: string; ts: string }
+  | { kind: 'shareFile'; file: FileObject }
+  | { kind: 'schedule'; channel: string; threadTs?: string; text: string; broadcast?: boolean }
+  | { kind: 'dndSchedule' }
+  | { kind: 'snippet'; channel: string; threadTs?: string }
+  | { kind: 'bookmark'; channel: string; bookmark?: Bookmark }
   | null;
+
+/** Slack's bookmark object, as `bookmarks.list` returns it. */
+export interface Bookmark {
+  id: string;
+  channel_id: string;
+  title: string;
+  link: string;
+  emoji: string | null;
+  rank: string;
+}
+
+/** Slack's Do Not Disturb status. Snooze fields are only present for the viewer. */
+export interface DndStatus {
+  dnd_enabled: boolean;
+  next_dnd_start_ts: number;
+  next_dnd_end_ts: number;
+  snooze_enabled?: boolean;
+  snooze_endtime?: number;
+}
+
+export interface DndSchedule {
+  enabled: boolean;
+  start: string;
+  end: string;
+  days: number[];
+}
+
+/** What needs the viewer's attention, and how they control it. */
+export interface AttentionState {
+  loaded: boolean;
+  activityUnread: number;
+  /** `channel:thread_ts` of followed threads with unread replies. */
+  unreadThreads: Record<string, true>;
+  dnd: { self: DndStatus | null; schedule: DndSchedule | null; users: Record<string, DndStatus> };
+  /** `channel:ts` → state, for messages saved for later. */
+  saved: Record<string, 'in_progress' | 'archived' | 'completed'>;
+  /** `channel` or `channel:thread_ts` → draft text kept on the server. */
+  drafts: Record<string, { text: string; updated: number }>;
+  scheduledCount: number;
+  messagePolicy: { msg_edit_window_mins: number; allow_message_deletion: 'everyone' | 'admins' };
+  /** Bookmarks by conversation, once loaded. */
+  bookmarks: Record<string, Bookmark[]>;
+  /** Conversations where images and video are collapsed (/collapse). */
+  collapsed: Record<string, true>;
+  /** Bumped every minute so time-based state (DND windows) re-renders. */
+  tick: number;
+}
 
 export interface Toast {
   id: number;
@@ -118,7 +171,22 @@ export interface AppState {
   appConnections: Record<string, boolean>;
   /** Conversations that text links to but the viewer may not see. */
   hiddenChannels: Record<string, true>;
+  att: AttentionState;
 }
+
+export const EMPTY_ATTENTION: AttentionState = {
+  loaded: false,
+  activityUnread: 0,
+  unreadThreads: {},
+  dnd: { self: null, schedule: null, users: {} },
+  saved: {},
+  drafts: {},
+  scheduledCount: 0,
+  messagePolicy: { msg_edit_window_mins: -1, allow_message_deletion: 'everyone' },
+  bookmarks: {},
+  collapsed: {},
+  tick: 0,
+};
 
 export const useStore = create<AppState>(() => ({
   phase: 'loading',
@@ -149,6 +217,7 @@ export const useStore = create<AppState>(() => ({
   notifyPrompt: false,
   appConnections: {},
   hiddenChannels: {},
+  att: EMPTY_ATTENTION,
 }));
 
 export const get = useStore.getState;

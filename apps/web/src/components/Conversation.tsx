@@ -1,6 +1,8 @@
 import type { Conversation } from '@app/shared';
-import { Hash, Info, Lock, Menu, Star, Users } from 'lucide-react';
+import { Hash, Info, Lock, Menu, Moon, Star, Users } from 'lucide-react';
 import { attempt, joinChannel, setConversationPrefs, setPanel } from '../lib/actions';
+import { userInDnd } from '../lib/attention';
+import { BookmarksBar, NotifyButton } from './Bookmarks';
 import { call } from '../lib/api';
 import { conversation, conversationName, set, useStore } from '../lib/store';
 import { S } from '../strings';
@@ -20,6 +22,10 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
   const name = useStore((state) => conversationName(state, conv));
   const other = useStore((state) => (conv.is_im ? state.users[conv.user ?? ''] : undefined));
   const isSelf = useStore((state) => conv.is_im && conv.user === state.self?.id);
+  const paused = useStore((state) => {
+    void state.att.tick;
+    return Boolean(conv.is_im && conv.user && conv.user !== state.self?.id && userInDnd(conv.user));
+  });
   const direct = conv.is_im || conv.is_mpim;
 
   const openDetails = (tab: 'about' | 'members'): void => {
@@ -44,6 +50,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
         )}
         <span className="conv-name">{name}</span>
         {isSelf ? <span className="conv-you">{S.sidebar.you}</span> : null}
+        {paused ? <Moon size={14} className="conv-dnd" aria-label={S.att.dnd.label} /> : null}
         {other?.profile.status_emoji ? <Emoji name={other.profile.status_emoji.replace(/:/g, '')} /> : null}
       </button>
       {isMember ? (
@@ -79,6 +86,7 @@ function Header({ conv, isMember }: { conv: Conversation; isMember: boolean }) {
           <span>{conv.num_members ?? conv.members?.length ?? ''}</span>
         </button>
       ) : null}
+      {isMember ? <NotifyButton channel={conv.id} /> : null}
       <IconButton label={S.header.details} onClick={() => openDetails('about')}>
         <Info size={18} />
       </IconButton>
@@ -105,6 +113,7 @@ export function ConversationView({ channel }: { channel: string }) {
   return (
     <section className="conversation" data-drop-scope data-drop-label={S.composer.dropHere}>
       <Header conv={conv} isMember={isMember} />
+      {!conv.is_im ? <BookmarksBar channel={channel} canEdit={isMember && !conv.is_archived} /> : null}
       <MessageList key={`list:${channel}`} channel={channel} />
       {conv.is_archived ? (
         <div className="notice-bar">{S.header.archivedNotice}</div>
