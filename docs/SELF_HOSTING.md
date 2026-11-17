@@ -122,6 +122,10 @@ Tokens for the media server are issued only to members of the conversation, for 
 
 Checked: the server and the web client against LiveKit 1.13.11 run directly (`livekit-server --config-body …`), with two browsers exchanging audio, camera video, a screen share and reactions, and the webhook and the periodic comparison each removing someone who vanished. Not checked: the compose file above, calls longer than a few minutes, more than two people, and networks with NAT between browser and LiveKit.
 
+### Backgrounds and drawing
+
+People can blur their camera background or put a picture behind themselves (huddle settings → Background). The person is separated from the background in their own browser by MediaPipe's selfie segmenter through LiveKit's track processors; the model and the WebAssembly are served by this server (`/effects/`, about 10 MB, loaded only when someone picks a background), so nothing is fetched from a third party and offline installs work. Anyone can draw on a shared screen (the pencil on the screen's tile): marks appear on that screen for everyone in the huddle, the person sharing included, fade after a few seconds, travel over the call's data channel and are never stored. Marks show on the shared picture in the huddle, not on the sharer's actual desktop.
+
 ### Captions and huddle notes
 
 Anyone in a huddle can turn on captions. Speech becomes text in that person's own browser, through the Web Speech API, for their own microphone only and only while it is not muted; the server never receives audio. Browsers differ in where they do this: Safari and some versions of Chrome recognise speech on the device, others send the audio to their maker's speech service. Browsers without the API (Firefox today) show the captions of others but cannot caption their own speech.

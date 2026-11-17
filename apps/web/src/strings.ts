@@ -1368,6 +1368,12 @@ const en = {
   },
 
   huddles: {
+    background: 'Background',
+    effects: { none: 'None', blur: 'Blur', 'blur-strong': 'Strong blur', dusk: 'Dusk', meadow: 'Meadow' } as Record<'none' | 'blur' | 'blur-strong' | 'dusk' | 'meadow', string>,
+    effectsUnsupported: 'This browser cannot change the camera background.',
+    effectFailed: 'The background could not be changed.',
+    draw: 'Draw on this screen',
+    stopDrawing: 'Stop drawing',
     captionsOn: 'Turn on captions',
     captionsOff: 'Turn off captions',
     captionsLabel: 'Captions',

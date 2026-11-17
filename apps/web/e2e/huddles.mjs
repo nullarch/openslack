@@ -145,6 +145,26 @@ await run(
       );
     });
 
+    await step('a blurred background goes on the camera and off again; the other person still sees video', async () => {
+      await daniel.locator('[data-huddle-dock] [data-control="expand"]').click();
+      await daniel.locator('[data-huddle-stage] [data-control="devices"]').click();
+      await daniel.locator('select[data-control="effect"]:not([disabled])').selectOption('blur');
+      await daniel.waitForFunction(() => window.__huddleState?.().local?.effect, null, { timeout: 30_000 });
+      await maya.waitForFunction(
+        (id) => {
+          const element = document.querySelector(`[data-tile="${id}"][data-source="camera"] video`);
+          return element instanceof HTMLVideoElement && element.videoWidth > 0 && element.readyState >= 2;
+        },
+        danielId,
+        { timeout: 20_000 },
+      );
+      await shot(maya, 'huddle-background-blur');
+      await daniel.locator('select[data-control="effect"]').selectOption('none');
+      await daniel.waitForFunction(() => window.__huddleState?.().local?.effect === null, null, { timeout: 10_000 });
+      await daniel.keyboard.press('Escape');
+      await daniel.locator('[data-huddle-stage] [data-control="expand"]').click();
+    });
+
     await step('reactions float over the other person’s stage', async () => {
       await daniel.locator('[data-huddle-dock] [data-control="react"]').click();
       await daniel.locator('.huddle-reaction-choice', { hasText: '🎉' }).click();
@@ -169,6 +189,25 @@ await run(
         { timeout: 20_000 },
       );
       await shot(daniel, 'huddle-stage-screen-light');
+
+      // Daniel draws on Maya's screen; Maya sees the mark on it, and it fades.
+      await daniel.locator(`[data-tile="${mayaId}"][data-source="screen"] [data-control="draw"]`).click();
+      const layer = daniel.locator(`[data-drawing="${mayaId}"]`);
+      const box = await layer.boundingBox();
+      await daniel.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.3);
+      await daniel.mouse.down();
+      for (let n = 1; n <= 10; n += 1) await daniel.mouse.move(box.x + box.width * (0.2 + n * 0.05), box.y + box.height * (0.3 + n * 0.03), { steps: 2 });
+      await daniel.mouse.up();
+      const mark = maya.locator(`[data-tile="${mayaId}"][data-source="screen"] [data-drawing] polyline`);
+      await mark.waitFor({ timeout: 10_000 });
+      const points = (await mark.getAttribute('points')).split(' ');
+      assert.ok(points.length >= 5, 'the whole stroke arrives');
+      const [x, y] = points[0].split(',').map(Number);
+      assert.ok(Math.abs(x - 0.2) < 0.05 && Math.abs(y - 0.3) < 0.05, `drawn where Daniel drew it (${x}, ${y})`);
+      await shot(maya, 'huddle-drawing');
+      await mark.waitFor({ state: 'detached', timeout: 10_000 });
+      await daniel.keyboard.press('Escape');
+
       await maya.locator('[data-huddle-stage] [data-control="screen"]').click();
       await until(daniel, (s) => !remote(s, mayaId)?.screen, 'screen share stopped');
       await daniel.locator('[data-huddle-stage] [data-control="expand"]').click();

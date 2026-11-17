@@ -570,3 +570,53 @@
     border: 1px solid CanvasText;
   }
 }
+
+/* Drawing on a shared screen */
+.huddle-tile.is-screen {
+  position: relative;
+}
+.huddle-drawing {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+.huddle-drawing.is-drawing {
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+  outline: 2px dashed rgb(255 255 255 / 0.5);
+}
+.huddle-drawing polyline.is-done {
+  animation: huddle-stroke-fade 4s ease-in forwards;
+}
+@keyframes huddle-stroke-fade {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .huddle-drawing polyline.is-done {
+    animation: none;
+  }
+}
+.huddle-draw-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+}
+.huddle-draw-btn.is-active {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+.huddle-device-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+  max-width: 260px;
+}

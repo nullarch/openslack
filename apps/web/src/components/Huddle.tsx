@@ -34,6 +34,7 @@ import { S } from '../strings';
 import '../styles/huddles.css';
 import { Mrkdwn } from './text';
 import { CaptionsButton, CaptionsOverlay } from './HuddleCaptions';
+import { DrawButton, DrawingLayer, EffectPicker } from './HuddleDrawing';
 import { Avatar, Button, IconButton, Popover } from './ui';
 
 const REACTIONS = ['👍', '🎉', '😂', '❤️', '👏', '🙌'];
@@ -211,6 +212,8 @@ function StageTile({ tile, source = 'camera' }: { tile: Tile; source?: 'camera' 
       data-source={source}
     >
       {showVideo ? <VideoTile tile={tile} source={source} /> : <Avatar user={user} size={72} />}
+      {source === 'screen' ? <DrawingLayer sharer={tile.identity} /> : null}
+      {source === 'screen' ? <DrawButton sharer={tile.identity} /> : null}
       <span className="huddle-tile-name">
         {source === 'screen' ? S.huddles.sharing(tile.name) : tile.isLocal ? `${tile.name} ${S.huddles.you}` : tile.name}
         {source === 'camera' && !tile.mic ? <MicOff size={13} /> : null}
@@ -241,6 +244,7 @@ function DevicePicker({ anchor, onClose }: { anchor: HTMLElement | null; onClose
       {row('audioinput', S.huddles.microphone)}
       {row('videoinput', S.huddles.camera)}
       {row('audiooutput', S.huddles.speaker)}
+      <EffectPicker />
     </Popover>
   );
 }

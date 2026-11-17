@@ -1,7 +1,9 @@
+import { saveEffect, savedEffect, type Effect } from './huddleEffects';
 import type { Huddle } from '@app/shared';
 import { create } from 'zustand';
 import { errorText, toast } from './actions';
 import { call, type Json } from './api';
+import { S } from '../strings';
 import { get as getApp } from './store';
 
 /**
@@ -51,6 +53,8 @@ export interface HuddleState {
   selected: { audioinput?: string; videoinput?: string; audiooutput?: string };
   /** Bumped when tracks change, so video elements re-attach. */
   trackVersion: number;
+  /** The camera background this person chose (kept in this browser). */
+  effect: Effect;
 }
 
 export const useHuddles = create<HuddleState>(() => ({
@@ -66,6 +70,7 @@ export const useHuddles = create<HuddleState>(() => ({
   devices: { audioinput: [], videoinput: [], audiooutput: [] },
   selected: {},
   trackVersion: 0,
+  effect: savedEffect(),
 }));
 
 const set = useHuddles.setState;
@@ -178,6 +183,19 @@ export async function sendReaction(emoji: string): Promise<void> {
   const self = getApp().self?.id ?? '';
   showReaction(emoji, self);
   await media?.sendReaction(emoji);
+}
+
+export async function chooseEffect(effect: Effect): Promise<void> {
+  const previous = get().effect;
+  set({ effect });
+  saveEffect(effect);
+  try {
+    await media?.setEffect(effect);
+  } catch {
+    set({ effect: previous });
+    saveEffect(previous);
+    toast(S.huddles.effectFailed, 'error');
+  }
 }
 
 export async function chooseDevice(kind: keyof DeviceList, deviceId: string): Promise<void> {

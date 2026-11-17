@@ -1,6 +1,7 @@
 import {
   ConnectionState,
   type LocalTrackPublication,
+  type LocalVideoTrack,
   Participant,
   RemoteParticipant,
   Room,
@@ -9,6 +10,8 @@ import {
   type RemoteTrack,
 } from 'livekit-client';
 import { displayName, get as getApp } from './store';
+import { applyEffect, type Effect } from './huddleEffects';
+import { clearDrawings, receiveStroke, setDrawingTransport } from './huddleDrawing';
 import { report, showReaction, useHuddles, type DeviceList, type Tile } from './huddles';
 
 /**
@@ -85,19 +88,32 @@ export async function connect(url: string, token: string, _channel: string): Pro
     .on(RoomEvent.Reconnecting, () => report.status('reconnecting'))
     .on(RoomEvent.Reconnected, () => report.status('connected'))
     .on(RoomEvent.DataReceived, (payload: Uint8Array, participant?: RemoteParticipant, _kind?: unknown, topic?: string) => {
-      if (topic !== 'reaction' || !participant) return;
+      if (!participant) return;
+      if (topic === 'draw') {
+        try {
+          receiveStroke(participant.identity, JSON.parse(decoder.decode(payload)));
+        } catch {
+          // not a stroke
+        }
+        return;
+      }
+      if (topic !== 'reaction') return;
       const emoji = decoder.decode(payload).slice(0, 16);
       if (emoji) showReaction(emoji, participant.identity);
     })
     .on(RoomEvent.Disconnected, () => {
       if (room !== next) return;
       room = null;
+      clearDrawings();
       audioHost.replaceChildren();
       report.ended();
     });
 
   await next.connect(url, token);
   report.status('connected');
+  setDrawingTransport((message) => {
+    void next.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable: true, topic: 'draw' }).catch(() => undefined);
+  });
   const selected = useHuddles.getState().selected;
   if (selected.audioinput) await next.switchActiveDevice('audioinput', selected.audioinput).catch(() => undefined);
   await next.localParticipant.setMicrophoneEnabled(useHuddles.getState().mic);
@@ -110,6 +126,7 @@ export async function disconnect(): Promise<void> {
   const current = room;
   room = null;
   audioHost.replaceChildren();
+  clearDrawings();
   await current?.disconnect();
 }
 
@@ -118,9 +135,20 @@ export async function setMic(on: boolean): Promise<void> {
   publishTiles();
 }
 
+function cameraTrack(): LocalVideoTrack | undefined {
+  return room?.localParticipant.getTrackPublication(Track.Source.Camera)?.track as LocalVideoTrack | undefined;
+}
+
 export async function setCamera(on: boolean): Promise<void> {
   await room?.localParticipant.setCameraEnabled(on);
+  // A background chosen earlier goes back on with the camera.
+  const effect = useHuddles.getState().effect;
+  if (on && effect !== 'none') await applyEffect(cameraTrack(), effect).catch(() => undefined);
   publishTiles();
+}
+
+export async function setEffect(effect: Effect): Promise<void> {
+  await applyEffect(cameraTrack(), effect);
 }
 
 export async function setScreen(on: boolean): Promise<void> {
@@ -161,7 +189,7 @@ function snapshot(): unknown {
   return {
     connected: room.state === ConnectionState.Connected,
     room: room.name,
-    local: { identity: room.localParticipant.identity, ...sources(room.localParticipant) },
+    local: { identity: room.localParticipant.identity, ...sources(room.localParticipant), effect: cameraTrack()?.getProcessor()?.name ?? null },
     remote: [...room.remoteParticipants.values()].map((participant) => ({ identity: participant.identity, ...sources(participant) })),
   };
 }

@@ -160,6 +160,12 @@ export const koRest = {
   },
 
   huddles: {
+    background: '배경',
+    effects: { none: '없음', blur: '흐리게', 'blur-strong': '많이 흐리게', dusk: '노을', meadow: '초원' },
+    effectsUnsupported: '이 브라우저는 카메라 배경을 바꿀 수 없어요.',
+    effectFailed: '배경을 바꾸지 못했어요.',
+    draw: '이 화면에 그리기',
+    stopDrawing: '그리기 끝내기',
     captionsOn: '자막 켜기',
     captionsOff: '자막 끄기',
     captionsLabel: '자막',

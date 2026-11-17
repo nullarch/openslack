@@ -270,6 +270,9 @@ const STATIC_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
   '.webmanifest': 'application/manifest+json',
   '.mp3': 'audio/mpeg',
+  // Camera backgrounds (MediaPipe): WebAssembly must be served as such to compile while it streams.
+  '.wasm': 'application/wasm',
+  '.tflite': 'application/octet-stream',
   '.map': 'application/json',
 };
 
