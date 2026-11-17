@@ -46,6 +46,8 @@ interface ExportUser {
   is_bot?: boolean;
   is_admin?: boolean;
   is_owner?: boolean;
+  is_restricted?: boolean;
+  is_ultra_restricted?: boolean;
   tz?: string;
   profile?: { email?: string; display_name?: string; real_name?: string; title?: string; bot_id?: string };
 }
@@ -181,6 +183,7 @@ export async function importSlackExport(ctx: Ctx, path: string, options: ImportO
           botId: user.profile?.bot_id ?? null,
           title: user.profile?.title ?? '',
           deleted: user.deleted === true,
+          guest: user.is_ultra_restricted ? 'single' : user.is_restricted ? 'multi' : '',
         });
         userMap.set(user.id, user.id);
         report.users.created += 1;
@@ -453,13 +456,15 @@ function validTz(value: string | undefined): string {
 }
 
 /**
- * Carry a message's files over. With `downloadFiles`, each file is fetched and
- * stored under its original id. Otherwise (or when a download fails) the
- * message keeps a link to where the file lived.
+ * Carry a message's files over. A file whose bytes are in the archive (under
+ * `__uploads/<file id>/`, as this server's own export writes them) is stored
+ * from there. With `downloadFiles`, others are fetched from the URL in the
+ * export. Otherwise (or when a download fails) the message keeps a link to
+ * where the file lived.
  */
 async function importFiles(
   ctx: Ctx,
-  _archive: Archive,
+  archive: Archive,
   message: ExportMessage,
   mapUser: (id: string) => string,
   options: ImportOptions,
@@ -477,6 +482,34 @@ async function importFiles(
     }
     const url = file.url_private_download ?? file.url_private;
     let stored = false;
+    const packed = uploadsIn(archive).get(file.id);
+    if (packed) {
+      try {
+        const data = archive.read(packed);
+        await ctx.storage.putBuffer(file.id, data);
+        const info = typeForName(name);
+        ctx.db.run(
+          `INSERT INTO files (id, user_id, name, title, mimetype, filetype, size, storage_key, state, width, height, created)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'shared', ?, ?, ?)`,
+          file.id,
+          message.user ? mapUser(message.user) : '',
+          name,
+          file.title ?? name,
+          file.mimetype ?? info.mimetype,
+          file.filetype ?? info.filetype,
+          data.length,
+          file.id,
+          file.original_w ?? null,
+          file.original_h ?? null,
+          Math.floor(Number(message.ts ?? 0)),
+        );
+        fileIds.push(file.id);
+        report.files.stored += 1;
+        continue;
+      } catch (error) {
+        problem(`file ${file.id} (${name}): could not be read from the archive (${error instanceof Error ? error.message : String(error)})`);
+      }
+    }
     if (options.downloadFiles && url) {
       try {
         const response = await fetch(url, {
@@ -524,4 +557,20 @@ async function importFiles(
     }
   }
   return { fileIds, attachments };
+}
+
+const uploadIndexes = new WeakMap<Archive, Map<string, string>>();
+
+/** File id → archive entry, for files packed under `__uploads/<file id>/`. */
+function uploadsIn(archive: Archive): Map<string, string> {
+  let index = uploadIndexes.get(archive);
+  if (!index) {
+    index = new Map();
+    for (const name of archive.names()) {
+      const match = /^__uploads\/([A-Z0-9]+)\/[^/]+$/.exec(name);
+      if (match) index.set(match[1]!, name);
+    }
+    uploadIndexes.set(archive, index);
+  }
+  return index;
 }
