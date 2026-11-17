@@ -567,13 +567,14 @@ export async function setPinned(channel: string, ts: string, pinned: boolean): P
   await attempt(() => call(pinned ? 'pins.add' : 'pins.remove', { channel, timestamp: ts }));
 }
 
-export async function clickBlockAction(channel: string, message: Message, action: Record<string, unknown>): Promise<void> {
+export async function clickBlockAction(channel: string, message: Message, action: Record<string, unknown>, state?: Record<string, unknown>): Promise<void> {
   try {
     await call('client.interactions.blockAction', {
       channel,
       message_ts: message.ts,
       thread_ts: message.thread_ts,
       action,
+      state,
     });
   } catch (error) {
     toast(isUnsupported(error) ? S.blocks.actionsUnsupported : errorText(error), 'error');

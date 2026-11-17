@@ -1,5 +1,6 @@
 import type { User } from '@app/shared';
 import { ArrowLeft, Bot, Trash2 } from 'lucide-react';
+import { AppPlatformSettings, RateLimitSetting } from '../AppViews';
 import { useEffect, useRef, useState } from 'react';
 import { attempt, closeModal, errorText, openModal, toast } from '../../lib/actions';
 import { ApiError, asset, call, isUnsupported, uploadFile, type Json } from '../../lib/api';
@@ -457,6 +458,8 @@ function AppDetail({ app, secrets, onBack, onChanged, onRotated }: AppDetailProp
         </Button>
       </div>
 
+      <AppPlatformSettings app={app} onChanged={onChanged} />
+
       <div className="danger-zone">
         <Button variant="danger" onClick={() => void remove()}>
           {S.apps.delete}
@@ -559,6 +562,7 @@ function AppsAdmin() {
         ))}
       </ul>
       {!unsupported && !isAdmin ? <p className="muted">{S.apps.adminOnly}</p> : null}
+      {!unsupported ? <RateLimitSetting /> : null}
       {!unsupported && isAdmin ? (
         <form
           className="new-app"

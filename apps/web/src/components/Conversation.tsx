@@ -4,6 +4,7 @@ import { attempt, joinChannel, setConversationPrefs, setPanel } from '../lib/act
 import { call } from '../lib/api';
 import { conversation, conversationName, set, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AppHomeView, AppTabs, useAppOf, useAppTab } from './AppViews';
 import { Composer } from './Composer';
 import { promptDialog } from './dialogs/confirm';
 import { MessageList } from './MessageList';
@@ -90,6 +91,8 @@ export function ConversationView({ channel }: { channel: string }) {
   const conv = useStore((state) => conversation(state, channel));
   const isMember = useStore((state) => state.channels[channel] !== undefined);
   const name = useStore((state) => conversationName(state, conv));
+  const appId = useAppOf(channel);
+  const appTab = useAppTab(appId);
 
   if (!conv) {
     return (
@@ -105,6 +108,19 @@ export function ConversationView({ channel }: { channel: string }) {
   return (
     <section className="conversation" data-drop-scope data-drop-label={S.composer.dropHere}>
       <Header conv={conv} isMember={isMember} />
+      {appId ? <AppTabs key={`tabs:${channel}`} appId={appId} /> : null}
+      {appId && appTab === 'home' ? (
+        <AppHomeView appId={appId} />
+      ) : (
+        <ConversationBody channel={channel} conv={conv} isMember={isMember} name={name} placeholder={placeholder} />
+      )}
+    </section>
+  );
+}
+
+function ConversationBody({ channel, conv, isMember, name, placeholder }: { channel: string; conv: Conversation; isMember: boolean; name: string; placeholder: string }) {
+  return (
+    <>
       <MessageList key={`list:${channel}`} channel={channel} />
       {conv.is_archived ? (
         <div className="notice-bar">{S.header.archivedNotice}</div>
@@ -118,6 +134,6 @@ export function ConversationView({ channel }: { channel: string }) {
       ) : (
         <Composer key={`composer:${channel}`} channel={channel} placeholder={placeholder} autoFocus />
       )}
-    </section>
+    </>
   );
 }

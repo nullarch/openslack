@@ -5,6 +5,7 @@ import { closeModal, openModal, setPanel } from '../lib/actions';
 import { enableNotifications } from '../lib/notify';
 import { conversation, conversationName, currentId, get, set, useStore } from '../lib/store';
 import { S } from '../strings';
+import { AppModalHost } from './AppViews';
 import { ConversationView } from './Conversation';
 import { AdminDialog } from './dialogs/admin';
 import { AddPeopleDialog, BrowseChannelsDialog, CreateChannelDialog, InviteDialog, NewDmDialog } from './dialogs/channels';
@@ -150,6 +151,7 @@ export function Shell() {
         </main>
       </div>
       <ModalHost />
+      <AppModalHost />
     </div>
   );
 }

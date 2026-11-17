@@ -1,24 +1,18 @@
 import type { Attachment, Block, Message } from '@app/shared';
-import { Check, MoreHorizontal, X } from 'lucide-react';
-import { Component, createContext, lazy, Suspense, useContext, useRef, useState, type ReactNode } from 'react';
+import { Check, X } from 'lucide-react';
+import { Component, lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { clickBlockAction } from '../lib/actions';
-import { asset } from '../lib/api';
+import { asset, call } from '../lib/api';
+import { StateBag, SurfaceContext, useSurface, type Surface } from '../lib/surface';
 import { S } from '../strings';
+import { InputBlock, InteractiveElement } from './blockElements';
 import { Broadcast, ChannelLink, DateToken, Emoji, Link, Mrkdwn, PlainText, UserMention } from './text';
-import { MenuItem, Popover } from './ui';
 
 const MarkdownText = lazy(() => import('./Markdown'));
 
 // Block Kit arrives as loosely typed JSON; each renderer checks what it reads.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
-
-interface BlockContext {
-  channel: string;
-  message: Message;
-}
-
-const Context = createContext<BlockContext | null>(null);
 
 // ── Text objects ────────────────────────────────────────────────────────────
 
@@ -164,119 +158,11 @@ function RichText({ block }: { block: Any }) {
 
 // ── Interactive elements ────────────────────────────────────────────────────
 
-function useAction(): (action: Record<string, unknown>) => Promise<void> {
-  const context = useContext(Context);
-  return async (action) => {
-    if (!context) return;
-    await clickBlockAction(context.channel, context.message, action);
-  };
-}
-
-function ActionButton({ element, blockId }: { element: Any; blockId: string }) {
-  const send = useAction();
-  const [pending, setPending] = useState(false);
-  const style = element.style === 'primary' ? 'primary' : element.style === 'danger' ? 'danger' : 'default';
-  const click = async (): Promise<void> => {
-    if (element.confirm) {
-      const question = [plain(element.confirm.title), plain(element.confirm.text)].filter(Boolean).join('\n\n');
-      if (!window.confirm(question)) return;
-    }
-    if (element.url) window.open(String(element.url), '_blank', 'noopener');
-    // Without an action id there is nothing to tell the app; a link button is just a link.
-    if (!element.action_id) return;
-    setPending(true);
-    try {
-      await send({
-        type: 'button',
-        action_id: element.action_id,
-        block_id: blockId,
-        value: element.value,
-        text: element.text,
-        style: element.style,
-      });
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <button type="button" className={`block-btn is-${style} ${pending ? 'is-pending' : ''}`} disabled={pending} onClick={() => void click()}>
-      {pending ? <span className="spinner" aria-hidden="true" /> : null}
-      <span>
-        <PlainText text={plain(element.text)} />
-      </span>
-    </button>
-  );
-}
-
-function StaticSelect({ element, blockId }: { element: Any; blockId: string }) {
-  const send = useAction();
-  const options: Any[] = Array.isArray(element.options) ? element.options : [];
-  const initial = element.initial_option?.value !== undefined ? String(element.initial_option.value) : '';
-  const [value, setValue] = useState(initial);
-  return (
-    <select
-      className="block-select"
-      value={value}
-      onChange={(event) => {
-        setValue(event.target.value);
-        const selected = options.find((option) => String(option.value) === event.target.value);
-        void send({ type: 'static_select', action_id: element.action_id, block_id: blockId, selected_option: selected });
-      }}
-    >
-      <option value="" disabled>
-        {plain(element.placeholder) || S.blocks.choose}
-      </option>
-      {options.map((option, index) => (
-        <option key={index} value={String(option.value)}>
-          {plain(option.text)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function Overflow({ element, blockId }: { element: Any; blockId: string }) {
-  const send = useAction();
-  const anchor = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-  const options: Any[] = Array.isArray(element.options) ? element.options : [];
-  return (
-    <>
-      <button ref={anchor} type="button" className="block-btn is-default is-icon" aria-label={S.blocks.moreOptions} onClick={() => setOpen(true)}>
-        <MoreHorizontal size={16} />
-      </button>
-      {open ? (
-        <Popover anchor={anchor.current} onClose={() => setOpen(false)} align="end" className="menu">
-          {options.map((option, index) => (
-            <MenuItem
-              key={index}
-              label={plain(option.text)}
-              onSelect={() => {
-                setOpen(false);
-                if (option.url) window.open(String(option.url), '_blank', 'noopener');
-                void send({ type: 'overflow', action_id: element.action_id, block_id: blockId, selected_option: option });
-              }}
-            />
-          ))}
-        </Popover>
-      ) : null}
-    </>
-  );
-}
-
-function Element({ element, blockId }: { element: Any; blockId: string }) {
-  switch (element?.type) {
-    case 'button':
-      return <ActionButton element={element} blockId={blockId} />;
-    case 'static_select':
-      return <StaticSelect element={element} blockId={blockId} />;
-    case 'overflow':
-      return <Overflow element={element} blockId={blockId} />;
-    case 'image':
-      return <img className="block-accessory-image" src={asset(String(element.image_url ?? ''))} alt={String(element.alt_text ?? '')} loading="lazy" />;
-    default:
-      return null;
+function Element({ element, blockId, block }: { element: Any; blockId: string; block: Any }) {
+  if (element?.type === 'image') {
+    return <img className="block-accessory-image" src={asset(String(element.image_url ?? ''))} alt={String(element.alt_text ?? '')} loading="lazy" />;
   }
+  return <>{InteractiveElement({ element, blockId, block })}</>;
 }
 
 // ── Blocks ──────────────────────────────────────────────────────────────────
@@ -402,7 +288,7 @@ function renderBlock(block: Block, index: number): ReactNode {
           </div>
           {value.accessory ? (
             <div className="block-accessory">
-              <Element element={value.accessory} blockId={blockId} />
+              <Element element={value.accessory} blockId={blockId} block={value} />
             </div>
           ) : null}
         </div>
@@ -449,10 +335,12 @@ function renderBlock(block: Block, index: number): ReactNode {
       return (
         <div className="block-actions">
           {(Array.isArray(value.elements) ? value.elements : []).map((element: Any, elementIndex: number) => (
-            <Element key={elementIndex} element={element} blockId={blockId} />
+            <Element key={elementIndex} element={element} blockId={blockId} block={value} />
           ))}
         </div>
       );
+    case 'input':
+      return <InputBlock block={value} blockId={blockId} />;
     case 'markdown':
       return (
         <Suspense fallback={<div className="md md-plain">{String(value.text ?? '')}</div>}>
@@ -502,17 +390,41 @@ interface BlocksProps {
   blocks: Block[];
   /** Shown when no block could be rendered. */
   fallbackText: string;
-  channel: string;
-  message: Message;
+  /** Where the blocks are drawn. Without one, they belong to `message` in `channel`. */
+  surface?: Surface;
+  channel?: string;
+  message?: Message;
 }
 
-export function Blocks({ blocks, fallbackText, channel, message }: BlocksProps) {
+/** The surface of blocks on a message: actions and menus go to the app that posted it. */
+function useMessageSurface(channel: string | undefined, message: Message | undefined): Surface | null {
+  const ts = message?.ts;
+  return useMemo(() => {
+    if (!channel || !message) return null;
+    const state = new StateBag();
+    return {
+      kind: 'message',
+      state,
+      errors: {},
+      act: (action) => clickBlockAction(channel, message, action, state.toState()),
+      suggest: (actionId, blockId, value) =>
+        call('client.interactions.suggest', { channel, message_ts: message.ts, action_id: actionId, block_id: blockId, value }).catch(() => ({ options: [] })),
+    } satisfies Surface;
+    // A message's surface lives as long as the message keeps its timestamp.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel, ts]);
+}
+
+export function Blocks({ blocks, fallbackText, surface, channel, message }: BlocksProps) {
+  const inherited = useSurface();
+  const own = useMessageSurface(surface || inherited ? undefined : channel, message);
+  const active = surface ?? inherited ?? own;
   const fallback = fallbackText ? <Mrkdwn text={fallbackText} /> : <div className="block-unsupported">{S.blocks.unsupported}</div>;
   const rendered = blocks.map((block, index) => ({ block, node: safeRender(block, index) })).filter((item) => item.node !== null);
   if (rendered.length === 0) return fallback;
   return (
     <Boundary fallback={fallback}>
-      <Context.Provider value={{ channel, message }}>
+      <SurfaceContext.Provider value={active}>
         <div className="blocks">
           {rendered.map((item, index) => (
             <div key={item.block.block_id ?? index} className="block" data-block={item.block.type}>
@@ -520,7 +432,7 @@ export function Blocks({ blocks, fallbackText, channel, message }: BlocksProps) 
             </div>
           ))}
         </div>
-      </Context.Provider>
+      </SurfaceContext.Provider>
     </Boundary>
   );
 }
