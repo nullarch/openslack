@@ -23,10 +23,12 @@ docker run -p 3000:3000 -v openslack:/data ghcr.io/nullarch/openslack
 
 - **Your Slack apps keep working.** Point an existing Bolt app at OpenSlack and it receives events, posts Block Kit messages, handles button clicks and slash commands. [What is supported](docs/COMPATIBILITY.md) is generated from what the official SDKs actually exercised.
 - **Agents you already run can move over.** [OpenClaw](https://github.com/openclaw/openclaw)'s official Slack plugin connects with one environment variable, `SLACK_API_URL` ([how it was checked](compat/openclaw/README.md)).
-- **Agents are first-class.** Rate limits are yours to set, message streaming works, and there is a built-in [MCP](https://modelcontextprotocol.io) endpoint at `/mcp` with search, read and post tools that respect each token's permissions.
+- **Agents are first-class.** Rate limits are yours to set, message streaming works, agents report their sessions (working, waiting for you, Stop) through Slack's `agents.sessions` API, and there is a built-in [MCP](https://modelcontextprotocol.io) endpoint at `/mcp` with search, read and post tools that respect each token's permissions.
 - **Paste your app's manifest.** Name, bot, slash commands, shortcuts, events and scopes come from the same JSON manifest you use on Slack (`apps.manifest.*` works too), and token rotation behaves as it does there.
 - **Bring your history.** A Slack export imports with users, channels, threads, reactions and pins, keeping the original ids so mentions and links still resolve. Mattermost and Discord exports import too.
-- **The admin features are in the free edition.** Single sign-on (OpenID Connect, Google, GitHub), two-factor sign-in, SCIM provisioning, an audit log in the shape of Slack's Audit Logs API, retention, guests and analytics. Other tools can also use the workspace to sign people in.
+- **AI that stays yours.** Off until you connect a model (Claude by default, or any local OpenAI-compatible one): summaries, daily recaps, answers above search results, notes after a call, and an assistant that remembers only what you let it.
+- **Calls and clips.** Huddles with video, screen sharing, drawing on a shared screen, background blur and live captions (through [LiveKit](https://livekit.io)), and recorded audio, video and screen clips with transcripts.
+- **The admin features are in the free edition.** Single sign-on (SAML 2.0, OpenID Connect, Google, GitHub), two-factor sign-in, SCIM provisioning, an audit log in the shape of Slack's Audit Logs API, retention, legal hold, sensitive-information rules, encryption at rest, guests and analytics. Other tools can also use the workspace to sign people in.
 - **One process, one folder.** Node.js and a data directory holding a SQLite file and your uploads. Back up the folder and you have backed up everything.
 - **Nothing held back.** Apache-2.0. No user cap, no history limit, no paid edition, no telemetry.
 
