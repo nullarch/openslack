@@ -36,6 +36,7 @@ import {
   UserPlus,
   UserRound,
   Users,
+  Workflow,
 } from 'lucide-react';
 import { memo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { attempt, go, markRead, openModal, setConversationPrefs, setPrefs, signOut } from '../lib/actions';
@@ -351,6 +352,7 @@ function TeamMenu() {
           <MenuItem icon={<ShieldCheck size={16} />} label={S.sidebar.administration} onSelect={pick(() => openModal({ kind: 'admin', tab: 'members' }))} />
           <MenuItem icon={<Settings size={16} />} label={S.sidebar.preferences} onSelect={pick(() => openModal({ kind: 'preferences' }))} />
           <AiMenuItems pick={pick} />
+          <MenuItem icon={<Workflow size={16} />} label={S.wf.menu} onSelect={pick(() => go({ name: 'workflows' }))} />
           <MenuDivider />
           <MenuItem icon={<LogOut size={16} />} label={S.sidebar.signOut} onSelect={pick(() => void signOut())} />
         </Popover>

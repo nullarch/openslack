@@ -6,6 +6,7 @@ import { getMessage, messageToApi } from '../core/messages.ts';
 import { appConfig, getApp, listApps, requireApp } from './apps.ts';
 import { locate, withBlockIds, type Json } from './elements.ts';
 import { deliverInteractive, payloadChannelName, payloadUser, type Interactivity } from './interactivity.ts';
+import { allLocalApps, localApp } from './local-apps.ts';
 import { readOptions } from './views.ts';
 
 /**
@@ -18,15 +19,25 @@ export function installShortcuts(kernel: Kernel, deps: Interactivity): void {
   const { ctx } = deps;
 
   /** Every shortcut of every app, for the shortcut menus. */
-  kernel.registry.add('client.shortcuts.list', { auth: 'session' }, () => ({
-    shortcuts: listApps(ctx).flatMap((app) =>
-      appConfig(app).shortcuts.map((shortcut) => ({ ...shortcut, app_id: app.id, app_name: app.name })),
-    ),
+  kernel.registry.add('client.shortcuts.list', { auth: 'session' }, ({ actor }) => ({
+    shortcuts: [
+      ...listApps(ctx).flatMap((app) => appConfig(app).shortcuts.map((shortcut) => ({ ...shortcut, app_id: app.id, app_name: app.name }))),
+      // Built-in apps offer shortcuts per person (published workflows).
+      ...allLocalApps(ctx).flatMap((local) => {
+        const app = getApp(ctx, local.appId);
+        return app ? (local.shortcuts?.(actor) ?? []).map((shortcut) => ({ ...shortcut, app_id: app.id, app_name: app.name })) : [];
+      }),
+    ],
   }));
 
   kernel.registry.add('client.shortcuts.run', { auth: 'session' }, async ({ actor, args }) => {
     const app = requireApp(ctx, args.str('app'));
     const callbackId = args.req('callback_id');
+    const local = localApp(ctx, app.id);
+    if (local?.runShortcut) {
+      await local.runShortcut(actor, callbackId, { channel: args.str('context_channel') });
+      return {};
+    }
     const shortcut = appConfig(app).shortcuts.find((entry) => entry.callback_id === callbackId);
     if (!shortcut) fail('shortcut_not_found');
     const team = ctx.requireTeam();

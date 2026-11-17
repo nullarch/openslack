@@ -254,6 +254,49 @@ async function main(browser) {
     await shot(maya, 'platform-unfurl');
   });
 
+  await step('apps screen: create an app from a Slack manifest, see its problems first, then export and apply it', async () => {
+    await openAdmin(maya, 'Apps');
+    const panel = maya.locator('.manifest-create');
+    await panel.locator('summary').click();
+    const spec = {
+      display_information: { name: 'Standup' },
+      features: { bot_user: { display_name: 'standup' }, slash_commands: [{ command: '/standup', description: 'Post your standup' }] },
+      oauth_config: { scopes: { bot: ['chat:write', 'commands'] } },
+      settings: { socket_mode_enabled: true, interactivity: { is_enabled: true } },
+    };
+    // A scope the server does not grant is pointed out before anything is created.
+    await panel.locator('textarea').fill(JSON.stringify({ ...spec, oauth_config: { scopes: { bot: ['chat:write', 'calls:write'] } } }, null, 2));
+    await panel.locator('.btn-primary').click();
+    await panel.locator('.manifest-problems', { hasText: '/oauth_config/scopes/bot/1' }).waitFor();
+    await panel.locator('textarea').fill(JSON.stringify(spec, null, 2));
+    await panel.locator('.btn-primary').click();
+    await maya.locator('.app-head h3', { hasText: 'Standup' }).waitFor();
+    assert.match(await maya.locator('.copy-field', { hasText: 'Bot token' }).locator('input').inputValue(), /^xoxb-/);
+    assert.match(await maya.locator('.copy-field', { hasText: 'App-level token' }).locator('input').inputValue(), /^xapp-/);
+
+    const editor = maya.locator('.manifest-editor');
+    await editor.locator('summary').click();
+    const text = editor.locator('textarea');
+    await text.waitFor();
+    const exported = JSON.parse(await text.inputValue());
+    assert.equal(exported.features.slash_commands[0].command, '/standup');
+    exported.display_information.description = 'Daily check-in';
+    await text.fill(JSON.stringify(exported, null, 2));
+    await editor.locator('.btn', { hasText: 'Apply manifest' }).click();
+    await maya.locator('.toast', { hasText: 'Manifest applied' }).waitFor();
+    const saved = await maya.evaluate(async () => {
+      const response = await fetch('/api/client.apps.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      return (await response.json()).apps.find((app) => app.name === 'Standup');
+    });
+    assert.equal(saved.description, 'Daily check-in');
+    await shot(maya, 'platform-manifest');
+    await maya.locator('.back-link').click();
+    const config = maya.locator('.config-token');
+    await config.locator('.btn').click();
+    assert.match(await config.locator('.copy-field', { hasText: 'configuration token' }).locator('input').inputValue(), /^xoxe\.xoxp-1-/);
+    await maya.keyboard.press('Escape');
+  });
+
   void eventsUrl;
 }
 

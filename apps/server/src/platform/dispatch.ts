@@ -45,6 +45,7 @@ export const SUBSCRIBABLE_EVENTS = [
   'team_rename',
   'app_home_opened',
   'link_shared',
+  'function_executed',
 ];
 
 /** Message subtypes that are ordinary posts, where a mention should notify the app. */

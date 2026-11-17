@@ -35,6 +35,7 @@ TypeScript run directly by Node (type stripping), so: no `enum`, no parameter pr
 | `src/platform` | Apps, bot tokens, Events API delivery, Socket Mode, webhooks, interactivity, slash commands, streaming |
 | `src/importer` | Slack export import |
 | `src/ai` | AI features (summaries, recaps, search answers, translation, writing help, Agents view); off until an admin connects a model |
+| `src/workflows` | Workflow Builder (triggers, steps, runs) and custom responses |
 | `src/mcp` | Model Context Protocol endpoint (`/mcp`) built on the official SDK |
 | `src/demo` | Sample workspace used for demos and screenshots (`SEED_DEMO=1`) |
 
@@ -75,7 +76,7 @@ Server side lives in `src/platform`; the web client builds its screens on these 
 | `client.apps.list` | `{ apps: AppInfo[] }`. Open to every member; carries no secrets |
 | `client.apps.info { app }` | Admin only: `{ app, signing_secret, subscribable_events }` |
 | `client.apps.create { name, description?, socket_mode? }` | Admin only. Creates the app and its bot user. Returns `{ app, bot_token, app_token, signing_secret }`; tokens are shown once |
-| `client.apps.update { app, name?, description?, socket_mode?, events_url?, interactivity_url?, bot_events?, shortcuts?, unfurl_domains? }` | `{ app }`. `shortcuts`: `[{ type: "global" \| "message", name, callback_id, description? }]` (up to 10); `unfurl_domains`: up to five host names |
+| `client.apps.update { app, name?, description?, socket_mode?, events_url?, interactivity_url?, bot_events?, shortcuts?, unfurl_domains?, functions? }` | `{ app }`. `shortcuts`: `[{ type: "global" \| "message", name, callback_id, description? }]` (up to 10); `unfurl_domains`: up to five host names; `functions`: workflow steps the app implements, in Slack's function-definition shape (`callback_id`, `title`, `input_parameters`, `output_parameters`; types `string`, `user_id`, `channel_id`, `number`, `boolean`, with or without `slack#/types/`) |
 | `client.apps.delete { app }` | Removes the app, deactivates its bot user |
 | `client.apps.rotateToken { app, kind: "bot" \| "app" }` | `{ token }` |
 | `client.apps.webhooks.create { app, channel }` / `.list` / `.delete` | Incoming webhook URLs |
@@ -86,7 +87,7 @@ Server side lives in `src/platform`; the web client builds its screens on these 
 | `client.interactions.blockAction { channel, message_ts, action, state? }` | Dispatches a `block_actions` payload to the app that posted the message; resolves once the app acknowledged (at most 3 seconds). `state.values` is rebuilt from the message's elements |
 | `client.interactions.suggest { channel, message_ts, action_id, block_id?, value }` | `block_suggestion` for an `external_select` on a message; returns `{ options }` or `{ option_groups }` |
 | `client.shortcuts.list` | `{ shortcuts: [{ type, name, callback_id, description, app_id, app_name }] }` |
-| `client.shortcuts.run { app, callback_id, channel?, message_ts? }` | A `shortcut` payload, or a `message_action` (with `channel` and `message_ts`) |
+| `client.shortcuts.run { app, callback_id, channel?, message_ts?, context_channel? }` | A `shortcut` payload, or a `message_action` (with `channel` and `message_ts`). `context_channel` is the conversation a global shortcut was started from; only built-in apps (workflows) read it |
 | `client.views.stack` | `{ stack: View[] }`: the caller's open modal, bottom view first |
 | `client.views.submit { view_id, state }` | `view_submission` for the top view; returns `{ stack, errors? }` after applying the app's `response_action` |
 | `client.views.close { view_id, clear? }` | Cancel (back one view) or, with `clear`, the ×; sends `view_closed` when the view asked for it. Returns `{ stack }` |
@@ -95,7 +96,9 @@ Server side lives in `src/platform`; the web client builds its screens on these 
 | `client.apps.home { app }` / `client.apps.homeOpened { app, tab }` | The caller's published Home view; opening sends `app_home_opened` and returns `{ channel, view }` |
 | `client.apps.limits` / `client.apps.setRateLimit { per_minute }` | The per-token API limit (workspace setting `api_rate_limit_per_minute`); `0` restores the default |
 
-`AppInfo`: `{ id, name, description, bot_user_id, bot_id, socket_mode, events_url, interactivity_url, bot_events, created, created_by, connected, token_hints: { bot, app }, shortcuts, unfurl_domains }`.
+`AppInfo`: `{ id, name, description, bot_user_id, bot_id, socket_mode, events_url, interactivity_url, bot_events, created, created_by, connected, token_hints: { bot, app }, shortcuts, unfurl_domains, functions }`.
+
+Built-in apps (`src/platform/local-apps.ts`) are apps whose `config.builtin` is set: they answer shortcuts, view submissions and view closes in-process instead of over HTTP or Socket Mode, and are left out of `client.apps.list`. Workflows is the one built-in app; it is created the first time someone saves a workflow.
 
 Views (`src/platform/views.ts`, table `app_views`): `views.open` and `views.push` exchange a `trigger_id` (single use, issued per app, valid `TRIGGER_TTL_MS`, 3 s by default); a person has one modal, a stack of at most three views; Home views are one per app and person. Client-only events: `view_stack { stack }` (the caller's modal changed; an empty stack closes it) and `app_home { app_id, view }`. Views sent to the browser omit `private_metadata`.
 
@@ -105,10 +108,41 @@ Apps are reached at private or loopback addresses only when this server itself r
 
 An MCP endpoint at `/mcp` (`src/mcp`) exposes search, read and post tools; each tool calls the API method of the same purpose as the token's owner. It runs on the official SDK v2 and serves both the 2026-07-28 revision and 2025-era clients (statelessly).
 
+## Workflows
+
+Server side lives in `src/workflows` (tables `workflows`, `workflow_runs`, `custom_responses`). A workflow is one trigger and an ordered list of steps; a person builds it, publishes it, and every run is stored with its variables and a step log.
+
+- **Triggers**: `shortcut` (listed with app shortcuts, so it is in the composer's ⚡ menu), `link` (`/workflow/<code>` opens a start page), `schedule` (`once`, `daily`, `weekly`, `monthly`, wall-clock time in an IANA zone; `next_run` is stored, claimed with a compare-and-set before the run starts, so a restart neither loses nor repeats a due run), `reaction` (one emoji in one channel), `member_joined` (one channel), `webhook` (`POST /hooks/workflows/<id>/<secret>` with a JSON object; chosen keys become `{{webhook.<key>}}`).
+- **Steps**: `message` (to a channel, the channel where it started, the reacted message's thread, or a person by DM), `form` (a modal through the built-in app; answers become `{{steps.<id>.<field>}}`, optionally posted), `add_to_channel`, `webhook` (JSON `POST`, same private-address guard as app URLs), `app` (a function an app declared), `list_item` (only when a lists module called `setListItemCreator`), and `branch` (if/else on one variable, one level deep).
+- **Variables**: `{{trigger.user}}`, `{{trigger.channel}}`, `{{trigger.time}}`, `{{trigger.message_text}}`, `{{trigger.message_author}}`, `{{trigger.reaction}}`, `{{webhook.*}}`, `{{steps.<id>.*}}`. People and channels render as mentions in messages; text is escaped.
+- **Execution**: steps compile to a flat program (branches become jumps), so a run waiting on a form or an app's step resumes at a plain index. Statuses: `running`, `waiting`, `completed`, `failed`, `cancelled` (form closed, workflow deleted).
+- **App steps**: the run sends `function_executed` (Events API or Socket Mode) with `function_execution_id`, `inputs` and a `bot_access_token` that lives as long as the step, then waits for `functions.completeSuccess { function_execution_id, outputs }` or `functions.completeError { function_execution_id, error }` from the same app; after 15 minutes the run fails.
+
+**Permissions.** A run acts with the creator's permissions intersected with those of the person who set it off (the *runner*; scheduled and webhook runs have none):
+
+1. A message may go to a public channel; anywhere else both the creator and the runner (if any) must be members. Archived channels are refused.
+2. `add_to_channel` only adds active people to public, unarchived channels.
+3. Direct messages go only to active, non-bot people.
+4. The channels a workflow names (trigger channel, message and form destinations) must be visible to its creator when it is saved and published; a trigger's channel is passed to the run only when the runner can see it.
+5. Forms are allowed only with triggers that have a person behind them (`shortcut`, `link`, `reaction`, `member_joined`), and only that person can submit or close the form.
+6. A deactivated creator stops every run of their workflows. Only the creator and admins can see, edit, publish or delete a workflow and its run history; turning it off stops its triggers.
+
+| Method | Purpose |
+|---|---|
+| `client.workflows.list` | `{ workflows }`: the caller's own; admins see all |
+| `client.workflows.get { workflow }` | `{ workflow }` with `steps`, `problems`, and `link_url` / `webhook_url` |
+| `client.workflows.save { workflow?, name, description?, trigger, steps }` | Create (as a draft) or update. `invalid_workflow` carries `detail` |
+| `client.workflows.publish { workflow, published? }` | Publish, or turn off with `published: false`. `cannot_publish` carries `problems` |
+| `client.workflows.delete { workflow }` | Deletes it and its run history |
+| `client.workflows.runs { workflow }` | The last 50 runs with their step logs |
+| `client.workflows.stepTypes` | Steps apps offer, and whether lists exist |
+| `client.workflows.linkInfo { link }` / `client.workflows.startByLink { link, channel? }` | The start page of a link trigger |
+| `client.responses.list` / `.save { id?, match_type, pattern, reply, channels?, enabled? }` / `.delete { id }` | Admin only. Custom responses: `exact`, `contains` or `regex` (nested repeats, backreferences and lookbehind refused; matching runs under a 50 ms limit). No channels means every public channel; a bot named Responses answers, at most once per rule and channel every 5 seconds |
+
 ## Web client contract
 
 - Boot with `client.status` → (`client.setup` | `client.signin` | `client.signup`) → `client.boot`, then open `ws_url`. After a dropped connection, call `client.boot` again and refetch the open conversation.
-- Routes: `/` (the app), `/setup`, `/signin`, `/join/<code>` (invite), `/archives/<conversation>/p<ts without dot>` (message permalink).
+- Routes: `/` (the app), `/setup`, `/signin`, `/join/<code>` (invite), `/archives/<conversation>/p<ts without dot>` (message permalink), `/workflows`, `/workflows/<id>`, `/workflow/<code>` (start a link-triggered workflow).
 - Render a message from `blocks` when present, otherwise from `text` (mrkdwn). `markdown` blocks hold standard Markdown. Treat subtypes `file_share`, `thread_broadcast`, `bot_message` and `me_message` as ordinary visible messages; `channel_join` and similar are system lines; `tombstone` is a deleted-parent placeholder.
 - A message with `streaming: true` is still being written; `is_ephemeral: true` messages are shown to this viewer only and are never in history.
 - Uploads: `files.getUploadURLExternal` → `POST` the bytes to `upload_url` → `files.completeUploadExternal` with `channel_id` and `initial_comment`.

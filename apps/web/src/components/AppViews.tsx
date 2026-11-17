@@ -15,7 +15,7 @@ import {
   type AppShortcut,
   type AppView,
 } from '../lib/platform';
-import { useStore } from '../lib/store';
+import { get, useStore } from '../lib/store';
 import { StateBag, textOf, type Surface } from '../lib/surface';
 import { S } from '../strings';
 import '../styles/platform.css';
@@ -262,7 +262,8 @@ export function ShortcutsButton() {
               hint={shortcut.app_name}
               onSelect={() => {
                 setOpen(false);
-                void runShortcut(shortcut);
+                const route = get().route;
+                void runShortcut(shortcut, route.name === 'conversation' ? { context_channel: route.id } : undefined);
               }}
             />
           ))}
