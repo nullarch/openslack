@@ -43,7 +43,12 @@ export class FakeIdentityProvider {
   async start(): Promise<string> {
     this.server = createServer((req, res) => {
       void this.handle(req).then(
-        ({ status, json }) => {
+        ({ status, json, location }) => {
+          if (location) {
+            res.writeHead(302, { location });
+            res.end();
+            return;
+          }
           res.writeHead(status, { 'content-type': 'application/json' });
           res.end(JSON.stringify(json));
         },
@@ -102,9 +107,13 @@ export class FakeIdentityProvider {
     return `${header}.${payload}.${signature}`;
   }
 
-  private async handle(req: IncomingMessage): Promise<{ status: number; json: unknown }> {
+  private async handle(req: IncomingMessage): Promise<{ status: number; json: unknown; location?: string }> {
     const url = new URL(req.url ?? '/', this.issuer);
     switch (url.pathname) {
+      // A browser arriving at the sign-in page is approved at once, as `person`.
+      case '/authorize':
+      case '/login/oauth/authorize':
+        return { status: 302, json: null, location: this.approve(url.toString()) };
       case '/.well-known/openid-configuration':
         return {
           status: 200,

@@ -1,5 +1,5 @@
 import { createECDH, createHmac, createPrivateKey, createCipheriv, randomBytes, sign, type KeyObject } from 'node:crypto';
-import { mrkdwnToPlain, parseMrkdwn } from '@app/shared';
+import { BRAND, mrkdwnToPlain, parseMrkdwn } from '@app/shared';
 import type { Kernel } from '../app.ts';
 import { getConv, getMember, type ConvRow } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
@@ -170,7 +170,30 @@ function recipients(ctx: Ctx, conv: ConvRow, ts: string, author: string | undefi
 }
 
 export function installPush(kernel: Kernel): void {
-  const { ctx, registry } = kernel;
+  const { ctx, registry, router } = kernel;
+
+  // The installable app carries the workspace's name.
+  router.add('GET', /^\/manifest\.webmanifest$/, ({ res }) => {
+    const name = ctx.team()?.name ?? BRAND.name;
+    const manifest = {
+      name,
+      short_name: name.length > 12 ? name.slice(0, 12) : name,
+      description: BRAND.tagline,
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      background_color: '#0f2a33',
+      theme_color: '#0f2a33',
+      icons: [
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    };
+    const body = JSON.stringify(manifest);
+    res.writeHead(200, { 'content-type': 'application/manifest+json', 'cache-control': 'public, max-age=3600', 'content-length': Buffer.byteLength(body) });
+    res.end(body);
+  });
 
   registry.add('client.push.status', { auth: 'session' }, ({ actor }) => ({
     vapid_public_key: vapid(ctx).publicKey,

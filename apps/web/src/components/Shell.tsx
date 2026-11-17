@@ -1,4 +1,5 @@
 import { BRAND } from '@app/shared';
+import { AccountsModalHost } from './accounts/ModalHost';
 import { Search, WifiOff } from 'lucide-react';
 import { useEffect } from 'react';
 import { closeModal, openModal, setPanel } from '../lib/actions';
@@ -150,6 +151,7 @@ export function Shell() {
         </main>
       </div>
       <ModalHost />
+      <AccountsModalHost />
     </div>
   );
 }

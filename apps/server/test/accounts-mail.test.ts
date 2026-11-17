@@ -92,7 +92,7 @@ describe('with mail', () => {
     await browser.ok('client.password.sendReset', { email: 'rey.reset@acme.test' });
     const mail = await sink.next((item) => item.to.includes('rey.reset@acme.test') && /Reset/.test(item.subject));
     const token = /\/reset\/([A-Za-z0-9_.-]+)/.exec(mail.text)![1]!;
-    assert.ok(token.startsWith(`${member.userId}.`));
+    assert.ok(token.startsWith(`${member.userId}-`));
 
     assert.equal((await browser.call('client.password.reset', { token, password: 'short' })).error, 'password_too_short');
     await browser.ok('client.password.reset', { token, password: 'a brand new password' });

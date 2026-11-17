@@ -255,13 +255,17 @@ export function registerSignIn(registry: Registry): void {
       to: email,
       subject: `Reset your password for ${team.name}`,
       text: `Someone asked to reset the password for ${email} on ${team.name}. The link works for one hour.\n\nIf it was not you, ignore this message; your password stays the same.`,
-      action: { label: 'Choose a new password', url: `${linkOrigin(ctx, req)}/reset/${user.id}.${token}` },
+      action: { label: 'Choose a new password', url: `${linkOrigin(ctx, req)}/reset/${user.id}-${token}` },
     }).catch(() => fail('mail_failed'));
     return {};
   });
 
   registry.addPublic('client.password.reset', async ({ ctx, args, req, res }) => {
-    const [userId = '', token = ''] = args.req('token').split('.');
+    // `<user id>-<secret>`: ids never contain a dash, and a dot would read as a file extension in the path.
+    const raw = args.req('token');
+    const dash = raw.indexOf('-');
+    const userId = dash > 0 ? raw.slice(0, dash) : '';
+    const token = dash > 0 ? raw.slice(dash + 1) : '';
     const user = getUser(ctx, userId);
     const row = user
       ? ctx.db.get<{ code_hash: string; expires: number }>(

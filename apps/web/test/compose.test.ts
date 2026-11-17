@@ -27,6 +27,13 @@ describe('encodeMessage', () => {
     assert.equal(encodeMessage('mail me@daniel.dev', lookup), 'mail me@daniel.dev');
   });
 
+  test('encodes user groups, with a person of the same name winning', () => {
+    const withGroups = { ...lookup, groups: [{ id: 'S1', handle: 'design' }, { id: 'S2', handle: 'daniel' }] };
+    assert.equal(encodeMessage('@design please review', withGroups), '<!subteam^S1|@design> please review');
+    assert.equal(encodeMessage('@daniel only', withGroups), '<@U1> only');
+    assert.equal(decodeMessage('<!subteam^S1|@design> please', { userName: () => undefined, channelName: () => undefined }), '@design please');
+  });
+
   test('encodes broadcasts and channels', () => {
     assert.equal(encodeMessage('@here deploy in #general and #검색-테스트, not #nope', lookup), '<!here> deploy in <#C1> and <#C2>, not #nope');
     assert.equal(encodeMessage('@channel @everyone', lookup), '<!channel> <!everyone>');

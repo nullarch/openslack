@@ -1,6 +1,7 @@
 import { extractBlockMentions, extractMentions, type BootData, type Conversation, type Message, type User } from '@app/shared';
 import { S } from '../strings';
-import { ApiError, call, isUnsupported, onAuthLost, type Json } from './api';
+import { ApiError, call, isUnsupported, onAuthLost, onTwoFactorRequired, type Json } from './api';
+import { applyAccountsBoot, applyAccountsStatus, mentionsMyGroup } from './accounts';
 import { loadEmoji } from './emoji';
 import { parseRoute, pushRoute, type Route } from './router';
 import {
@@ -35,7 +36,7 @@ export function toast(text: string, kind: 'info' | 'error' = 'info'): void {
 
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
-    const known = (S.errors as Record<string, string | undefined>)[error.code];
+    const known = (S.errors as Record<string, string | undefined>)[error.code] ?? S.accounts.errors[error.code];
     return known ?? S.errorFallback(error.code);
   }
   return S.errors.network_error;
@@ -65,6 +66,7 @@ export async function start(): Promise<void> {
   try {
     const status = await call('client.status');
     set({ publicTeam: status.team });
+    applyAccountsStatus(status);
     const route = get().route;
     if (status.setup_required) {
       go({ name: 'setup' }, true);
@@ -76,13 +78,25 @@ export async function start(): Promise<void> {
         set({ phase: 'join' });
         return;
       }
+      if (route.name === 'reset') {
+        set({ phase: 'reset' });
+        return;
+      }
       if (route.name === 'conversation') sessionStorage.setItem('after-signin', window.location.pathname + window.location.search);
       go({ name: 'signin' }, true);
       set({ phase: 'signin' });
       return;
     }
+    if (status.two_factor_setup_required) {
+      set({ phase: 'twofactor' });
+      return;
+    }
     await boot();
   } catch (error) {
+    if (error instanceof ApiError && error.code === 'two_factor_setup_required') {
+      set({ phase: 'twofactor' });
+      return;
+    }
     set({ phase: 'fatal', fatal: errorText(error) });
   }
 }
@@ -102,6 +116,7 @@ export function applyBoot(data: BootData): void {
     prefs: data.prefs,
     maxUploadBytes: data.max_upload_bytes,
   });
+  applyAccountsBoot(data);
   applyTheme(data.prefs.theme);
 }
 
@@ -460,6 +475,7 @@ export function mentionsViewer(conv: Conversation | undefined, message: Message)
   if (conv?.is_im || conv?.is_mpim) return true;
   const text = extractMentions(message.text ?? '');
   if (text.broadcast || text.users.includes(self.id)) return true;
+  if (mentionsMyGroup(message, self.id)) return true;
   if (!message.blocks) return false;
   const blocks = extractBlockMentions(message.blocks);
   return blocks.broadcast || blocks.users.includes(self.id);
@@ -777,6 +793,10 @@ export function sessionEnded(): void {
 }
 
 onAuthLost(sessionEnded);
+// The workspace started requiring two-factor sign-in: set it up before going on.
+onTwoFactorRequired(() => {
+  if (get().phase === 'ready') window.location.assign('/');
+});
 
 export async function signOut(): Promise<void> {
   try {

@@ -47,8 +47,8 @@ export function track(child) {
   return child;
 }
 
-/** Start a server of our own on a free port with a throwaway data directory. */
-export async function startServer({ seed }) {
+/** Start a server of our own on a free port with a throwaway data directory. `env` adds settings. */
+export async function startServer({ seed, env = {} }) {
   const port = await freePort();
   const dataDir = mkdtempSync(join(tmpdir(), 'chat-e2e-'));
   dataDirs.push(dataDir);
@@ -67,6 +67,7 @@ export async function startServer({ seed }) {
         SEED_DEMO: seed ? '1' : '',
         QUIET: '1',
         NODE_NO_WARNINGS: '1',
+        ...env,
       },
       stdio: ['ignore', 'inherit', 'inherit'],
     }),

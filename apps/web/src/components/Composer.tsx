@@ -1,8 +1,9 @@
 import type { User } from '@app/shared';
-import { AtSign, Bold, Code, Hash, Italic, Link2, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, X, FileText } from 'lucide-react';
+import { AtSign, Bold, Code, Hash, Italic, Link2, Paperclip, Quote, SendHorizontal, Smile, SquareCode, SquareSlash, Strikethrough, Users, X, FileText } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { errorText, loadCommands, runCommand, sendFiles, sendMessage, toast } from '../lib/actions';
 import { asset, uploadFile } from '../lib/api';
+import { accounts } from '../lib/accounts';
 import { encodeMessage, findTrigger, prefixLines, wrapSelection, type Edit, type Trigger } from '../lib/compose';
 import { searchEmoji } from '../lib/emoji';
 import { sendTyping } from '../lib/realtime';
@@ -77,7 +78,11 @@ function suggest(trigger: Trigger, channel: string): { heading: string; items: S
             .filter((entry) => query !== '' && entry.name.startsWith(query))
             .map((entry) => ({ key: entry.name, insert: `@${entry.name} `, icon: <AtSign size={18} />, label: `@${entry.name}`, sub: entry.sub }))
         : [];
-    return { heading: S.composer.people, items: [...people, ...broadcasts] };
+    const groups = Object.values(accounts().usergroups)
+      .filter((group) => group.handle.startsWith(query) || group.name.toLowerCase().includes(query))
+      .slice(0, 5)
+      .map((group) => ({ key: group.id, insert: `@${group.handle} `, icon: <Users size={18} />, label: `@${group.handle}`, sub: group.name }));
+    return { heading: S.composer.people, items: [...people, ...groups, ...broadcasts] };
   }
   if (trigger.kind === 'channel') {
     const items = [...Object.values(state.channels), ...Object.values(state.others)]

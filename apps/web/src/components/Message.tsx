@@ -14,6 +14,7 @@ import {
   toggleReaction,
 } from '../lib/actions';
 import { useShallow } from 'zustand/react/shallow';
+import { composeGroups } from '../lib/accounts';
 import { decodeMessage, encodeMessage } from '../lib/compose';
 import { conversation, displayName, get, set, useStore, type LocalMessage } from '../lib/store';
 import { clock, fullDateTime, relative } from '../lib/time';
@@ -51,6 +52,7 @@ export function composeLookup() {
     channels: [...Object.values(state.channels), ...Object.values(state.others)]
       .filter((channel) => channel.is_channel && channel.name)
       .map((channel) => ({ id: channel.id, name: channel.name! })),
+    groups: composeGroups(),
   };
 }
 

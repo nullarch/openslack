@@ -16,6 +16,12 @@ export class ApiError extends Error {
 export type Json = any;
 
 let authLost: (() => void) | null = null;
+let twoFactorRequired: (() => void) | null = null;
+
+/** Register what to do when the workspace starts requiring two-factor sign-in for this person. */
+export function onTwoFactorRequired(handler: () => void): void {
+  twoFactorRequired = handler;
+}
 
 /** Register what to do when the server says the session is no longer valid. */
 export function onAuthLost(handler: () => void): void {
@@ -48,6 +54,7 @@ export async function call(method: string, args: Record<string, unknown> = {}): 
   if (!body?.ok) {
     const code = String(body?.error ?? 'unknown_error');
     if (code === 'invalid_auth' || code === 'not_authed') authLost?.();
+    if (code === 'two_factor_setup_required') twoFactorRequired?.();
     throw new ApiError(code, body ?? {});
   }
   return body;

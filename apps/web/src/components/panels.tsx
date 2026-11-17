@@ -16,6 +16,8 @@ import {
 import { call } from '../lib/api';
 import { conversation, conversationName, displayName, EMPTY_THREAD, threadKey, useStore, type LocalMessage } from '../lib/store';
 import { localTime } from '../lib/time';
+import { ChannelWebSettings } from './accounts/Admin';
+import { ProfileFieldFacts } from './accounts/Profile';
 import { S } from '../strings';
 import { Composer } from './Composer';
 import { editTopic } from './Conversation';
@@ -150,6 +152,7 @@ export function ThreadPanel({ channel, ts }: { channel: string; ts: string }) {
 
 function roleLabel(user: User): string | null {
   if (user.is_bot) return S.profile.bot;
+  if (user.is_restricted) return S.accounts.guestTag;
   if (user.is_owner) return S.profile.owner;
   if (user.is_admin) return S.profile.admin;
   return null;
@@ -178,6 +181,7 @@ export function ProfilePanel({ userId }: { userId: string }) {
             {user.profile.status_emoji ? <Emoji name={user.profile.status_emoji.replace(/:/g, '')} /> : null} {user.profile.status_text}
           </p>
         ) : null}
+        <ProfileFieldFacts user={user} />
         <dl className="profile-facts">
           {user.deleted ? (
             <div>
@@ -397,6 +401,7 @@ function AboutTab({ conv, canManage, isMember }: { conv: Conversation; canManage
             {conv.purpose?.value ? <Mrkdwn text={conv.purpose.value} /> : <p className="muted">{S.details.none}</p>}
           </section>
           <p className="about-created muted">{S.details.created(displayName(creator), created)}</p>
+          <ChannelWebSettings channel={conv.id} />
         </>
       ) : null}
       {isMember ? (
