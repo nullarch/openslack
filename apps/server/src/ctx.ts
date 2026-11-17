@@ -29,6 +29,10 @@ export interface Config {
   linkPreviews?: boolean;
   /** Outgoing mail (`smtp://` or `smtps://` URL); null or absent turns mail off. */
   smtpUrl?: string | null;
+  /** Domain whose mail is routed to POST /inbound/email (email to a channel); off when unset. */
+  inboundEmailDomain?: string | null;
+  /** Shared secret the mail provider sends with each inbound message. */
+  inboundEmailSecret?: string | null;
   /** Sender address for outgoing mail. */
   mailFrom?: string;
   /** External sign-in providers configured by the operator. */

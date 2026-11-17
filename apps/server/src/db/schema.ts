@@ -909,4 +909,13 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE sessions ADD COLUMN ip TEXT;
   CREATE INDEX sessions_user ON sessions(user_id);
   `,
+
+  /* 21: email to a channel — each channel's secret address */ `
+  CREATE TABLE channel_email (
+    conversation_id TEXT PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    created_by TEXT NOT NULL,
+    created INTEGER NOT NULL
+  ) WITHOUT ROWID;
+  `,
 ];

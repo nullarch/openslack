@@ -68,6 +68,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     quiet: env.QUIET === '1',
     linkPreviews: env.LINK_PREVIEWS !== '0',
     smtpUrl: env.SMTP_URL?.trim() || null,
+    inboundEmailDomain: env.INBOUND_EMAIL_DOMAIN?.trim().toLowerCase() || null,
+    inboundEmailSecret: env.INBOUND_EMAIL_SECRET?.trim() || null,
     mailFrom: env.MAIL_FROM?.trim() || undefined,
     identityProviders: identityProvidersFromEnv(env),
     metricsToken: env.METRICS_TOKEN?.trim() || null,

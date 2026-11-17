@@ -75,12 +75,13 @@ export function isMember(ctx: Ctx, conversationId: string, userId: string): bool
  * A built-in user that is not an app, created the first time it is needed.
  * The reminder bot posts reminders into people's direct messages.
  */
-export function systemUser(ctx: Ctx, role: 'reminders'): UserRow {
+export function systemUser(ctx: Ctx, role: 'reminders' | 'email'): UserRow {
   const known = ctx.db.get<{ user_id: string }>('SELECT user_id FROM system_users WHERE role = ?', role);
   const existing = known ? getUser(ctx, known.user_id) : undefined;
   if (existing) return existing;
   const user = ctx.db.tx(() => {
-    const created = createUser(ctx, { realName: 'Reminders', displayName: 'Reminders', isBot: true, botId: newId('B'), handle: undefined });
+    const label = role === 'email' ? 'Email' : 'Reminders';
+    const created = createUser(ctx, { realName: label, displayName: label, isBot: true, botId: newId('B'), handle: undefined });
     ctx.db.run('INSERT OR REPLACE INTO system_users (role, user_id) VALUES (?, ?)', role, created.id);
     ctx.db.run('UPDATE users SET updated = ? WHERE id = ?', nowSeconds(), created.id);
     return created;

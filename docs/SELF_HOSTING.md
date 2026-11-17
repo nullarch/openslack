@@ -171,6 +171,31 @@ Supported: listing and filtering users (`userName`, `externalId`, `emails`), cre
 
 With `SMTP_URL` set, people who are away get an email about mentions and direct messages they have not read: at most every 15 minutes by default, or hourly, or never (their choice in Preferences → Notifications). Messages are mailed once, only after they have gone unread for two minutes, and never while the person is online.
 
+## Email to a channel
+
+A channel can get its own address, so mail sent there (alerts, forms, a shared inbox) shows up in it. Mail reaches the server through your mail provider's inbound route, as the raw message:
+
+| Variable | Meaning |
+|---|---|
+| `INBOUND_EMAIL_DOMAIN` | The domain the provider receives for, e.g. `in.chat.example.com`. Addresses look like `alerts.k3x9q2@in.chat.example.com` |
+| `INBOUND_EMAIL_SECRET` | A long random string the provider sends with each message (`x-inbound-key` header or `?key=`) |
+
+With Cloudflare Email Routing, route the domain to a Worker:
+
+```js
+export default {
+  async email(message, env) {
+    await fetch(`https://chat.example.com/inbound/email?to=${encodeURIComponent(message.to)}`, {
+      method: 'POST',
+      headers: { 'x-inbound-key': env.INBOUND_EMAIL_SECRET, 'content-type': 'message/rfc822' },
+      body: message.raw,
+    });
+  },
+};
+```
+
+SendGrid Inbound Parse works with "POST the raw, full MIME message" on and `https://chat.example.com/inbound/email?key=…`; Mailgun with a route forwarding to `https://chat.example.com/inbound/email?key=…&format=mime`. Members make or replace a channel's address in its details. The built-in Email bot posts each message with its sender, subject, text and attachments (subject to virus scanning when that is on). Mail to an unknown or replaced address is accepted and dropped.
+
 ## Virus scanning
 
 Set `CLAMAV_URL=tcp://clamav:3310` to have every upload checked by a ClamAV daemon (for example the `clamav/clamav-debian` container, which also runs on ARM) before anyone can see it. An infected file is deleted and the upload fails with `file_infected`. If the daemon cannot be reached the upload is refused (`scan_unavailable`); `CLAMAV_FAIL_OPEN=1` accepts it unscanned instead. Files larger than `CLAMAV_MAX_MB` (25, clamd's default stream limit) are not scanned; raise both together if you need to.
