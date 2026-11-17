@@ -102,7 +102,7 @@ export interface NewToken {
 
 /** Create an API token. The plain value is returned once; only its hash is stored. */
 export function createToken(ctx: Ctx, input: NewToken): string {
-  const token = newToken(input.kind);
+  const token = newToken(input.kind, input.appId);
   ctx.db.run(
     'INSERT INTO tokens (token_hash, kind, app_id, user_id, scopes, hint, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
     sha256(token),

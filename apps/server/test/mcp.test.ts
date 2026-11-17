@@ -1,11 +1,22 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
+import { BRAND } from '@app/shared';
+import { Client as ModernClient, StreamableHTTPClientTransport as ModernTransport } from '@modelcontextprotocol/client';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createBot, setupWorkspace, startApp, type Bot, type Json, type Session, type TestApp } from './helpers.ts';
 
 const SCOPES = ['channels:read', 'channels:history', 'search:read', 'chat:write', 'reactions:write', 'users:read'];
 
+/** A client on the 2026-07-28 revision (SDK v2), negotiating as told. */
+async function connectModern(base: string, token: string, mode: 'auto' | { pin: string }): Promise<ModernClient> {
+  const client = new ModernClient({ name: 'modern-client', version: '1.0.0' }, { versionNegotiation: { mode } });
+  const transport = new ModernTransport(new URL(`${base}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } });
+  await client.connect(transport);
+  return client;
+}
+
+/** A 2025-era client (SDK v1), which the server serves statelessly. */
 async function connect(base: string, token: string): Promise<Client> {
   const client = new Client({ name: 'test-client', version: '1.0.0' });
   const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`), {
@@ -87,6 +98,22 @@ describe('MCP endpoint', () => {
     const refused = await limited.callTool({ name: 'post_message', arguments: { channel: '#general', text: 'hi' } });
     assert.equal(parse(refused).error, 'missing_scope');
     await limited.close();
+  });
+
+  test('a 2026-07-28 client negotiates the modern revision and uses the same tools', async () => {
+    for (const mode of ['auto', { pin: '2026-07-28' }] as const) {
+      const modern = await connectModern(t.base, bot.token, mode);
+      assert.equal(modern.getProtocolEra(), 'modern');
+      assert.equal(modern.getNegotiatedProtocolVersion(), '2026-07-28');
+      const { tools } = await modern.listTools();
+      assert.ok(tools.some((tool) => tool.name === 'search_messages'));
+      const found = await modern.callTool({ name: 'search_messages', arguments: { query: 'capacity' } });
+      assert.equal(parse(found).total, 1);
+      await modern.close();
+    }
+    // The 2025-era client, connected before, is still served on its own revision.
+    assert.equal(client.getServerVersion()?.name, BRAND.slug);
+    assert.ok((await client.listTools()).tools.length > 0);
   });
 
   test('a browser session or a missing token is refused', async () => {

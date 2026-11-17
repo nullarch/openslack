@@ -10,9 +10,10 @@ The harness in `compat/` starts a server and runs apps built with the official S
 
 | Run | SDK | Web API methods called | Payload types received |
 |---|---|---|---|
-| `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 35 | 8 |
-| `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 36 | 8 |
-| `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 11 | 4 |
+| `bolt-js-http` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 39 | 14 |
+| `bolt-js-socket` | @slack/bolt 5.1.0, @slack/web-api 8.4.0 | 40 | 14 |
+| `bolt-python-http` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 12 | 7 |
+| `bolt-python-socket` | slack_bolt 1.30.0, slack_sdk 3.47.0 | 13 | 7 |
 
 "SDK" in the tables below means at least one of these runs called the method, or received the payload, through an official SDK. "Server tests" means the server’s own tests exercise it over HTTP. A supported method with neither mark is implemented but not yet covered here.
 
@@ -31,7 +32,7 @@ App(client=WebClient(token=bot_token, base_url="http://localhost:3000/api/"))
 | Transport | Status | Verified by |
 |---|---|---|
 | Socket Mode (`apps.connections.open`, envelopes, acknowledgements, redelivery) | Supported | `bolt-js-socket`, `bolt-python-socket`, server tests |
-| Events API over HTTP (URL verification, `X-Slack-Signature`, retries with `X-Slack-Retry-Num` / `X-Slack-Retry-Reason`) | Supported | `bolt-js-http`, server tests |
+| Events API over HTTP (URL verification, `X-Slack-Signature`, retries with `X-Slack-Retry-Num` / `X-Slack-Retry-Reason`) | Supported | `bolt-js-http`, `bolt-python-http`, server tests |
 | Interactivity and slash commands over HTTP (signed, form-encoded) | Supported | SDK, server tests |
 | `response_url` (five uses within thirty minutes) | Supported | SDK, server tests |
 | Incoming webhooks (`/services/<team>/<bot>/<secret>`) | Supported | Server tests |
@@ -60,10 +61,12 @@ An app receives events for conversations its bot user belongs to, and workspace-
 | `channel_archive` |  |  |
 | `channel_unarchive` |  |  |
 | `team_join` |  |  |
-| `user_change` |  |  |
+| `user_change` |  | ✓ |
 | `emoji_changed` |  |  |
 | `file_deleted` |  |  |
 | `team_rename` |  |  |
+| `app_home_opened` | ✓ | ✓ |
+| `link_shared` | ✓ | ✓ |
 
 Message events carry their subtypes (`message_changed`, `message_deleted`, `file_share`, `thread_broadcast`, `channel_join` and so on).
 
@@ -71,13 +74,15 @@ Message events carry their subtypes (`message_changed`, `message_deleted`, `file
 |---|---|---|---|
 | `block_actions` | Supported | ✓ | Buttons, menus and other elements on messages, including ephemeral ones |
 | `slash_commands` | Supported | ✓ | Custom slash commands |
-| `view_submission / view_closed` | Not supported |  | Modals are not implemented (`views.*`) |
-| `shortcut / message_action` | Not supported |  | Global and message shortcuts are not implemented |
-| `block_suggestion` | Not supported |  | Menus with external data sources are not implemented |
+| `view_submission` | Supported | ✓ | Modal submissions, with `response_action` `errors`, `update`, `push` or `clear` |
+| `view_closed` | Supported |  | Sent when the view asked for `notify_on_close`; `is_cleared` when the whole modal was closed |
+| `shortcut` | Supported | ✓ | Global shortcuts, which an admin declares on the app |
+| `message_action` | Supported | ✓ | Message shortcuts, with a `response_url` into the conversation |
+| `block_suggestion` | Supported | ✓ | Options for `external_select` menus in messages, modals and Home tabs |
 
 ## Web API methods
 
-Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
+Compared with the 297 methods in `@slack/web-api` 8.4.0: **85 supported**, 212 not. A method that does not exist answers `unknown_method`, and the call is counted so admins can see what apps ask for.
 
 | Method | SDK | Server tests | Differs from Slack |
 |---|---|---|---|
@@ -90,15 +95,23 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 | `assistant.threads.setSuggestedPrompts` |  | ✓ | Delivered to connected clients; not stored. |
 | `assistant.threads.setTitle` |  | ✓ | Delivered to connected clients; not stored. |
 | `auth.test` | ✓ | ✓ |  |
+| `bookmarks.add` |  | ✓ |  |
+| `bookmarks.edit` |  | ✓ |  |
+| `bookmarks.list` |  | ✓ |  |
+| `bookmarks.remove` |  | ✓ |  |
 | `bots.info` | ✓ |  |  |
 | `chat.appendStream` |  | ✓ |  |
 | `chat.delete` | ✓ | ✓ |  |
+| `chat.deleteScheduledMessage` |  | ✓ |  |
 | `chat.getPermalink` | ✓ |  |  |
 | `chat.meMessage` |  |  |  |
 | `chat.postEphemeral` | ✓ | ✓ |  |
 | `chat.postMessage` | ✓ | ✓ | A bot may post to any public channel without joining (as with `chat:write.public`). |
+| `chat.scheduleMessage` |  | ✓ |  |
+| `chat.scheduledMessages.list` |  | ✓ |  |
 | `chat.startStream` | ✓ | ✓ | Streams may also start outside a thread; recipient ids are accepted but not required. |
 | `chat.stopStream` | ✓ | ✓ | `session_status` is accepted and ignored. |
+| `chat.unfurl` | ✓ | ✓ | Links are offered once a message is posted; `source: composer` is not supported. The app must have registered the link’s domain. |
 | `chat.update` | ✓ | ✓ |  |
 | `conversations.archive` | ✓ |  |  |
 | `conversations.close` |  |  |  |
@@ -113,14 +126,19 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 | `conversations.mark` |  | ✓ |  |
 | `conversations.members` | ✓ |  |  |
 | `conversations.open` | ✓ | ✓ |  |
-| `conversations.rename` |  |  |  |
+| `conversations.rename` |  | ✓ |  |
 | `conversations.replies` | ✓ | ✓ |  |
 | `conversations.setPurpose` |  |  |  |
 | `conversations.setTopic` | ✓ |  |  |
 | `conversations.unarchive` |  |  |  |
+| `dnd.endDnd` |  | ✓ |  |
+| `dnd.endSnooze` |  | ✓ |  |
+| `dnd.info` |  | ✓ | Also allowed with `users:read`, so apps with the default bot scopes can check before notifying. |
+| `dnd.setSnooze` |  | ✓ |  |
+| `dnd.teamInfo` |  | ✓ | Also allowed with `users:read`. Without `users`, reports everyone in the workspace. |
 | `emoji.list` | ✓ |  |  |
 | `files.completeUploadExternal` | ✓ | ✓ |  |
-| `files.delete` |  |  |  |
+| `files.delete` |  | ✓ |  |
 | `files.getUploadURLExternal` | ✓ | ✓ |  |
 | `files.info` |  | ✓ |  |
 | `files.list` |  |  | Cursor pagination only; `page` is ignored. |
@@ -130,18 +148,29 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 | `reactions.add` | ✓ | ✓ |  |
 | `reactions.get` | ✓ | ✓ |  |
 | `reactions.remove` | ✓ | ✓ |  |
+| `reminders.add` |  | ✓ |  |
+| `reminders.complete` |  | ✓ |  |
+| `reminders.delete` |  | ✓ |  |
+| `reminders.info` |  | ✓ |  |
+| `reminders.list` |  | ✓ |  |
+| `search.all` |  | ✓ | `posts` is always empty. |
+| `search.files` |  | ✓ | Matches file names and titles, not contents. Bot tokens may search (public channels plus the bot’s conversations). |
 | `search.messages` | ✓ | ✓ | Bot tokens may search (Slack: user tokens only): public channels plus the bot’s conversations. |
 | `team.info` | ✓ | ✓ |  |
 | `users.conversations` | ✓ |  |  |
 | `users.deletePhoto` |  |  |  |
 | `users.getPresence` |  |  |  |
 | `users.info` | ✓ | ✓ |  |
-| `users.list` | ✓ |  |  |
+| `users.list` | ✓ | ✓ |  |
 | `users.lookupByEmail` | ✓ |  |  |
 | `users.profile.get` |  |  |  |
 | `users.profile.set` |  | ✓ |  |
 | `users.setPhoto` |  |  | Takes `file_id` of an uploaded image instead of image bytes. |
 | `users.setPresence` |  |  |  |
+| `views.open` | ✓ | ✓ | A person has one modal at a time: opening a new one replaces any modal they already had open. |
+| `views.publish` | ✓ | ✓ | Any app may publish a Home tab; there is no Home tab switch to enable first. |
+| `views.push` | ✓ | ✓ |  |
+| `views.update` |  | ✓ |  |
 
 `files.uploadV2` in the SDKs is a helper over `files.getUploadURLExternal` and `files.completeUploadExternal`; it works and is exercised by every run.
 
@@ -154,13 +183,10 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 | `apps` | 10 | `apps.event.authorizations.list`, `apps.manifest.create`, `apps.manifest.delete`, `apps.manifest.export`, `apps.manifest.update`, `apps.manifest.validate`, `apps.uninstall`, `apps.user.connection.bulkUpdate`, `apps.user.connection.requestAuth`, `apps.user.connection.update` |
 | `auth` | 2 | `auth.revoke`, `auth.teams.list` |
 | `blocks` | 1 | `blocks.validate` |
-| `bookmarks` | 4 | `bookmarks.add`, `bookmarks.edit`, `bookmarks.list`, `bookmarks.remove` |
 | `calls` | 6 | `calls.add`, `calls.end`, `calls.info`, `calls.participants.add`, `calls.participants.remove`, `calls.update` |
 | `canvases` | 7 | `canvases.access.delete`, `canvases.access.set`, `canvases.create`, `canvases.delete`, `canvases.edit`, `canvases.getContent`, `canvases.sections.lookup` |
-| `chat` | 4 | `chat.deleteScheduledMessage`, `chat.scheduleMessage`, `chat.scheduledMessages.list`, `chat.unfurl` |
 | `conversations` | 10 | `conversations.acceptSharedInvite`, `conversations.approveSharedInvite`, `conversations.canvases.create`, `conversations.declineSharedInvite`, `conversations.externalInvitePermissions.set`, `conversations.inviteShared`, `conversations.listConnectInvites`, `conversations.requestSharedInvite.approve`, `conversations.requestSharedInvite.deny`, `conversations.requestSharedInvite.list` |
 | `dialog` | 1 | `dialog.open` |
-| `dnd` | 5 | `dnd.endDnd`, `dnd.endSnooze`, `dnd.info`, `dnd.setSnooze`, `dnd.teamInfo` |
 | `entity` | 1 | `entity.presentDetails` |
 | `files` | 9 | `files.comments.delete`, `files.remote.add`, `files.remote.info`, `files.remote.list`, `files.remote.remove`, `files.remote.share`, `files.remote.update`, `files.revokePublicURL`, `files.sharedPublicURL` |
 | `functions` | 2 | `functions.completeError`, `functions.completeSuccess` |
@@ -168,9 +194,7 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 | `oauth` | 3 | `oauth.access`, `oauth.v2.access`, `oauth.v2.exchange` |
 | `openid` | 2 | `openid.connect.token`, `openid.connect.userInfo` |
 | `reactions` | 1 | `reactions.list` |
-| `reminders` | 5 | `reminders.add`, `reminders.complete`, `reminders.delete`, `reminders.info`, `reminders.list` |
 | `rtm` | 1 | `rtm.connect` |
-| `search` | 2 | `search.all`, `search.files` |
 | `slackbot` | 7 | `slackbot.skills.create`, `slackbot.skills.delete`, `slackbot.skills.info`, `slackbot.skills.library.add`, `slackbot.skills.library.remove`, `slackbot.skills.list`, `slackbot.skills.update` |
 | `slackLists` | 12 | `slackLists.access.delete`, `slackLists.access.set`, `slackLists.create`, `slackLists.download.get`, `slackLists.download.start`, `slackLists.items.create`, `slackLists.items.delete`, `slackLists.items.deleteMultiple`, `slackLists.items.info`, `slackLists.items.list`, `slackLists.items.update`, `slackLists.update` |
 | `stars` | 3 | `stars.add`, `stars.list`, `stars.remove` |
@@ -178,7 +202,6 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 | `tooling` | 1 | `tooling.tokens.rotate` |
 | `usergroups` | 7 | `usergroups.create`, `usergroups.disable`, `usergroups.enable`, `usergroups.list`, `usergroups.update`, `usergroups.users.list`, `usergroups.users.update` |
 | `users` | 2 | `users.discoverableContacts.lookup`, `users.identity` |
-| `views` | 4 | `views.open`, `views.publish`, `views.push`, `views.update` |
 | `workflows` | 4 | `workflows.featured.add`, `workflows.featured.list`, `workflows.featured.remove`, `workflows.featured.set` |
 
 ## Known differences in behaviour
@@ -195,5 +218,5 @@ Compared with the 297 methods in `@slack/web-api` 8.4.0: **61 supported**, 236 n
 
 ## First-party methods
 
-The web client uses the same API as apps, plus 32 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
+The web client uses the same API as apps, plus 69 methods Slack has no public equivalent for. They live under `client.*` and are not part of the compatibility surface.
 

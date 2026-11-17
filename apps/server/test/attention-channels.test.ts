@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, test } from 'node:test';
-import { readPage, linksIn } from '../src/attention/previews.ts';
+import { previewLinks, readPage } from '../src/attention/previews.ts';
 import { addMember, callWithToken, createBot, Session, setupWorkspace, startApp, type Json, type TestApp } from './helpers.ts';
+import { createPlatformApp } from './platform-helpers.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -193,9 +194,12 @@ describe('link previews', () => {
   let siteUrl: string;
   let owner: Session;
   let general: string;
+  /** `host path` of every request the site received. */
+  const requests: string[] = [];
 
   before(async () => {
     site = createServer((req, res) => {
+      requests.push(`${req.headers.host} ${req.url}`);
       if (req.url === '/article') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end(`<!doctype html><html><head><title>Fallback title</title>
@@ -227,7 +231,8 @@ describe('link previews', () => {
 
   test('reading a page: Open Graph first, then the title; links found in message text', () => {
     assert.deepEqual(readPage('<title> A &lt;b&gt; </title><meta name="description" content="d">'), { title: 'A <b>', description: 'd', site: undefined, image: undefined });
-    assert.deepEqual(linksIn('see <https://a.example/x|this> and https://b.example/y. and <https://a.example/x>'), ['https://a.example/x', 'https://b.example/y']);
+    assert.deepEqual(previewLinks('see <https://a.example/x|this> and https://b.example/y. and <https://a.example/x>'), ['https://a.example/x', 'https://b.example/y']);
+    assert.deepEqual(previewLinks('a https://a.example/1 b https://a.example/2 c https://a.example/3 d https://a.example/4'), ['https://a.example/1', 'https://a.example/2', 'https://a.example/3']);
   });
 
   test('a link gets a preview with the image served from this server; the author can remove it', async () => {
@@ -271,5 +276,27 @@ describe('link previews', () => {
     await sleep(400);
     const message = (await owner.ok('conversations.history', { channel: general, limit: 5 })).messages.find((item: Json) => item.ts === posted.ts);
     assert.equal(message.attachments, undefined);
+  });
+
+  test('a link under a domain an app registered is left to that app', async () => {
+    // `news.localhost` reaches the test site; first show that it is previewed like any other link.
+    const news = `http://news.localhost:${new URL(siteUrl).port}`;
+    const stream = await owner.connect();
+    const first = await owner.ok('chat.postMessage', { channel: general, text: `${news}/article` });
+    const previewed = await stream.next((event) => event.subtype === 'message_changed' && event.message.ts === first.ts, 5000);
+    assert.equal(previewed.message.attachments[0].original_url, `${news}/article`);
+
+    const app = await createPlatformApp(owner, 'Newsroom');
+    await owner.ok('client.apps.update', { app: app.id, unfurl_domains: 'news.localhost' });
+    requests.length = 0;
+    const second = await owner.ok('chat.postMessage', { channel: general, text: `${news}/moved and ${siteUrl}/article` });
+    const changed = await stream.next((event) => event.subtype === 'message_changed' && event.message.ts === second.ts, 5000);
+    stream.close();
+    assert.deepEqual(
+      changed.message.attachments.map((item: Json) => item.original_url),
+      [`${siteUrl}/article`],
+      'only the link no app registered gets a generic preview',
+    );
+    assert.equal(requests.filter((entry) => entry.startsWith('news.localhost')).length, 0, 'the registered link is not fetched');
   });
 });

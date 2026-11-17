@@ -108,6 +108,140 @@ function registerListeners(app: BoltApp, delivered: Set<string>): void {
     if (event.reaction !== 'question') return;
     await client.chat.postEphemeral({ channel: event.item.channel, user: event.user, text: 'Need a hand with that message?' });
   });
+
+  // ── Modals, shortcuts, menus with external options, App Home, unfurls ──────
+
+  app.shortcut('file_bug', async ({ ack, shortcut, client }) => {
+    await ack();
+    await client.views.open({ trigger_id: shortcut.trigger_id, view: bugModal() });
+  });
+
+  app.options('pick', async ({ ack, options }) => {
+    const all = ['search', 'sessions', 'billing'];
+    await ack({
+      options: all
+        .filter((name) => name.startsWith(String(options.value)))
+        .map((name) => ({ text: { type: 'plain_text' as const, text: name }, value: name })),
+    });
+  });
+
+  app.action({ action_id: 'add_details', type: 'block_actions' }, async ({ ack, body, client }) => {
+    await ack();
+    await client.views.push({
+      trigger_id: (body as Json).trigger_id,
+      view: {
+        type: 'modal',
+        callback_id: 'bug_details',
+        title: { type: 'plain_text', text: 'Details' },
+        submit: { type: 'plain_text', text: 'Add' },
+        blocks: [{ type: 'input', block_id: 'steps', label: { type: 'plain_text', text: 'Steps' }, element: { type: 'plain_text_input', action_id: 'value', multiline: true } }],
+      },
+    });
+  });
+
+  app.view('bug_details', async ({ ack }) => {
+    // A plain acknowledgement closes the pushed view and goes back to the form.
+    await ack();
+  });
+
+  app.view('bug_form', async ({ ack, view, body, client }) => {
+    const values = view.state.values;
+    const title = values.title?.value?.value ?? '';
+    if (title.length < 5) {
+      await ack({ response_action: 'errors', errors: { title: 'Use at least five characters' } });
+      return;
+    }
+    await ack({ response_action: 'clear' });
+    const severity = values.severity?.choice?.selected_option?.value;
+    const due = values.due?.date?.selected_date;
+    const component = values.component?.pick?.selected_option?.value;
+    const flags = (values.flags?.checks?.selected_options ?? []).map((option) => option.value).join('+');
+    await client.chat.postMessage({
+      channel: view.private_metadata,
+      text: `Bug filed by <@${body.user.id}>: ${title} (${severity}, due ${due}, ${component}, ${flags})`,
+    });
+  });
+
+  app.shortcut('quote_message', async ({ ack, shortcut, respond }) => {
+    await ack();
+    await respond({ text: `Quoted: ${(shortcut as Json).message.text}` });
+  });
+
+  app.action('pick_day', async ({ ack, action, respond }) => {
+    await ack();
+    await respond({ text: `Meeting moved to ${(action as Json).selected_date}`, replace_original: true });
+  });
+
+  app.event('app_home_opened', async ({ event, client }) => {
+    if (event.tab !== 'home') return;
+    await client.views.publish({ user_id: event.user, view: homeView(0) });
+  });
+
+  app.action('home_refresh', async ({ ack, body, client }) => {
+    await ack();
+    const view = (body as Json).view;
+    const count = Number(view.private_metadata) + 1;
+    await client.views.publish({ user_id: body.user.id, hash: view.hash, view: homeView(count) });
+  });
+
+  app.event('link_shared', async ({ event, client }) => {
+    const unfurls: Record<string, Json> = {};
+    for (const link of event.links) {
+      unfurls[link.url] = { blocks: [{ type: 'section', text: { type: 'mrkdwn', text: `*${link.url.split('/').pop()}*: Search is slow` } }] };
+    }
+    await client.chat.unfurl({ channel: event.channel, ts: event.message_ts, unfurls });
+  });
+}
+
+/** The channel bugs are filed into, carried in the modal's private metadata. */
+let bugChannel = '';
+
+function bugModal(): Json {
+  return {
+    type: 'modal',
+    callback_id: 'bug_form',
+    private_metadata: bugChannel,
+    title: { type: 'plain_text', text: 'File a bug' },
+    submit: { type: 'plain_text', text: 'File' },
+    blocks: [
+      { type: 'input', block_id: 'title', label: { type: 'plain_text', text: 'Title' }, element: { type: 'plain_text_input', action_id: 'value' } },
+      {
+        type: 'input',
+        block_id: 'severity',
+        label: { type: 'plain_text', text: 'Severity' },
+        element: {
+          type: 'static_select',
+          action_id: 'choice',
+          options: ['low', 'high'].map((value) => ({ text: { type: 'plain_text', text: value }, value })),
+        },
+      },
+      { type: 'input', block_id: 'due', label: { type: 'plain_text', text: 'Due' }, element: { type: 'datepicker', action_id: 'date' } },
+      { type: 'input', block_id: 'component', label: { type: 'plain_text', text: 'Component' }, element: { type: 'external_select', action_id: 'pick', min_query_length: 1 } },
+      {
+        type: 'input',
+        block_id: 'flags',
+        optional: true,
+        label: { type: 'plain_text', text: 'Flags' },
+        element: {
+          type: 'checkboxes',
+          action_id: 'checks',
+          options: ['regression', 'customer'].map((value) => ({ text: { type: 'plain_text', text: value }, value })),
+        },
+      },
+      { type: 'actions', block_id: 'more', elements: [{ type: 'button', action_id: 'add_details', text: { type: 'plain_text', text: 'Add details' } }] },
+    ],
+  };
+}
+
+function homeView(count: number): Json {
+  return {
+    type: 'home',
+    private_metadata: String(count),
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: `*Open bugs* — refreshed ${count} times` } },
+      { type: 'actions', block_id: 'home', elements: [{ type: 'button', action_id: 'home_refresh', text: { type: 'plain_text', text: 'Refresh' } }] },
+    ],
+  };
 }
 
 /** Run the same Bolt app against a local server over Socket Mode or over HTTP. */
@@ -130,6 +264,15 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
       general = (await owner.ok('client.boot')).channels.find((channel: Json) => channel.is_general).id;
       creds = await createPlatformApp(owner, 'Bolt Bot', { socket_mode: transport === 'socket' });
       await owner.ok('conversations.invite', { channel: general, users: creds.botUserId });
+      bugChannel = general;
+      await owner.ok('client.apps.update', {
+        app: creds.id,
+        shortcuts: [
+          { type: 'global', name: 'File a bug', callback_id: 'file_bug' },
+          { type: 'message', name: 'Quote', callback_id: 'quote_message' },
+        ],
+        unfurl_domains: 'tracker.example',
+      });
       called = recordTokenCalls(t);
 
       // The only thing that differs from an app written for Slack: where the API lives.
@@ -316,8 +459,74 @@ export function defineBoltSuite(transport: 'socket' | 'http'): void {
         assert.equal(error.data.error, 'channel_not_found');
         return true;
       });
-      await assert.rejects(client.apiCall('views.open', { trigger_id: 'x' }), (error: Json) => error.data.error === 'unknown_method');
+      await assert.rejects(client.apiCall('canvases.create', { title: 'x' }), (error: Json) => error.data.error === 'unknown_method');
+      await assert.rejects(client.views.open({ trigger_id: '1.2.abc', view: { type: 'modal', title: { type: 'plain_text', text: 'x' }, blocks: [] } }), (error: Json) => error.data.error === 'invalid_trigger_id');
       await client.conversations.archive({ channel });
+    });
+
+    test('app.shortcut, views.open, app.options, views.push and app.view: a bug filed through a modal', async () => {
+      await member.ok('client.shortcuts.run', { app: creds.id, callback_id: 'file_bug' });
+      const opened = await stream.next((event) => event.type === 'view_stack' && event.stack[0]?.callback_id === 'bug_form', 5000);
+      const view = opened.stack[0];
+      assert.equal(view.title.text, 'File a bug');
+
+      const options = await member.ok('client.views.suggest', { view_id: view.id, action_id: 'pick', block_id: 'component', value: 'se' });
+      assert.deepEqual(options.options.map((option: Json) => option.value), ['search', 'sessions']);
+
+      await member.ok('client.views.blockAction', { view_id: view.id, action: { action_id: 'add_details', block_id: 'more' } });
+      const pushed = await stream.next((event) => event.type === 'view_stack' && event.stack.length === 2, 5000);
+      assert.equal(pushed.stack[1].callback_id, 'bug_details');
+      const back = await member.ok('client.views.submit', { view_id: pushed.stack[1].id, state: { values: { steps: { value: { type: 'plain_text_input', value: '1. search' } } } } });
+      assert.deepEqual(back.stack.map((entry: Json) => entry.id), [view.id]);
+
+      const values = (title: string): Json => ({
+        title: { value: { type: 'plain_text_input', value: title } },
+        severity: { choice: { type: 'static_select', selected_option: { value: 'high' } } },
+        due: { date: { type: 'datepicker', selected_date: '2026-12-01' } },
+        component: { pick: { type: 'external_select', selected_option: { text: { type: 'plain_text', text: 'search' }, value: 'search' } } },
+        flags: { checks: { type: 'checkboxes', selected_options: [{ value: 'regression' }] } },
+      });
+      const refused = await member.ok('client.views.submit', { view_id: view.id, state: { values: values('Slow') } });
+      assert.deepEqual(refused.errors, { title: 'Use at least five characters' });
+      const filed = await member.ok('client.views.submit', { view_id: view.id, state: { values: values('Search is slow') } });
+      assert.deepEqual(filed.stack, []);
+      const message = await fromBot((event) => String(event.text).startsWith('Bug filed'));
+      assert.equal(message.text, `Bug filed by <@${member.userId}>: Search is slow (high, due 2026-12-01, search, regression)`);
+    });
+
+    test('a message shortcut answered with respond()', async () => {
+      const { ts } = await member.ok('chat.postMessage', { channel: general, text: 'The export button does nothing' });
+      await member.ok('client.shortcuts.run', { app: creds.id, callback_id: 'quote_message', channel: general, message_ts: ts });
+      const note = await stream.next((event) => event.is_ephemeral === true && event.text === 'Quoted: The export button does nothing', 5000);
+      assert.equal(note.channel, general);
+    });
+
+    test('a datepicker on a message, answered with respond()', async () => {
+      const posted = await app.client.chat.postMessage({
+        channel: general,
+        text: 'When should we meet?',
+        blocks: [{ type: 'actions', block_id: 'when', elements: [{ type: 'datepicker', action_id: 'pick_day', initial_date: '2026-12-20' }] }],
+      });
+      await member.ok('client.interactions.blockAction', { channel: general, message_ts: posted.ts, action: { action_id: 'pick_day', selected_date: '2026-12-24' } });
+      const changed = await stream.next((event) => event.subtype === 'message_changed' && event.message.ts === posted.ts, 5000);
+      assert.equal(changed.message.text, 'Meeting moved to 2026-12-24');
+    });
+
+    test('App Home: app_home_opened, views.publish, and a Home tab action published again with its hash', async () => {
+      await member.ok('client.apps.homeOpened', { app: creds.id, tab: 'home' });
+      const first = await stream.next((event) => event.type === 'app_home' && event.app_id === creds.id, 5000);
+      assert.match(first.view.blocks[0].text.text, /refreshed 0 times/);
+      await member.ok('client.views.blockAction', { view_id: first.view.id, action: { action_id: 'home_refresh', block_id: 'home' } });
+      const second = await stream.next((event) => event.type === 'app_home' && /refreshed 1 times/.test(event.view.blocks[0].text.text), 5000);
+      assert.equal(second.view.id, first.view.id);
+    });
+
+    test('link_shared and chat.unfurl: the app attaches its preview to the message', async () => {
+      const { ts } = await member.ok('chat.postMessage', { channel: general, text: 'see https://tracker.example/BUG-7' });
+      const changed = await stream.next((event) => event.subtype === 'message_changed' && event.message.ts === ts && Array.isArray(event.message.attachments), 5000);
+      const attachment = changed.message.attachments[0];
+      assert.equal(attachment.app_unfurl_url, 'https://tracker.example/BUG-7');
+      assert.equal(attachment.blocks[0].text.text, '*BUG-7*: Search is slow');
     });
   });
 }

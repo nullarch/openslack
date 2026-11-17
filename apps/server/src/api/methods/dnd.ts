@@ -146,17 +146,18 @@ function parseClock(value: string, name: string): number {
 }
 
 export function registerDnd(registry: Registry): void {
-  registry.add('dnd.info', { scopes: ['dnd:read'] }, ({ ctx, actor, args }) => {
+  // `users:read` also reads Do Not Disturb, so an app with the default bot scopes can check before it notifies.
+  registry.add('dnd.info', { scopes: ['dnd:read', 'users:read'] }, ({ ctx, actor, args }) => {
     const userId = args.str('user') || actor.userId;
     requireUser(ctx, userId);
     return { ...dndStatus(ctx, userId, userId === actor.userId) };
   });
 
-  registry.add('dnd.teamInfo', { scopes: ['dnd:read'] }, ({ ctx, args }) => {
-    const ids = args.list('users');
-    if (ids.length === 0) fail('invalid_arguments', { needed: 'users' });
+  registry.add('dnd.teamInfo', { scopes: ['dnd:read', 'users:read'] }, ({ ctx, args }) => {
+    // Without `users`, everyone in the workspace.
+    const ids = args.has('users') ? args.list('users').slice(0, 50) : ctx.db.all<{ id: string }>('SELECT id FROM users WHERE deleted = 0').map((entry) => entry.id);
     const users: Record<string, DndStatus> = {};
-    for (const id of ids.slice(0, 50)) {
+    for (const id of ids) {
       if (getUser(ctx, id)) users[id] = dndStatus(ctx, id, false);
     }
     return { users };

@@ -21,8 +21,36 @@ Open the address it prints and create your workspace. The first person to do so 
 | `DATA_DIR` | `~/.openslack`, or `/data` in the container | Database and uploaded files |
 | `PUBLIC_URL` | `http://localhost:PORT` | The address people and bots use to reach the server |
 | `MAX_UPLOAD_MB` | `100` | Largest accepted upload |
+| `LINK_PREVIEWS` | on | `0` turns off link previews, which make the server fetch linked pages (see below) |
 
 Set `PUBLIC_URL` whenever the server is reached at anything other than `localhost`: links, file URLs handed to bots and invite links are built from it. When it starts with `https://`, the session cookie is marked `Secure`.
+
+## Link previews
+
+Link previews are on by default. When a person posts a message with links in it, the server itself fetches up to three of those links and attaches a preview: the page's title, description, site name and image, read from its Open Graph or Twitter tags or its `<title>`.
+
+- **What leaves the server.** A plain `GET` of each linked page from the server's own address, identifying itself as `openslack-preview/1.0`, and then a `GET` of the image the page names. No cookies, no credentials, nothing about who posted the link. Redirects are followed up to three times. Each request stops after 5 seconds, a page after 512 KB, an image after 3 MB.
+- **What is not fetched.** Links in messages from bots and apps; links in messages that already carry attachments; links to this server; and links under a domain an app registered for unfurling, which that app previews itself through `chat.unfurl`.
+- **Private addresses.** Pages at private, loopback or link-local addresses are refused, checked again after every redirect and DNS answer, unless the server itself runs on `localhost` (or `ALLOW_PRIVATE_APP_URLS=1` is set, the same switch apps use).
+- **Where it is kept.** Previews are cached in the database for a day (an unreachable page is retried after an hour). The image is stored with the uploaded files (in `DATA_DIR/files`, or the bucket) and served from this server to signed-in people, so readers' browsers never contact the linked site.
+- **Turning it off.** Set `LINK_PREVIEWS=0` and restart. Nothing is fetched from then on; previews already attached to messages stay until their authors remove them.
+
+Anyone can remove a preview from their own message, and admins from any message.
+
+## Files in a bucket
+
+Uploaded files go to `DATA_DIR/files` unless an S3-compatible bucket is configured; then they go to the bucket and the data directory holds only the database.
+
+| Variable | Meaning |
+|---|---|
+| `S3_BUCKET` | Bucket name. Setting it switches storage to the bucket |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` also work) |
+| `S3_REGION` | Default `us-east-1` |
+| `S3_ENDPOINT` | Service address for anything other than AWS, e.g. `https://<account>.r2.cloudflarestorage.com` or `http://minio:9000` |
+| `S3_PATH_STYLE` | `1` to address the bucket as `endpoint/bucket`; on by default when `S3_ENDPOINT` is set |
+| `S3_PREFIX` | Prefix for every object key, e.g. `chat/` |
+
+Requests are signed with AWS Signature Version 4; the signing is tested against botocore's output. It has not yet been run against a real AWS, R2 or MinIO bucket. Moving existing files from the directory to a bucket is not automated: copy `files/<xx>/<key>` to `<prefix><key>` in the bucket.
 
 ## Behind a reverse proxy
 
@@ -55,7 +83,7 @@ Keep the `Host` header intact: the server compares it with the browser's `Origin
 
 ## Backup and restore
 
-The data directory is the whole backup: `app.db` (SQLite, with `app.db-wal` and `app.db-shm` beside it while the server runs) and `files/`.
+The data directory is the whole backup: `app.db` (SQLite, with `app.db-wal` and `app.db-shm` beside it while the server runs) and `files/`. With a bucket configured, back up the bucket as well.
 
 - Simplest: stop the server, copy the directory, start the server.
 - Without stopping: `sqlite3 "$DATA_DIR/app.db" ".backup '/backups/app.db'"`, then copy `files/`.
@@ -74,4 +102,14 @@ See the README. Run the import while the server is stopped, or restart the serve
 
 A single process is meant for teams of up to a few hundred people.
 
-Measured on an Apple-silicon laptop (2026-11-16, Node 24): about 140 MB of memory at rest; about 750 bytes of database per message for a 110-character message, search index included; about 6,000 messages written per second through the same code path the API uses.
+Measured on an Apple-silicon laptop (Node 24, client and server on the same machine):
+
+| Measure | Result |
+|---|---|
+| Memory at rest | about 140 MB |
+| Database per message (110 characters, search index included) | about 750 bytes |
+| Messages written per second, through the same code path the API uses | about 6,000 |
+| Delivery latency, 1,000 open connections (250 people), post to receipt | p95 11 ms, p99 12 ms |
+| Delivery latency, 5,000 open connections (1,000 people) | p95 54 ms, p99 61 ms; 254 MB memory |
+
+Reproduce the last two with `node apps/server/scripts/load-test.mjs [connections] [people] [messages]` (raise `ulimit -n` first).

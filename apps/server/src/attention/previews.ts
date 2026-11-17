@@ -6,14 +6,16 @@ import { BRAND, type Attachment } from '@app/shared';
 import { sendJson, type Router } from '../api/http.ts';
 import type { Registry } from '../api/registry.ts';
 import { authenticate } from '../core/auth.ts';
-import { getConv, resolveConv } from '../core/conversations.ts';
+import { getConv, getMember, resolveConv } from '../core/conversations.ts';
 import { fail } from '../core/errors.ts';
 import { parseImageSize } from '../core/files.ts';
 import { sha256 } from '../core/ids.ts';
 import { getMessage, requireMessage, updateMessage } from '../core/messages.ts';
 import { isAdmin } from '../core/users.ts';
 import type { Ctx } from '../ctx.ts';
+import { appConfig, listApps } from '../platform/apps.ts';
 import { allowPrivateTargets, isPrivateAddress } from '../platform/net.ts';
+import { linksIn, matchingDomain } from '../platform/unfurls.ts';
 import { isNewMessage, parseJson, type EventBody } from './common.ts';
 
 /**
@@ -23,8 +25,9 @@ import { isNewMessage, parseJson, type EventBody } from './common.ts';
  * private or loopback addresses unless the server itself runs locally, every
  * redirect re-checked, and limits on time and size. Images are stored here and
  * served from this server, so readers' browsers never contact the linked site.
- * `LINK_PREVIEWS=0` turns it off. Apps that unfurl their own links
- * (`chat.unfurl`) are a separate path.
+ * `LINK_PREVIEWS=0` turns it off. A link under a domain an app registered
+ * (`unfurl_domains`) is left to that app, which hears `link_shared` and answers
+ * with `chat.unfurl`.
  */
 
 const MAX_LINKS = 3;
@@ -35,9 +38,6 @@ const MAX_REDIRECTS = 3;
 const FRESH_SECONDS = 24 * 3600;
 const RETRY_SECONDS = 3600;
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
-
-/** Places that decide a URL is not ours to preview (an app unfurls that domain). */
-export const previewSkips: ((url: URL, ctx: Ctx) => boolean)[] = [];
 
 interface Fetched {
   status: number;
@@ -263,30 +263,25 @@ async function previewFor(ctx: Ctx, url: string): Promise<Attachment | null> {
 
 // ── Messages ────────────────────────────────────────────────────────────────
 
-/** Links written as `<https://…>` / `<https://…|label>` or bare, at most three, in order. */
-export function linksIn(text: string): string[] {
-  const out: string[] = [];
-  for (const match of text.matchAll(/<(https?:\/\/[^|>\s]+)(?:\|[^>]*)?>|(?<![<|\w/])(https?:\/\/[^\s<>]+)/g)) {
-    let url = match[1] ?? match[2]!.replace(/[.,;:!?)\]'"]+$/, '');
-    url = url.replace(/&amp;/g, '&');
-    if (!out.includes(url)) out.push(url);
-    if (out.length === MAX_LINKS) break;
-  }
-  return out;
+/** The links in a message worth previewing: the same links apps are offered, at most three. */
+export function previewLinks(text: string, blocks?: unknown): string[] {
+  return linksIn(text, blocks).slice(0, MAX_LINKS);
 }
 
-function claimedByApp(ctx: Ctx, url: URL): boolean {
-  if (previewSkips.some((skip) => skip(url, ctx))) return true;
-  // Apps may declare the domains they unfurl in their configuration.
-  for (const row of ctx.db.all<{ config: string }>('SELECT config FROM apps')) {
-    const config = parseJson<{ unfurl_domains?: unknown; domains?: unknown }>(row.config);
-    const domains = [config?.unfurl_domains, config?.domains].flatMap((value) => (Array.isArray(value) ? value.map(String) : []));
-    if (domains.some((domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`))) return true;
-  }
-  return false;
+/**
+ * Whether an app unfurls this link itself: it registered the domain and will
+ * hear `link_shared` for this conversation (a public one, or one its bot is in),
+ * the same rule the platform uses to offer the link.
+ */
+function claimedByApp(ctx: Ctx, url: string, conv: { id: string; kind: string }): boolean {
+  return listApps(ctx).some(
+    (app) => matchingDomain(url, appConfig(app).unfurl_domains) !== null && (conv.kind === 'public' || getMember(ctx, conv.id, app.bot_user_id) !== undefined),
+  );
 }
 
 async function unfurl(ctx: Ctx, channel: string, ts: string, urls: string[]): Promise<void> {
+  const target = getConv(ctx, channel);
+  if (!target) return;
   const own = (() => {
     try {
       return new URL(ctx.config.publicUrl).host;
@@ -302,7 +297,7 @@ async function unfurl(ctx: Ctx, channel: string, ts: string, urls: string[]): Pr
     } catch {
       continue;
     }
-    if (parsed.host === own || claimedByApp(ctx, parsed)) continue;
+    if (parsed.host === own || claimedByApp(ctx, url, target)) continue;
     const preview = await previewFor(ctx, url);
     if (preview) previews.push(preview);
   }
@@ -311,7 +306,8 @@ async function unfurl(ctx: Ctx, channel: string, ts: string, urls: string[]): Pr
   const row = conv ? getMessage(ctx, channel, ts) : undefined;
   if (!conv || !row || row.subtype === 'tombstone') return;
   const existing = parseJson<Attachment[]>(row.attachments) ?? [];
-  const covered = new Set(existing.map((item) => String(item.original_url ?? item.from_url ?? '')));
+  // A link already previewed, by an app's `chat.unfurl` in the meantime among others, is not previewed twice.
+  const covered = new Set(existing.flatMap((item) => [item.original_url, item.from_url, item.app_unfurl_url].filter((value) => typeof value === 'string').map(String)));
   const fresh = previews.filter((item) => !covered.has(String(item.original_url)));
   if (fresh.length === 0) return;
   fresh.forEach((item, index) => (item.id = existing.length + index + 1));
@@ -358,7 +354,7 @@ export function installPreviews(ctx: Ctx, registry: Registry, router: Router): (
   return ctx.bus.subscribe(({ event }) => {
     if (!linkPreviewsEnabled(ctx) || !isNewMessage(event as EventBody)) return;
     if (event.bot_id || (Array.isArray(event.attachments) && event.attachments.length > 0)) return;
-    const urls = linksIn(String(event.text ?? ''));
+    const urls = previewLinks(String(event.text ?? ''), event.blocks);
     if (urls.length === 0 || typeof event.channel !== 'string' || typeof event.ts !== 'string') return;
     void unfurl(ctx, event.channel, event.ts, urls).catch((error: unknown) => console.error('[previews] failed', error));
   });

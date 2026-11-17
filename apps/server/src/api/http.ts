@@ -135,6 +135,30 @@ export class RateLimiter {
   }
 }
 
+/** Calls per minute per caller when no workspace setting applies. */
+export const DEFAULT_API_RATE_LIMIT = 6000;
+
+/** Bounds of the per-token limit an admin may set (calls per minute). */
+export const TOKEN_LIMIT_RANGE = { min: 10, max: 100_000 } as const;
+
+let limitCache: { prefs: string; limit: number | undefined } | null = null;
+
+/** The per-token API rate limit from the workspace settings (`api_rate_limit_per_minute`), if one is set. */
+export function workspaceTokenLimit(ctx: Ctx): number | undefined {
+  const prefs = ctx.team()?.prefs ?? '{}';
+  if (limitCache?.prefs !== prefs) {
+    let limit: number | undefined;
+    try {
+      const value = (JSON.parse(prefs) as Record<string, unknown>).api_rate_limit_per_minute;
+      if (typeof value === 'number' && value >= TOKEN_LIMIT_RANGE.min && value <= TOKEN_LIMIT_RANGE.max) limit = value;
+    } catch {
+      // Unreadable settings: keep the default.
+    }
+    limitCache = { prefs, limit };
+  }
+  return limitCache.limit;
+}
+
 // ── API dispatch ────────────────────────────────────────────────────────────
 
 /** Check that an authenticated caller may use a method: credential type, role and token scopes. */
@@ -186,9 +210,11 @@ async function handleApi(
     }
 
     const ip = req.socket.remoteAddress ?? 'unknown';
+    // API tokens get the workspace's own limit when an admin set one; browser sessions keep the built-in one.
+    const tokenLimit = actor && actor.kind !== 'session' ? workspaceTokenLimit(ctx) : undefined;
     const wait = SIGN_IN_METHODS.has(name)
       ? limiter.check(`signin:${ip}`, 20)
-      : limiter.check(actor ? `actor:${actor.userId}:${actor.kind}` : `ip:${ip}`);
+      : limiter.check(actor ? `actor:${actor.userId}:${actor.kind}` : `ip:${ip}`, tokenLimit);
     if (wait > 0) {
       sendJson(res, 429, { ok: false, error: 'ratelimited' }, { 'retry-after': String(wait) });
       return;

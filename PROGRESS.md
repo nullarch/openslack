@@ -13,7 +13,7 @@ Everything below was built on 2026-11-16.
 | Area | What works |
 |---|---|
 | Server (`apps/server`) | One Node process, built-in SQLite. Workspaces, sessions, invites, roles; channels, private channels, DMs, group DMs; messages, threads, reactions, pins, files; read state and mention counts; search (FTS5 trigram, Korean/Japanese/Chinese included); client WebSocket with presence and typing |
-| Slack-compatible API | 61 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Same endpoints serve the web client and bots |
+| Slack-compatible API | 70 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Same endpoints serve the web client and bots |
 | App platform (`src/platform`) | Apps and tokens, Events API over HTTP (signing, retries), Socket Mode, `block_actions`, `response_url`, slash commands, incoming webhooks, streamed messages (`chat.startStream` family), assistant thread status |
 | Web client (`apps/web`) | Setup, sign-in, invite sign-up; sidebar, conversation, thread and profile panels; composer with formatting, autocomplete and uploads; Block Kit and Markdown rendering; reactions, pins, permalinks; search and quick switcher; admin screens for members, emoji and apps; light and dark themes; phone layout |
 | Import (`src/importer`) | Slack export zip or folder: users, channels, DMs, messages, threads, reactions, pins, optional file download. Keeps original ids. Re-runnable |

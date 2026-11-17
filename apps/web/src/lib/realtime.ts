@@ -21,6 +21,7 @@ import {
 import { call, type Json } from './api';
 import { handleAttentionEvent, loadAttention } from './attention';
 import { maybeNotify } from './notify';
+import { handlePlatformEvent, restoreViews } from './platform';
 import { currentId, get, set, type LocalMessage } from './store';
 import { applyTheme } from './theme';
 
@@ -207,6 +208,7 @@ function handle(event: Json): void {
       startHeartbeat();
       if (everConnected) void resync();
       everConnected = true;
+      void restoreViews();
       break;
     }
     case 'pong':
@@ -325,7 +327,7 @@ function handle(event: Json): void {
       set((state) => ({ appConnections: { ...state.appConnections, [event.app_id]: Boolean(event.connected) } }));
       break;
     default:
-      handleAttentionEvent(event);
+      if (!handleAttentionEvent(event)) handlePlatformEvent(event);
       break;
   }
 }
