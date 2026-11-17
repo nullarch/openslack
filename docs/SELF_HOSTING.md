@@ -74,4 +74,14 @@ See the README. Run the import while the server is stopped, or restart the serve
 
 A single process is meant for teams of up to a few hundred people.
 
-Measured on an Apple-silicon laptop (2026-11-16, Node 24): about 140 MB of memory at rest; about 750 bytes of database per message for a 110-character message, search index included; about 6,000 messages written per second through the same code path the API uses.
+Measured on an Apple-silicon laptop (Node 24, client and server on the same machine):
+
+| Measure | Result |
+|---|---|
+| Memory at rest | about 140 MB |
+| Database per message (110 characters, search index included) | about 750 bytes |
+| Messages written per second, through the same code path the API uses | about 6,000 |
+| Delivery latency, 1,000 open connections (250 people), post to receipt | p95 11 ms, p99 12 ms |
+| Delivery latency, 5,000 open connections (1,000 people) | p95 54 ms, p99 61 ms; 254 MB memory |
+
+Reproduce the last two with `node apps/server/scripts/load-test.mjs [connections] [people] [messages]` (raise `ulimit -n` first).
