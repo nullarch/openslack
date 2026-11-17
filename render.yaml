@@ -1,0 +1,25 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Deploy with the button in docs/SELF_HOSTING.md, or "New → Blueprint" in the Render dashboard.
+# A persistent disk needs a paid instance type; the free type would lose every message on restart.
+services:
+  - type: web
+    name: chat
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    numInstances: 1 # one process: the database is a file on the disk below
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      # The address people and bots use, e.g. https://chat.example.com or https://<service>.onrender.com
+      - key: PUBLIC_URL
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false

@@ -4,6 +4,7 @@ import { ApiError } from '../core/errors.ts';
 import { installExport } from '../export/export.ts';
 import { installPublicPages } from '../public/pages.ts';
 import { installPush, vapid } from '../push/webpush.ts';
+import { installMetrics } from '../ops/metrics.ts';
 import { mailEnabled } from '../core/mail.ts';
 import { getUser } from '../core/users.ts';
 import { expireGuests, guestExpired } from '../core/guests.ts';
@@ -69,6 +70,10 @@ export function installAccounts(kernel: Kernel): void {
 
   wrap(kernel, 'client.boot', (result, { actor }) => ({
     ...result,
+    // Channels readable on the web carry a flag, so their header can say so.
+    channels: (result.channels as { id: string }[]).map((channel) =>
+      ctx.db.get('SELECT 1 FROM conversations WHERE id = ? AND web_public = 1', channel.id) ? { ...channel, web_public: true } : channel,
+    ),
     mail_enabled: mailEnabled(ctx),
     permissions: permissionsFor(ctx, actor.userId),
     signup_domains: teamPrefs(ctx).signup_domains ?? [],
@@ -76,4 +81,7 @@ export function installAccounts(kernel: Kernel): void {
     vapid_public_key: vapid(ctx).publicKey,
     profile_fields: profileFields(ctx, false).map((row) => ({ id: row.id, label: row.label, hint: row.hint, type: row.type, possible_values: row.possible_values ? JSON.parse(row.possible_values) : null })),
   }));
+
+  // Last, so it wraps every method registered before it.
+  installMetrics(kernel);
 }

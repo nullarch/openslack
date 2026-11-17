@@ -3,6 +3,8 @@ import { createApp } from './app.ts';
 import { configFromEnv } from './config.ts';
 import { DEMO_EMAIL, DEMO_PASSWORD, seedDemo } from './demo/seed.ts';
 import { importSlackExport } from './importer/slack-export.ts';
+import { backupDataDir } from './ops/backup.ts';
+import { useJsonLogs } from './ops/logging.ts';
 
 const USAGE = `${BRAND.name} — ${BRAND.tagline}
 
@@ -11,12 +13,20 @@ Usage:
   ${BRAND.slug} import-slack <export> [...]  Import a Slack export (.zip or unpacked folder)
       --download-files                     Also fetch files from the URLs in the export
       --token <token>                      Bearer token for those downloads, if needed
+  ${BRAND.slug} backup <directory>          Copy the data directory while the server runs
   ${BRAND.slug} help
 
 Environment:
   PORT (3000)   HOST (0.0.0.0)   DATA_DIR (./data)   PUBLIC_URL   MAX_UPLOAD_MB (100)
   SEED_DEMO=1   Fill an empty database with a sample team
+  SMTP_URL, MAIL_FROM            Send invitations, sign-in codes and password resets by mail
+  OIDC_ISSUER / OIDC_CLIENT_ID / OIDC_CLIENT_SECRET, GOOGLE_CLIENT_ID / …, GITHUB_CLIENT_ID / …
+                                 Sign in with an identity provider
+  METRICS_TOKEN                  Serve Prometheus metrics at /metrics to this bearer token
+  LOG_FORMAT=json                One JSON object per log line
 `;
+
+if (process.env.LOG_FORMAT === 'json') useJsonLogs();
 
 async function serve(): Promise<void> {
   const config = configFromEnv();
@@ -87,6 +97,14 @@ const [command = 'serve', ...rest] = process.argv.slice(2);
 try {
   if (command === 'serve') await serve();
   else if (command === 'import-slack') await importSlack(rest);
+  else if (command === 'backup') {
+    if (!rest[0]) {
+      console.error(USAGE);
+      process.exit(2);
+    }
+    const result = await backupDataDir(configFromEnv().dataDir, rest[0]);
+    console.log(`Backed up ${result.database}${result.files ? ' and the uploaded files' : ''}.`);
+  }
   else {
     console.log(USAGE);
     process.exit(command === 'help' || command === '--help' || command === '-h' ? 0 : 2);
