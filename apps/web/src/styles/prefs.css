@@ -1,0 +1,110 @@
+/* Preferences: sidebar themes, notification choices, language and clock */
+
+.prefs-modal .segmented {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.prefs-modal .segmented button {
+  white-space: nowrap;
+}
+
+.sidebar-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.sidebar-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.sidebar-swatch:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-swatch.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-ring);
+  color: var(--text);
+}
+
+.sidebar-swatch-chip {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 34px;
+  border-radius: 7px;
+  font-weight: 800;
+  font-size: 13px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar-swatch-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-custom {
+  margin-top: 10px;
+}
+
+.sidebar-color-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.sidebar-color-field input[type='color'] {
+  width: 40px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg);
+}
+
+.sidebar-hex {
+  width: 96px;
+  font-family: var(--mono);
+}
+
+.pref-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.prefs-modal .check-row {
+  margin: 4px 0;
+}
+
+.pref-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.pref-select select {
+  max-width: 260px;
+}
+
+/* The notification button and the schedule link beside it */
+.pref-group .btn + .pref-link {
+  margin-left: 14px;
+}

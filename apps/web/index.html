@@ -15,6 +15,9 @@
         var t = localStorage.getItem('theme');
         if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.dataset.theme = t;
+        // …and the remembered sidebar colors (see applySidebar in src/lib/theme.ts).
+        var v = JSON.parse(localStorage.getItem('sidebar_vars') || 'null');
+        if (v) for (var k in v) if (/^--chrome/.test(k)) document.documentElement.style.setProperty(k, v[k]);
       } catch (e) {}
     </script>
   </head>

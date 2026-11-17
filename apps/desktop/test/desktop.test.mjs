@@ -67,7 +67,7 @@ describe('desktop app', { timeout: 120_000 }, () => {
     other = await startServer();
     profile = mkdtempSync(join(tmpdir(), 'desktop-profile-'));
     app = await electron.launch({
-      args: [join(here, '..')],
+      args: [join(here, '..'), '--lang=en-US'],
       env: { ...process.env, APP_USER_DATA: profile, APP_SERVER_URL: server.base },
     });
   });

@@ -392,7 +392,7 @@
 }
 
 .side-item .badge.is-soft {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--chrome-strong) 16%, transparent);
   color: var(--chrome-strong);
   font-weight: 700;
 }

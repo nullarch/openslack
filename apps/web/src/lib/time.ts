@@ -1,10 +1,62 @@
 import { S } from '../strings';
+import { HOUR12, INTL_LOCALE } from './locale';
 
-const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
-const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-const dayYearFormat = new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-const shortDayFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-const fullFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' });
+// Every date and time on screen goes through these, in the interface language and the chosen clock.
+const timeFormat = new Intl.DateTimeFormat(INTL_LOCALE, { hour: 'numeric', minute: '2-digit', hour12: HOUR12 });
+const dayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { weekday: 'long', month: 'long', day: 'numeric' });
+const dayYearFormat = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'long', day: 'numeric', year: 'numeric' });
+const shortDayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short', day: 'numeric' });
+const weekdayFormat = new Intl.DateTimeFormat(INTL_LOCALE, { weekday: 'long' });
+const fullFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'full', timeStyle: 'short', hour12: HOUR12 });
+const dateFormats = {
+  short: new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'short' }),
+  medium: new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium' }),
+  long: new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'long' }),
+};
+const dateTimeFormat = new Intl.DateTimeFormat(INTL_LOCALE, { dateStyle: 'medium', timeStyle: 'short', hour12: HOUR12 });
+const numberFormat = new Intl.NumberFormat(INTL_LOCALE);
+
+/** A calendar date: `Nov 17, 2026` (medium), `11/17/26` (short), `November 17, 2026` (long). */
+export function formatDate(value: Date | number, style: keyof typeof dateFormats = 'medium'): string {
+  return dateFormats[style].format(typeof value === 'number' ? new Date(value * 1000) : value);
+}
+
+/** A date with its time: `Nov 17, 2026, 9:41 AM`. Seconds since the epoch, or a Date. */
+export function formatDateTime(value: Date | number): string {
+  return dateTimeFormat.format(typeof value === 'number' ? new Date(value * 1000) : value);
+}
+
+/** `9:41 AM` (or `21:41`), for a Date. */
+export function formatClock(date: Date): string {
+  return timeFormat.format(date);
+}
+
+export function formatNumber(value: number): string {
+  return numberFormat.format(value);
+}
+
+/** "at 3:15 PM", "tomorrow at 9:00 AM", "on Friday at …", "on Nov 3 at …" — for reminders and schedules. */
+export function whenText(seconds: number): string {
+  const date = new Date(seconds * 1000);
+  const now = new Date();
+  const time = timeFormat.format(date);
+  const days = Math.round((new Date(date.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86_400_000);
+  if (days === 0) return S.time.atTime(time);
+  if (days === 1) return S.time.tomorrowAt(time);
+  if (days > 1 && days < 7) return S.time.onDayAt(weekdayFormat.format(date), time);
+  const day = new Intl.DateTimeFormat(INTL_LOCALE, { month: 'short', day: 'numeric', year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric' }).format(date);
+  return S.time.onDayAt(day, time);
+}
+
+/** "3 minutes ago", "yesterday", in the interface language (Intl.RelativeTimeFormat). */
+export function agoText(seconds: number): string {
+  const diff = Math.max(0, Date.now() / 1000 - seconds);
+  const format = new Intl.RelativeTimeFormat(INTL_LOCALE, { numeric: 'auto' });
+  if (diff < 60) return format.format(-Math.round(diff), 'second');
+  if (diff < 3600) return format.format(-Math.round(diff / 60), 'minute');
+  if (diff < 86_400) return format.format(-Math.round(diff / 3600), 'hour');
+  return format.format(-Math.round(diff / 86_400), 'day');
+}
 
 export function tsDate(ts: string): Date {
   return new Date(Number(ts) * 1000);
@@ -65,7 +117,7 @@ export function relative(ts: string): string {
 /** The current time in a time zone, e.g. `4:12 PM`. */
 export function localTime(tz: string): string {
   try {
-    return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: tz }).format(new Date());
+    return new Intl.DateTimeFormat(INTL_LOCALE, { hour: 'numeric', minute: '2-digit', hour12: HOUR12, timeZone: tz }).format(new Date());
   } catch {
     return '';
   }

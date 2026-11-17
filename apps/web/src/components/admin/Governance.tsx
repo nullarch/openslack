@@ -5,8 +5,9 @@ import { useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { confirmDialog } from '../dialogs/confirm';
 import { Button, CopyField, Field, Spinner } from '../ui';
+import { formatDateTime } from '../../lib/time';
 
-const when = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const when = { format: (date: Date): string => formatDateTime(date) };
 
 // ── Audit log ───────────────────────────────────────────────────────────────
 

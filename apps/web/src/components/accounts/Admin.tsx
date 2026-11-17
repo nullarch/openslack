@@ -9,6 +9,7 @@ import { S } from '../../strings';
 import { Button, Field, IconButton, Spinner } from '../ui';
 import { confirmDialog } from '../dialogs/confirm';
 import { CheckList } from './Groups';
+import { formatDate } from '../../lib/time';
 
 // ── Invite requests (top of the Members tab) ────────────────────────────────
 
@@ -65,7 +66,7 @@ export function InviteRequests() {
 /** When a guest's access ends, in a member row. */
 export function GuestControls({ user }: { user: User; editable?: boolean }) {
   if (!user.is_restricted || !user.profile.guest_expiration_ts) return null;
-  return <span className="tag">{S.accounts.guestUntil(new Date(user.profile.guest_expiration_ts * 1000).toLocaleDateString())}</span>;
+  return <span className="tag">{S.accounts.guestUntil(formatDate(user.profile.guest_expiration_ts))}</span>;
 }
 
 // ── Workspace settings ──────────────────────────────────────────────────────

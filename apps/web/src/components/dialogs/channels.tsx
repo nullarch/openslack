@@ -7,6 +7,7 @@ import { GuestInviteOptions, type GuestChoice } from '../accounts/Profile';
 import { conversation, displayName, useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { Avatar, Button, CopyField, Field, Modal, Spinner } from '../ui';
+import { formatDate } from '../../lib/time';
 
 // ── Create channel ──────────────────────────────────────────────────────────
 
@@ -369,7 +370,7 @@ export function InviteDialog() {
               <span className="invite-meta">
                 <span className="invite-who">{invite.email ?? S.dialogs.inviteAnyone}</span>
                 <span className="muted">
-                  {S.dialogs.inviteUses(invite.uses, invite.max_uses)} · {S.dialogs.inviteExpires(new Date(invite.expires * 1000).toLocaleDateString())}
+                  {S.dialogs.inviteUses(invite.uses, invite.max_uses)} · {S.dialogs.inviteExpires(formatDate(invite.expires))}
                 </span>
               </span>
               <Button size="sm" onClick={() => void navigator.clipboard.writeText(inviteUrl(invite))}>

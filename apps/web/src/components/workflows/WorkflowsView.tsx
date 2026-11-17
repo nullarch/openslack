@@ -20,11 +20,12 @@ import { confirmDialog } from '../dialogs/confirm';
 import { Button, CopyField, Field, IconButton, Spinner } from '../ui';
 import { ChannelSelect, StepList, type BuilderContext } from './StepEditor';
 import '../../styles/workflows.css';
+import { formatDateTime } from '../../lib/time';
 
 const REFRESH_MS = 3000;
 
 function when(seconds: number): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(seconds * 1000));
+  return formatDateTime(seconds);
 }
 
 function problemText(error: unknown): string {

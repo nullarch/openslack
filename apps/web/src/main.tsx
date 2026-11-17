@@ -7,6 +7,7 @@ import './styles/chat.css';
 import './styles/dialogs.css';
 import './styles/attention.css';
 import './styles/accounts.css';
+import './styles/prefs.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

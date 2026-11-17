@@ -1,3 +1,5 @@
+import { SIDEBAR_VARIABLES, sidebarBackground, sidebarVars } from './sidebar-colors';
+
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
 let choice: ThemeChoice = 'system';
@@ -28,3 +30,24 @@ export function resolvedTheme(): 'light' | 'dark' {
 media.addEventListener('change', () => {
   if (choice === 'system') applyTheme('system');
 });
+
+// ── Sidebar colors ──────────────────────────────────────────────────────────
+
+export { contrast, isHexColor, SIDEBAR_PRESETS, sidebarInk } from './sidebar-colors';
+
+const SIDEBAR_KEY = 'sidebar_vars';
+
+/** Apply the sidebar preference; remembered so the next load paints it before boot. */
+export function applySidebar(prefs: { sidebar_theme?: unknown; sidebar_color?: unknown }): void {
+  const background = sidebarBackground(prefs);
+  const style = document.documentElement.style;
+  for (const name of SIDEBAR_VARIABLES) style.removeProperty(name);
+  const vars = background ? sidebarVars(background) : null;
+  if (vars) for (const [name, value] of Object.entries(vars)) style.setProperty(name, value);
+  try {
+    if (vars) localStorage.setItem(SIDEBAR_KEY, JSON.stringify(vars));
+    else localStorage.removeItem(SIDEBAR_KEY);
+  } catch {
+    // Without storage the sidebar still changes now; the next load starts from the default.
+  }
+}

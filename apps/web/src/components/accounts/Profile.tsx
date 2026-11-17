@@ -5,6 +5,7 @@ import { displayName, useStore } from '../../lib/store';
 import { S } from '../../strings';
 import { Field } from '../ui';
 import { CheckList } from './Groups';
+import { formatDate } from '../../lib/time';
 
 /** Current custom field values of a person, as plain strings by field id. */
 export function fieldValues(user: User | null | undefined): Record<string, string> {
@@ -23,7 +24,7 @@ function FieldValue({ field, value }: { field: ProfileField; value: string }) {
     );
   }
   if (field.type === 'user') return <>{displayName(users[value])}</>;
-  if (field.type === 'date') return <>{new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' })}</>;
+  if (field.type === 'date') return <>{formatDate(new Date(`${value}T00:00:00`))}</>;
   return <>{value}</>;
 }
 
