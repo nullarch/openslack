@@ -18,7 +18,7 @@ Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (
 | Calls | Huddles with audio, video, screen sharing, reactions and live captions through LiveKit, with a transcript and AI notes in the thread afterwards; calls from other services (Zoom, Meet, …) as live cards through Slack's Calls API |
 | AI (off until a model is connected) | Channel and thread summaries, daily recaps, search answers, translation, writing help, a built-in assistant in a direct message that remembers only what each person approves, an Agents view; Claude by default |
 | Workflows | Builder with six triggers (shortcut, link, schedule, reaction, channel join, webhook), steps (message, form, add to channel, list item, webhook, branch, app-provided steps), run history, custom responses |
-| Accounts | Email and password, mailed sign-in codes, password reset, Google and GitHub sign-in, OpenID Connect single sign-on with accounts created on first use, two-factor (TOTP) that a workspace can require, guests (multi- and single-channel, expiry), user groups, invite requests, allowed email domains, profile fields |
+| Accounts | Email and password, mailed sign-in codes, password reset, Google and GitHub sign-in, OpenID Connect and SAML 2.0 single sign-on with accounts created on first use, two-factor (TOTP) that a workspace can require, guests (multi- and single-channel, expiry), user groups, invite requests, allowed email domains, profile fields |
 | Administration | Members, roles, deactivation; workspace settings and permissions; custom emoji; apps; analytics; audit log (also at `/audit/v1/logs`); message reports and hiding a person; retention; legal hold and eDiscovery export; sensitive-information rules; information barriers; IP allowlist; sign-in length and session management; export of the whole workspace; SCIM 2.0 users and groups; Slack's `admin.*` API |
 | Slack-compatible app platform | 158 of the 297 Web API methods in `@slack/web-api` (`docs/COMPATIBILITY.md` is generated). Events API over HTTP and Socket Mode, RTM, interactivity, modals, App Home, shortcuts, slash commands, unfurls, streaming, assistant threads, incoming webhooks, OAuth v2 installs, token rotation, app manifests (`apps.manifest.*`), "Sign in with this workspace" (OpenID Connect, Slack's claim names) |
 | MCP | `/mcp` endpoint on the official SDK v2 (protocol 2026-07-28 and 2025 clients), tools that respect each token's permissions |
@@ -33,12 +33,13 @@ Run these to reproduce.
 | Check | Command | Result on 2026-11-17 |
 |---|---|---|
 | Types, brand rule | `pnpm typecheck`, `pnpm check:brand` | clean |
-| Unit and integration tests | `pnpm test` | server 331, compat 61, shared 19, web 14, all passing |
+| Unit and integration tests | `pnpm test` | server 338, compat 61, shared 19, web 14, all passing |
 | Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases and lists, `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
 | Browser tests | `pnpm --filter @app/web e2e` | thirteen files in system Chrome: smoke, files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions), AI (with the assistant), workflows, canvases, clips (fake camera and microphone), accounts, administration, Korean, agent round trip. Several also run in Playwright's WebKit and Firefox |
 | Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
+| SAML single sign-on | SimpleSAMLphp (`kristophjunge/test-saml-idp`) as the identity provider, real Chrome | button → identity provider's login → signed answer → signed in with the account created |
 | Installed package | the Install smoke test workflow | packed, installed into an empty folder and run with `npx` on Windows, macOS and Linux with Node 22 and 24: starts, serves the client, sets up a workspace, finds a Korean message |
 
 ### Not verified
@@ -58,7 +59,7 @@ Run these to reproduce.
 - **The audit log wraps API methods** rather than every module calling it: `installAudit` must stay the last install in `app.ts`, and new admin methods named `client.admin.*` (or `client.account.*`, `client.security.*`) are covered without further work.
 - **Slack's names where Slack has them**, `client.*` for the rest. Claim names in ID tokens, the audit log shape and the manifest schema follow Slack's so tools written for Slack work.
 - **Where the platform differs from Slack on purpose:** a bot hears mentions in public channels it has not joined; Socket Mode is the default for a new app; a manifest's request URL is used only once it passes the verification handshake; scopes this server does not grant are refused in manifests rather than ignored. `docs/COMPATIBILITY.md` has the full list.
-- **No new runtime dependency without a reason in the commit:** the server added `yjs`/`y-protocols`/`lib0` (co-editing) and `nodemailer` (SMTP); scanning, PDF/Office text, SCIM, OIDC signing and the manifest validator use Node built-ins only.
+- **No new runtime dependency without a reason in the commit:** the server added `yjs`/`y-protocols`/`lib0` (co-editing), `nodemailer` (SMTP) and `@node-saml/node-saml` (SAML: XML signature checking is too easy to get wrong by hand); scanning, PDF/Office text, SCIM, OIDC signing and the manifest validator use Node built-ins only.
 
 ## Traps found
 

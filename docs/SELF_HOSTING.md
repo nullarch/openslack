@@ -25,6 +25,7 @@ Open the address it prints and create your workspace. The first person to do so 
 | `SMTP_URL` | none | Outgoing mail, e.g. `smtps://user:pass@smtp.example.com:465`. Turns on mailed invitations, sign-in codes and password resets |
 | `MAIL_FROM` | `<workspace> <no-reply@<host>>` | Sender of that mail |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_NAME` | none | Single sign-on with any OpenID Connect provider |
+| `SAML_IDP_METADATA_URL`, or `SAML_IDP_SSO_URL` and `SAML_IDP_CERT`; `SAML_NAME` | none | Single sign-on with a SAML 2.0 identity provider |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | none | Sign in with Google |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | none | Sign in with GitHub |
 | `METRICS_TOKEN` | none | Serves Prometheus metrics at `/metrics` to this bearer token |
@@ -303,6 +304,7 @@ Each provider turns on when both its client id and secret are set. Register this
 ```
 
 - **Single sign-on (OIDC):** `OIDC_ISSUER` is the provider's issuer URL (discovery at `/.well-known/openid-configuration`). Accounts are created on first sign-in, within the workspace's approved domains; set `OIDC_CREATE_ACCOUNTS=0` to only link existing accounts.
+- **Single sign-on (SAML 2.0):** for Okta, Microsoft Entra ID, Google Workspace, OneLogin, JumpCloud, ADFS, Keycloak and others. Give the identity provider this server's metadata, `<PUBLIC_URL>/auth/saml/metadata` (entity id `<PUBLIC_URL>/auth/saml/metadata` unless `SAML_SP_ENTITY_ID` says otherwise, reply address `<PUBLIC_URL>/auth/saml/callback`), and set either `SAML_IDP_METADATA_URL` (read again hourly, so certificate rollovers are picked up) or `SAML_IDP_SSO_URL` with `SAML_IDP_CERT` (PEM or its base64 body; several separated by commas). The provider must sign assertions and send the address as an `email`/`mail` attribute (or the Entra claim, or an email-format NameID). Sign-in starts from the button here; answers the server did not ask for, or asked for more than ten minutes ago, are refused, and each answer is accepted once. Accounts are created as for OIDC; `SAML_CREATE_ACCOUNTS=0` only links existing ones. Checked against SimpleSAMLphp as a real identity provider in a browser.
 - **Google, GitHub:** link to the account with the same verified address. They create accounts only with `GOOGLE_CREATE_ACCOUNTS=1` / `GITHUB_CREATE_ACCOUNTS=1` *and* approved domains set in Administration → Workspace, because anyone can have a Google or GitHub account. An invite link always lets the invited person sign up with a provider.
 
 Two-factor sign-in (authenticator app, with backup codes) works with every sign-in method. An admin who has it turned on can require it for everyone.

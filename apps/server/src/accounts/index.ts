@@ -11,6 +11,7 @@ import { expireGuests, guestExpired } from '../core/guests.ts';
 import { installGuestRules } from './guest-rules.ts';
 import { registerInvites } from './invites.ts';
 import { installOAuth } from './oauth.ts';
+import { installSaml } from './saml.ts';
 import { teamPrefs } from './prefs.ts';
 import { registerSignIn, TWO_FACTOR_SETUP_METHODS, twoFactorPending } from './signin.ts';
 import { groupsForBoot, installUsergroups } from './usergroups.ts';
@@ -39,6 +40,8 @@ export function installAccounts(kernel: Kernel): void {
   installWorkspace(kernel);
   installUsergroups(kernel);
   installGuestRules(kernel);
+  // Before the OAuth routes, whose /auth/<provider>/start would otherwise match SAML's.
+  installSaml(kernel);
   installOAuth(kernel);
   installExport(kernel);
   installPublicPages(kernel);

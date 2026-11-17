@@ -13,6 +13,7 @@
     "@anthropic-ai/sdk": "^1.9.0",
     "@app/shared": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
+    "@node-saml/node-saml": "5.2.0",
     "busboy": "^1.6.0",
     "lib0": "^0.2.120",
     "nodemailer": "^10.6.0",
@@ -28,7 +29,9 @@
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^8.0.2",
     "@types/ws": "^8.5.13",
+    "@xmldom/xmldom": "0.8.15",
     "livekit-server-sdk": "2.20.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "xml-crypto": "6.4.0"
   }
 }

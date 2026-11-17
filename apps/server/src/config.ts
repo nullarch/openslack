@@ -1,3 +1,4 @@
+import { samlProviderFromEnv } from './accounts/saml.ts';
 import { storageKeysFromEnv } from './core/encrypted-storage.ts';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -124,5 +125,7 @@ export function identityProvidersFromEnv(env: NodeJS.ProcessEnv): IdentityProvid
       createAccounts: env.OIDC_CREATE_ACCOUNTS !== '0',
     });
   }
+  const saml = samlProviderFromEnv(env);
+  if (saml) out.push(saml);
   return out;
 }

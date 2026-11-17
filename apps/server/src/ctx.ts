@@ -54,7 +54,7 @@ export interface IdentityProviderConfig {
   id: string;
   /** Button label. */
   label: string;
-  kind: 'oidc' | 'github';
+  kind: 'oidc' | 'github' | 'saml';
   clientId: string;
   clientSecret: string;
   /** OIDC issuer (discovery at `<issuer>/.well-known/openid-configuration`). */
@@ -64,6 +64,8 @@ export interface IdentityProviderConfig {
   apiUrl?: string;
   /** Create an account on first sign-in, within the workspace's approved domains. */
   createAccounts: boolean;
+  /** SAML 2.0: the identity provider's metadata address, or its sign-in address and certificates; this server's entity id. */
+  saml?: { metadataUrl: string | null; entryPoint: string | null; certs: string[]; entityId: string | null };
 }
 
 export interface TeamRow {

@@ -194,7 +194,7 @@ function link(ctx: Ctx, provider: IdentityProviderConfig, profile: Profile, user
 }
 
 /** Find or create the account for an external identity. */
-function accountFor(ctx: Ctx, provider: IdentityProviderConfig, profile: Profile, inviteCode: string | null): UserRow {
+export function accountFor(ctx: Ctx, provider: IdentityProviderConfig, profile: Profile, inviteCode: string | null): UserRow {
   const linked = ctx.db.get<{ user_id: string }>('SELECT user_id FROM identities WHERE provider = ? AND subject = ?', provider.id, profile.subject);
   if (linked) {
     const user = getUser(ctx, linked.user_id);
@@ -216,7 +216,7 @@ function accountFor(ctx: Ctx, provider: IdentityProviderConfig, profile: Profile
     // Google and GitHub accounts are open to anyone: they create accounts only for approved domains.
     const domains = teamPrefs(ctx).signup_domains ?? [];
     if (!domainAllowed(ctx, profile.email)) fail('domain_not_allowed');
-    if (provider.id !== 'oidc' && domains.length === 0) fail('no_account');
+    if (provider.id !== 'oidc' && provider.kind !== 'saml' && domains.length === 0) fail('no_account');
     allowed = true;
   } else if (existing) {
     // An imported account waiting to be claimed.
