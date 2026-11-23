@@ -1,7 +1,7 @@
 # OpenSlack — Product Requirements
 
 Status: draft 2 · 2026-11-16 · 0.1 is being built (`PROGRESS.md` has the current state)
-Repository: `nullarch/openslack`, private until 0.1 runs
+Repository: `nullarch/openslack`, public since 2026-11-23
 
 ## 1. Summary
 
@@ -99,7 +99,7 @@ Every row in the inventory below carries one of these labels.
 | **Later** | After 0.2. Ordered by demand, not listed in sequence here. |
 | **No** | Out of scope ([§3](#non-goals)). |
 
-`TODO.html` maps these to its three groups: 0.1 → launch must-have, 0.2 → after launch, Later → after that.
+The owner's task board (`TODO.html`, kept outside the repository) maps these to its three groups: 0.1 → launch must-have, 0.2 → after launch, Later → after that.
 
 ## 7. Slack system inventory and OpenSlack scope
 
@@ -423,7 +423,7 @@ scrypt password hashing (built into Node); file downloads that require a session
 - **Name:** `openslack`. "Slack" is a registered trademark, so a rename request remains possible; the first risk below keeps a rename cheap. The GitHub account name `OpenSlack` belongs to someone else (registered 2023). The npm name `openslack` was free on 2026-11-16.
 - **Repository:** `nullarch/openslack`, private now, made public when 0.1 runs.
 - **Direction:** build for spread first ([§14](#14-launch)).
-- **Stack and license:** TypeScript with built-in SQLite, Apache-2.0 — the recommended options, taken when the owner asked for the build to proceed. The repository is private with no outside contributors, so both can still be changed cheaply.
+- **Stack and license:** TypeScript with built-in SQLite, Apache-2.0 — the recommended options, taken when the owner asked for the build to proceed. The repository went public under Apache-2.0 on 2026-11-23.
 
 ### Open decisions (owner)
 

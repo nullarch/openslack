@@ -24,4 +24,4 @@ Installers: `pnpm --filter @app/desktop package` on each system, or the **Deskto
 ## Not done yet
 
 - **Code signing and notarisation.** Unsigned builds trigger Gatekeeper / SmartScreen warnings, and macOS applies automatic updates only to signed apps. Signing needs an Apple Developer ID and a Windows code-signing certificate.
-- **Updates from a private repository.** The update feed is read from the GitHub releases of the repository in the brand module; while it is private, installed copies cannot read it.
+- **No release yet.** The update feed is read from the GitHub releases of the repository in the brand module; installed copies find updates once a release is published there.

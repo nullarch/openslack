@@ -1,10 +1,10 @@
 # Progress
 
-Read this first. It says what exists, how it was verified, and what is next. The task board is `TODO.html`; scope and phases are in `PRD.md`.
+Read this first. It says what exists, how it was verified, and what is next. The owner's task board is `TODO.html`, kept on the owner's machine and out of git; scope and phases are in `PRD.md`.
 
 ## State on 2026-11-17
 
-Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (macOS, Node 24), and most of the 0.3 administration and compliance list too. Nothing is published: the repository is private and nothing is on npm or a container registry. Owner decisions that block a release are listed under *Next*.
+Everything in the 0.1 and 0.2 lists of `PRD.md` runs end to end on one machine (macOS, Node 24), and most of the 0.3 administration and compliance list too. The repository is public (since 2026-11-23); nothing is on npm or a container registry yet. Owner decisions that block a release are listed under *Next*.
 
 ### What exists
 
@@ -36,7 +36,7 @@ Run these to reproduce.
 | Unit and integration tests | `pnpm test` | server 422, push relay 4, compat 69, shared 22, web 36, all passing |
 | Official SDKs unmodified | `pnpm --filter ./compat test` | Bolt for JavaScript (Socket Mode, HTTP, legacy dialogs, OAuth installs with token rotation refreshed by Bolt's own installer, `app.function`), Bolt for Python, `@slack/web-api` for manifests, canvases, lists, remote files, code channels (`agents.conversations.*`) and the smaller methods (reactions.list, stars, team preferences, event authorizations, apps.uninstall), `@slack/rtm-api`, and `openid-client` (a certified OpenID Connect client) for sign-in |
 | Browser tests | `pnpm --filter @app/web e2e` | twenty files in system Chrome: smoke, two servers sharing a channel (the link, accepting it in Administration, talking across), an organisation with a second workspace (creating it, switching the sidebar, a channel hidden from people outside it until shown in every workspace, handing out an admin role), the composer (formatting as you type, shortcuts, chips, paste, links, editing, drafts, the markup preference, phone width), files and people, platform (with manifests, OpenID Connect sign-in and call cards), attention, huddles (real LiveKit, with captions, background blur and drawing), AI (with the assistant), code channels (an agent over Socket Mode; every view type, an action item, its command and Stop; dark theme and phone width; axe), workflows, canvases, clips (fake camera and microphone), documents (remote files, Office previews), accounts, administration, Korean, Japanese (with input-method Esc and phone-width overflow checks), accessibility (axe on 112 screens, keyboard-only paths, screen-reader names, reduced motion, forced colours), agent round trip. Several also run in Playwright's WebKit and Firefox |
-| Release, short of publishing | Actions → Release → Run workflow | tests, `npm publish --dry-run`, the image built for amd64 and arm64, and started to answer (run 44102904777); a tag would publish |
+| Release, short of publishing | Actions → Release → Run workflow | tests, `npm publish --dry-run`, the image built for amd64 and arm64, and started to answer (2026-11-17); a tag would publish |
 | Desktop | `pnpm --filter @app/desktop e2e`; the Desktop workflow in CI | the real Electron app against a server; installers built on macOS, Windows and Linux runners |
 | Upload scanning | real `clamd` (`clamav/clamav-debian` container) | clean file accepted, EICAR refused, 3 MB file scanned |
 | Search inside PDFs | a PDF printed by Chrome in English and Korean | text extracted on one line per baseline, ligatures folded |
@@ -77,7 +77,7 @@ Run these to reproduce.
 
 - A WebSocket upgrade with `Origin: null` crashed the process. Keep `isSameOrigin()` as the only place that parses `Origin`.
 - `git add -A` in the repository root once staged agent worktrees under `.claude/`. `.claude/` is ignored.
-- Never extract files into a project directory to inspect them: pulling `package.json` out of the packaged desktop app overwrote the real one, and it was deleted in a commit (restored in e5ed825).
+- Never extract files into a project directory to inspect them: pulling `package.json` out of the packaged desktop app overwrote the real one, and it was deleted in a commit (restored in 58df0cf).
 - VitePress reads `{{…}}` in inline code as a Vue expression; inline code is rendered `v-pre` in `docs/.vitepress/config.mts`.
 - Chrome refuses push subscriptions in Playwright's ordinary (incognito-like) contexts; use a persistent profile.
 - Playwright's WebKit has no push service: `pushManager.getSubscription()` throws `IndexSizeError` and freezes the page. Only ask for a subscription once notification permission is granted.
@@ -105,7 +105,7 @@ Run these to reproduce.
 
 In order. Details and owners are in `TODO.html`.
 
-1. Owner decisions: public demo server, when to make the repository public, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app, the Slack terms and trademark review.
+1. Owner decisions: public demo server, npm publishing (needs `NPM_TOKEN`), signing certificates for the desktop app, the Slack terms and trademark review.
 2. Run against real exports (a Slack Business+ export with private channels, a Mattermost export) and real identity providers (Okta, Entra); try real third-party agents, including a Slack Code agent, and document only what works.
 3. A real screen reader pass (VoiceOver, NVDA); a native speaker's review of the Japanese; real phones (iOS Safari as a home-screen app, Android Chrome) for push and the composer with Korean and Japanese input methods.
 4. Then the larger items, each several days: files and more than two servers in a shared channel; for the mobile apps, checking on phones (Android has only been built) and a store release (developer accounts, signing, the relay's credentials and hosting are the owner's: t207).

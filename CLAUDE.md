@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-Open-source, self-hosted team chat that speaks the Slack API. Private repository `nullarch/openslack` until 0.1 runs.
+Open-source, self-hosted team chat that speaks the Slack API. Public repository `nullarch/openslack` (public since 2026-11-23).
 
-Read first: `PROGRESS.md` (where things stand), `docs/ARCHITECTURE.md` (structure and contracts), `PRD.md` (scope and phases). `TODO.html` is the owner's task board.
+Read first: `PROGRESS.md` (where things stand), `docs/ARCHITECTURE.md` (structure and contracts), `PRD.md` (scope and phases). `TODO.html` is the owner's task board. It and `launch/` (launch post drafts) stay on the owner's machine and are ignored by git: never commit them.
 
 ## Commands
 

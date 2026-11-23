@@ -9,3 +9,7 @@ coverage/
 .claude/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+
+# The owner's task board and launch drafts: kept on this machine, never in the repository.
+/TODO.html
+/launch/
